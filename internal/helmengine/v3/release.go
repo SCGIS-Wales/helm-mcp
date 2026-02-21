@@ -295,10 +295,10 @@ func (e *V3Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 
 func (e *V3Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.RollbackOptions) error {
 	if opts.ServerSideApply {
-		return fmt.Errorf(errServerSideApplyV4Only)
+		return errors.New(errServerSideApplyV4Only)
 	}
 	if opts.ForceConflicts {
-		return fmt.Errorf(errForceConflictsV4Only)
+		return errors.New(errForceConflictsV4Only)
 	}
 
 	actionConfig, _, err := newActionConfig(cfg)

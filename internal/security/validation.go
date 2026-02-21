@@ -65,9 +65,11 @@ func ValidateKubeConfig(path string) error {
 		return fmt.Errorf("kubeconfig path %q must not contain '..'", path)
 	}
 
-	// Use Lstat to detect symlinks without following them
+	// Use Lstat to detect symlinks without following them.
+	// absPath is derived from filepath.Abs (which resolves and cleans the path)
+	// and we've already rejected paths containing "..".
 	cleanPath := filepath.Clean(absPath)
-	info, err := os.Lstat(cleanPath)
+	info, err := os.Lstat(cleanPath) //#nosec G703 -- path is sanitized above
 	if err != nil {
 		return fmt.Errorf("kubeconfig %q not accessible: %w", path, err)
 	}

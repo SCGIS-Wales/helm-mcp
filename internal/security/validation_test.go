@@ -3,6 +3,7 @@ package security
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -440,34 +441,30 @@ func TestValidateTimeout(t *testing.T) {
 
 func TestValidateKubeConfig_ValidFile(t *testing.T) {
 	// Create a temporary regular file that should pass validation
-	tmpFile, err := os.CreateTemp("", "kubeconfig-test-*")
-	if err != nil {
+	dir := t.TempDir()
+	validFile := filepath.Join(dir, "kubeconfig")
+	if err := os.WriteFile(validFile, []byte("test"), 0o600); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-	_ = tmpFile.Close()
 
-	if err := ValidateKubeConfig(tmpFile.Name()); err != nil {
-		t.Errorf("ValidateKubeConfig(%q) unexpected error for valid file: %v", tmpFile.Name(), err)
+	if err := ValidateKubeConfig(validFile); err != nil {
+		t.Errorf("ValidateKubeConfig(%q) unexpected error for valid file: %v", validFile, err)
 	}
 }
 
 func TestValidateKubeConfig_SymlinkRejection(t *testing.T) {
-	// Create a real file and a symlink pointing to it
-	tmpFile, err := os.CreateTemp("", "kubeconfig-target-*")
-	if err != nil {
+	dir := t.TempDir()
+	targetFile := filepath.Join(dir, "kubeconfig-target")
+	if err := os.WriteFile(targetFile, []byte("test"), 0o600); err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer func() { _ = os.Remove(tmpFile.Name()) }()
-	_ = tmpFile.Close()
 
-	symlinkPath := tmpFile.Name() + "-symlink"
-	if err := os.Symlink(tmpFile.Name(), symlinkPath); err != nil {
+	symlinkPath := filepath.Join(dir, "kubeconfig-symlink")
+	if err := os.Symlink(targetFile, symlinkPath); err != nil {
 		t.Fatalf("failed to create symlink: %v", err)
 	}
-	defer func() { _ = os.Remove(symlinkPath) }()
 
-	err = ValidateKubeConfig(symlinkPath)
+	err := ValidateKubeConfig(symlinkPath)
 	if err == nil {
 		t.Error("ValidateKubeConfig should reject symlinks")
 	}
