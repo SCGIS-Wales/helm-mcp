@@ -1,0 +1,24 @@
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosec
+    - bodyclose
+    - noctx
+    - gosimple
+    - ineffassign
+    - typecheck
+
+linters-settings:
+  gosec:
+    excludes:
+      - G104 # unhandled errors on deferred Close()
+
+issues:
+  exclude-dirs:
+    - vendor

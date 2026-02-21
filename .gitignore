@@ -1,0 +1,34 @@
+# Go build output (root-level binary only)
+/helm-mcp
+/helm-mcp-*
+coverage.out
+coverage.html
+*.exe
+vendor/
+
+# Python
+python/.venv/
+python/dist/
+python/build/
+python/*.egg-info/
+python/src/*.egg-info/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Environment
+.env
+.env.local
