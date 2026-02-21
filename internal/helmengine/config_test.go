@@ -82,3 +82,44 @@ func TestGlobalConfigFieldAssignment(t *testing.T) {
 		t.Errorf("QPS = %f, want 50.0", cfg.QPS)
 	}
 }
+
+func TestParseDuration_Empty(t *testing.T) {
+	d, err := ParseDuration("")
+	if err != nil {
+		t.Fatalf("ParseDuration(\"\") error: %v", err)
+	}
+	if d != DefaultTimeout {
+		t.Errorf("ParseDuration(\"\") = %v, want %v", d, DefaultTimeout)
+	}
+}
+
+func TestParseDuration_Valid(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected time.Duration
+	}{
+		{"5m", 5 * time.Minute},
+		{"30s", 30 * time.Second},
+		{"1h", time.Hour},
+		{"2h30m", 2*time.Hour + 30*time.Minute},
+	}
+	for _, tc := range tests {
+		d, err := ParseDuration(tc.input)
+		if err != nil {
+			t.Errorf("ParseDuration(%q) error: %v", tc.input, err)
+			continue
+		}
+		if d != tc.expected {
+			t.Errorf("ParseDuration(%q) = %v, want %v", tc.input, d, tc.expected)
+		}
+	}
+}
+
+func TestParseDuration_Invalid(t *testing.T) {
+	for _, s := range []string{"abc", "5", "not-a-duration"} {
+		_, err := ParseDuration(s)
+		if err == nil {
+			t.Errorf("ParseDuration(%q) expected error, got nil", s)
+		}
+	}
+}

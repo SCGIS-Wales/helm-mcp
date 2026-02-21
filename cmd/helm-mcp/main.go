@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -23,11 +24,21 @@ func main() {
 	mode := flag.String("mode", "stdio", "Transport mode: stdio, http, or sse")
 	addr := flag.String("addr", ":8080", "Listen address for http/sse mode")
 	showVersion := flag.Bool("version", false, "Print version and exit")
+	debug := flag.Bool("debug", false, "Enable debug logging")
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println(version)
 		return
+	}
+
+	// Configure logging
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds)
+	if !*debug {
+		log.SetOutput(io.Discard)
+	} else {
+		log.SetOutput(os.Stderr)
+		log.Printf("debug logging enabled (version=%s, mode=%s)", version, *mode)
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -37,7 +48,8 @@ func main() {
 	sigCh := make(chan os.Signal, 1)
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
-		<-sigCh
+		sig := <-sigCh
+		log.Printf("received signal %v, shutting down", sig)
 		cancel()
 	}()
 
@@ -45,8 +57,10 @@ func main() {
 
 	switch *mode {
 	case "stdio":
+		log.Printf("starting stdio server")
 		if err := s.Run(ctx, &mcp.StdioTransport{}); err != nil {
-			log.Fatalf("server error: %v", err)
+			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
+			os.Exit(1)
 		}
 
 	case "http":
@@ -56,14 +70,11 @@ func main() {
 		)
 		httpServer := newHTTPServer(*addr, handler)
 		fmt.Fprintf(os.Stderr, "helm-mcp HTTP server listening on %s\n", *addr)
-		go func() {
-			<-ctx.Done()
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer shutdownCancel()
-			_ = httpServer.Shutdown(shutdownCtx)
-		}()
+		log.Printf("starting HTTP server on %s", *addr)
+		gracefulShutdown(ctx, httpServer)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("HTTP server error: %v", err)
+			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
+			os.Exit(1)
 		}
 
 	case "sse":
@@ -73,19 +84,30 @@ func main() {
 		)
 		httpServer := newHTTPServer(*addr, handler)
 		fmt.Fprintf(os.Stderr, "helm-mcp SSE server listening on %s\n", *addr)
-		go func() {
-			<-ctx.Done()
-			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer shutdownCancel()
-			_ = httpServer.Shutdown(shutdownCtx)
-		}()
+		log.Printf("starting SSE server on %s", *addr)
+		gracefulShutdown(ctx, httpServer)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("SSE server error: %v", err)
+			fmt.Fprintf(os.Stderr, "SSE server error: %v\n", err)
+			os.Exit(1)
 		}
 
 	default:
-		log.Fatalf("unknown mode: %s (valid: stdio, http, sse)", *mode)
+		fmt.Fprintf(os.Stderr, "unknown mode: %s (valid: stdio, http, sse)\n", *mode)
+		os.Exit(1)
 	}
+}
+
+// gracefulShutdown starts a goroutine that waits for ctx cancellation
+// and then shuts down the HTTP server with a 5-second deadline.
+func gracefulShutdown(ctx context.Context, srv *http.Server) {
+	go func() {
+		<-ctx.Done()
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutdownCancel()
+		if err := srv.Shutdown(shutdownCtx); err != nil {
+			log.Printf("HTTP server shutdown error: %v", err)
+		}
+	}()
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {

@@ -6,6 +6,14 @@ import "time"
 // waiting (install --wait, upgrade --wait, etc.).
 const DefaultTimeout = 300 * time.Second
 
+// ParseDuration parses a Go duration string, returning DefaultTimeout for empty input.
+func ParseDuration(s string) (time.Duration, error) {
+	if s == "" {
+		return DefaultTimeout, nil
+	}
+	return time.ParseDuration(s)
+}
+
 // GlobalConfig holds configuration shared across all Helm operations
 // that require cluster access.
 //

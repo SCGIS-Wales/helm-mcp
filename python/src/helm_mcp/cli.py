@@ -1,6 +1,7 @@
 """CLI entry point for helm-mcp-python."""
 
 import argparse
+import logging
 import sys
 
 
@@ -36,7 +37,20 @@ def main() -> None:
         action="store_true",
         help="Download the helm-mcp Go binary and exit",
     )
+    parser.add_argument(
+        "--verbose",
+        "-v",
+        action="store_true",
+        help="Enable verbose logging",
+    )
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        stream=sys.stderr,
+    )
+    logger = logging.getLogger(__name__)
 
     if args.setup:
         from helm_mcp import __version__
@@ -45,14 +59,17 @@ def main() -> None:
         try:
             path = ensure_binary(__version__)
             if path:
+                logger.info("helm-mcp binary ready at: %s", path)
                 print(f"helm-mcp binary ready at: {path}")
             else:
+                logger.error("no checksums available for this platform")
                 print(
                     "No checksums available for this platform. Install the binary manually.",
                     file=sys.stderr,
                 )
                 sys.exit(1)
         except Exception as e:
+            logger.error("failed to download binary: %s", e)
             print(f"Error downloading binary: {e}", file=sys.stderr)
             sys.exit(1)
         return
@@ -62,12 +79,15 @@ def main() -> None:
     try:
         server = create_server(binary_path=args.binary)
     except FileNotFoundError as e:
+        logger.error("binary not found: %s", e)
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
+    logger.info("starting server with transport=%s", args.transport)
     if args.transport == "stdio":
         server.run()
     else:
+        logger.info("listening on %s:%d", args.host, args.port)
         server.run(transport=args.transport, host=args.host, port=args.port)
 
 
