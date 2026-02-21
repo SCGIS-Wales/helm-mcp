@@ -1,7 +1,10 @@
+version: "2"
+
 run:
   timeout: 5m
 
 linters:
+  default: none
   enable:
     - errcheck
     - govet
@@ -13,12 +16,10 @@ linters:
     - gosimple
     - ineffassign
     - typecheck
-
-linters-settings:
-  gosec:
-    excludes:
-      - G104 # unhandled errors on deferred Close()
-
-issues:
-  exclude-dirs:
-    - vendor
+  settings:
+    gosec:
+      excludes:
+        - G104 # unhandled errors on deferred Close()
+  exclusions:
+    paths:
+      - vendor
