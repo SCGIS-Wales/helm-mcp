@@ -208,6 +208,25 @@ jobs:
       - name: Run wheel builder tests
         run: pytest -v scripts/test_build_wheels.py
 
+  # Functional test: build a platform wheel, install it in a venv,
+  # and verify that helm-mcp and helm-mcp-python commands work.
+  # Pinned to ubuntu-22.04 to match the build environment for Linux wheels.
+  wheel-install-test:
+    name: Wheel Install Test (Ubuntu 22.04)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install test dependencies
+        run: pip install pytest build
+
+      - name: Run wheel install functional tests
+        run: pytest -v scripts/test_wheel_install.py
+
   # ---------- Integration Tests ----------
 
   integration-test:
@@ -505,7 +524,7 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     if: needs.auto-tag.outputs.created == 'true'
-    needs: [auto-tag, build-platform-wheels]
+    needs: [auto-tag, build-platform-wheels, wheel-install-test]
     runs-on: ubuntu-latest
     continue-on-error: true
     permissions:
