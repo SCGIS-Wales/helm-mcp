@@ -16,6 +16,9 @@ import (
 	"github.com/ssddgreg/helm-mcp/internal/server"
 )
 
+// version is set at build time via -ldflags "-X main.version=..."
+var version = "dev"
+
 func main() {
 	mode := flag.String("mode", "stdio", "Transport mode: stdio, http, or sse")
 	addr := flag.String("addr", ":8080", "Listen address for http/sse mode")

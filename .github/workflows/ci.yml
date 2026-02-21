@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -187,3 +187,211 @@ jobs:
         with:
           name: python-dist
           path: python/dist/
+
+  # ---------- Auto-tag on merge to main ----------
+  # Determines the next semver patch version, updates pyproject.toml,
+  # commits, creates a git tag, and pushes. Outputs the tag/version so
+  # downstream jobs in THIS run can use them (no second workflow trigger).
+
+  auto-tag:
+    name: Auto-tag release
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    needs: [lint, test, security, python-test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
+      created: ${{ steps.create_tag.outputs.created }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+      - name: Determine next version
+        id: version
+        run: |
+          LATEST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
+          if [ -z "$LATEST_TAG" ]; then
+            NEXT="0.1.0"
+          else
+            CURRENT="${LATEST_TAG#v}"
+            MAJOR=$(echo "$CURRENT" | cut -d. -f1)
+            MINOR=$(echo "$CURRENT" | cut -d. -f2)
+            PATCH=$(echo "$CURRENT" | cut -d. -f3 | cut -d- -f1)
+            NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+          fi
+          echo "version=${NEXT}" >> "$GITHUB_OUTPUT"
+          echo "tag=v${NEXT}" >> "$GITHUB_OUTPUT"
+          echo "Next version: ${NEXT} (tag: v${NEXT})"
+
+      - name: Check if tag already exists
+        id: check_tag
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.version.outputs.tag }} already exists, skipping"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update version and create tag
+        id: create_tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+
+          # Update Python package version
+          sed -i "s/^version = \".*\"/version = \"$VERSION\"/" python/pyproject.toml
+
+          # Update Python __init__.py version
+          sed -i "s/^__version__ = \".*\"/__version__ = \"$VERSION\"/" python/src/helm_mcp/__init__.py
+
+          # Commit the version bump
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add python/pyproject.toml python/src/helm_mcp/__init__.py
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
+          git push origin main
+
+          # Create and push tag on the version-bump commit
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "::notice::Created tag $TAG"
+          echo "created=true" >> "$GITHUB_OUTPUT"
+
+  # ---------- Release build (Go binaries with version) ----------
+
+  release-build:
+    name: Release Build (${{ matrix.goos }}-${{ matrix.goarch }})
+    if: needs.auto-tag.outputs.created == 'true'
+    needs: [auto-tag]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        goos: [linux, darwin, windows]
+        goarch: [amd64, arm64]
+        exclude:
+          - goos: windows
+            goarch: arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BINARY_NAME=helm-mcp-${{ matrix.goos }}-${{ matrix.goarch }}
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            BINARY_NAME="${BINARY_NAME}.exe"
+          fi
+          go build -ldflags="-s -w -X main.version=${{ needs.auto-tag.outputs.tag }}" \
+            -o "${BINARY_NAME}" ./cmd/helm-mcp/
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: helm-mcp-*
+
+  # ---------- GitHub Release ----------
+
+  github-release:
+    name: GitHub Release
+    if: needs.auto-tag.outputs.created == 'true'
+    needs: [auto-tag, release-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all release binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets/
+
+      - name: Create checksums
+        working-directory: release-assets
+        run: sha256sum helm-mcp-* > checksums.txt
+
+      - name: Delete existing draft releases
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.auto-tag.outputs.tag }}"
+          gh api "repos/${{ github.repository }}/releases" --jq \
+            ".[] | select(.tag_name==\"${TAG}\" and .draft==true) | .id" \
+          | while read -r DRAFT_ID; do
+            echo "Deleting draft release (id=${DRAFT_ID})..."
+            gh api -X DELETE "repos/${{ github.repository }}/releases/${DRAFT_ID}"
+          done
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ needs.auto-tag.outputs.tag }}"
+          if gh release view "${TAG}" > /dev/null 2>&1; then
+            echo "Release ${TAG} already exists, updating..."
+            gh release edit "${TAG}" --latest
+            gh release upload "${TAG}" --clobber release-assets/*
+          else
+            echo "Creating new release ${TAG}..."
+            gh release create "${TAG}" \
+              --title "${TAG}" \
+              --generate-notes \
+              --latest \
+              release-assets/*
+          fi
+
+  # ---------- Publish Python package to PyPI ----------
+
+  publish-pypi:
+    name: Publish to PyPI
+    if: needs.auto-tag.outputs.created == 'true'
+    needs: [auto-tag]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout (version-bumped commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.auto-tag.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Build package
+        run: |
+          pip install build
+          python -m build
+
+      - name: Verify package metadata
+        run: |
+          pip install twine
+          twine check dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: python/dist/
