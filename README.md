@@ -18,6 +18,7 @@ An open-source MCP (Model Context Protocol) server that gives AI assistants **fu
 - [Quick Start](#quick-start)
 - [MCP Client Configuration](#mcp-client-configuration)
 - [Available Tools](#available-tools-44)
+- [Helm CLI Coverage](#helm-cli-coverage)
 - [Kubernetes Authentication](#kubernetes-authentication)
 - [Helm Version Selection](#helm-version-selection)
 - [Python Package](#python-package)
@@ -242,6 +243,61 @@ helm-mcp --mode http --addr :8080
 | Tool | Description |
 |------|-------------|
 | `helm_dependency_update` | Update charts/ based on Chart.yaml |
+
+## Helm CLI Coverage
+
+Complete mapping of every `helm` CLI command to its helm-mcp MCP tool equivalent.
+
+| Helm Command | MCP Tool | Status |
+|---|---|---|
+| `helm create` | `helm_create` | Covered |
+| `helm dependency build` | `helm_dependency_build` | Covered |
+| `helm dependency list` | `helm_dependency_list` | Covered |
+| `helm dependency update` | `helm_dependency_update` | Covered |
+| `helm env` | `helm_env` | Covered |
+| `helm get all` | `helm_get_all` | Covered |
+| `helm get hooks` | `helm_get_hooks` | Covered |
+| `helm get manifest` | `helm_get_manifest` | Covered |
+| `helm get metadata` | `helm_get_metadata` | Covered |
+| `helm get notes` | `helm_get_notes` | Covered |
+| `helm get values` | `helm_get_values` | Covered |
+| `helm history` | `helm_history` | Covered |
+| `helm install` | `helm_install` | Covered |
+| `helm lint` | `helm_lint` | Covered |
+| `helm list` | `helm_list` | Covered |
+| `helm package` | `helm_package` | Covered |
+| `helm plugin install` | `helm_plugin_install` | Covered |
+| `helm plugin list` | `helm_plugin_list` | Covered |
+| `helm plugin uninstall` | `helm_plugin_uninstall` | Covered |
+| `helm plugin update` | `helm_plugin_update` | Covered |
+| `helm pull` | `helm_pull` | Covered |
+| `helm push` | `helm_push` | Covered |
+| `helm registry login` | `helm_registry_login` | Covered |
+| `helm registry logout` | `helm_registry_logout` | Covered |
+| `helm repo add` | `helm_repo_add` | Covered |
+| `helm repo index` | `helm_repo_index` | Covered |
+| `helm repo list` | `helm_repo_list` | Covered |
+| `helm repo remove` | `helm_repo_remove` | Covered |
+| `helm repo update` | `helm_repo_update` | Covered |
+| `helm rollback` | `helm_rollback` | Covered |
+| `helm search hub` | `helm_search_hub` | Covered |
+| `helm search repo` | `helm_search_repo` | Covered |
+| `helm show all` | `helm_show_all` | Covered |
+| `helm show chart` | `helm_show_chart` | Covered |
+| `helm show crds` | `helm_show_crds` | Covered |
+| `helm show readme` | `helm_show_readme` | Covered |
+| `helm show values` | `helm_show_values` | Covered |
+| `helm status` | `helm_status` | Covered |
+| `helm template` | `helm_template` | Covered |
+| `helm test` | `helm_test` | Covered |
+| `helm uninstall` | `helm_uninstall` | Covered |
+| `helm upgrade` | `helm_upgrade` | Covered |
+| `helm verify` | `helm_verify` | Covered |
+| `helm version` | `helm_version` | Covered |
+| `helm completion` | — | Not applicable (shell utility) |
+| `helm help` | — | Not applicable (shell utility) |
+
+**44 of 44** operational Helm commands are covered. The only excluded commands (`completion`, `help`) are shell utilities that have no meaning in an MCP context.
 
 ## Kubernetes Authentication
 
