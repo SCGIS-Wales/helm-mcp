@@ -2,6 +2,7 @@
 
 import os
 import platform
+import shutil
 from pathlib import Path
 from unittest.mock import patch
 
@@ -138,8 +139,7 @@ def test_find_binary_bundled(tmp_path):
             result = _find_binary()
             assert result == str(bundled)
     finally:
-        bundled.unlink()
-        bin_dir.rmdir()
+        shutil.rmtree(bin_dir, ignore_errors=True)
 
 
 def test_find_binary_bundled_platform_specific(tmp_path):
@@ -168,8 +168,7 @@ def test_find_binary_bundled_platform_specific(tmp_path):
             result = _find_binary()
             assert result == str(bundled)
     finally:
-        bundled.unlink()
-        bin_dir.rmdir()
+        shutil.rmtree(bin_dir, ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------

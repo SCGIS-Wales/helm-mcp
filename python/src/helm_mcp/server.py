@@ -6,6 +6,7 @@ proxy without any Python code changes. The MCP protocol handles tool
 discovery at runtime via the ``tools/list`` method.
 """
 
+import logging
 import os
 import platform
 import shutil
@@ -13,6 +14,8 @@ from pathlib import Path
 
 from fastmcp.client.transports import StdioTransport
 from fastmcp.server import create_proxy
+
+logger = logging.getLogger(__name__)
 
 # Environment variables forwarded to the Go subprocess.
 # Extend this list to pass additional variables — the proxy itself
@@ -90,6 +93,7 @@ def _find_binary() -> str:
     if env_path:
         p = Path(env_path)
         if p.is_file() and os.access(str(p), os.X_OK):
+            logger.info("using binary from HELM_MCP_BINARY: %s", p)
             return str(p)
         raise FileNotFoundError(f"HELM_MCP_BINARY={env_path} does not exist or is not executable")
 
@@ -104,11 +108,13 @@ def _find_binary() -> str:
         binary_name += ".exe"
     bundled = pkg_dir / "bin" / binary_name
     if bundled.is_file() and os.access(str(bundled), os.X_OK):
+        logger.info("using bundled binary: %s", bundled)
         return str(bundled)
 
     # Also check for plain "helm-mcp" in bin/
     plain = pkg_dir / "bin" / "helm-mcp"
     if plain.is_file() and os.access(str(plain), os.X_OK):
+        logger.info("using bundled binary: %s", plain)
         return str(plain)
 
     # 3. Auto-download from GitHub Releases
@@ -118,13 +124,15 @@ def _find_binary() -> str:
     try:
         downloaded = ensure_binary(__version__)
         if downloaded:
+            logger.info("using auto-downloaded binary: %s", downloaded)
             return downloaded
     except Exception:
-        pass  # Fall through to PATH lookup
+        logger.warning("auto-download failed, falling back to PATH lookup", exc_info=True)
 
     # 4. PATH lookup
     found = shutil.which("helm-mcp")
     if found:
+        logger.info("using binary from PATH: %s", found)
         return found
 
     raise FileNotFoundError(
@@ -191,6 +199,7 @@ def create_server(
     """
     binary = binary_path or _find_binary()
     subprocess_env = _build_subprocess_env(extra_env=env)
+    logger.info("creating proxy server with binary: %s", binary)
     transport = StdioTransport(
         command=binary,
         args=["--mode", "stdio"],

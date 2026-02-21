@@ -5,15 +5,21 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
 )
 
-const (
-	artifactHubAPIBase = "https://artifacthub.io/api/v1/packages/search"
-	defaultLimit       = 25
-)
+//nolint:gochecknoglobals // test override
+var artifactHubAPIBase = "https://artifacthub.io/api/v1/packages/search"
+
+const defaultLimit = 25
+
+// setArtifactHubAPIBase overrides the API base URL (used in tests).
+func setArtifactHubAPIBase(u string) {
+	artifactHubAPIBase = u
+}
 
 // artifactHubPackage represents the relevant fields from the Artifact Hub API response.
 type artifactHubPackage struct {
@@ -48,6 +54,8 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	// Build a fixed URL from the constant base and user-controlled query params.
 	// The base URL is hardcoded (not from user input), so this is safe from SSRF.
 	reqURL := artifactHubAPIBase + "?" + params.Encode()
+
+	log.Printf("searching Artifact Hub for %q", opts.Keyword)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
@@ -88,6 +96,8 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 		}
 		results = append(results, sr)
 	}
+
+	log.Printf("Artifact Hub returned %d results for %q", len(results), opts.Keyword)
 
 	return results, nil
 }

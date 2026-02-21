@@ -53,12 +53,8 @@ func releaseToInfo(rel *release.Release) *helmengine.ReleaseInfo {
 	return info
 }
 
-func parseDuration(s string) (time.Duration, error) {
-	if s == "" {
-		return helmengine.DefaultTimeout, nil
-	}
-	return time.ParseDuration(s)
-}
+// parseDuration delegates to the shared helmengine.ParseDuration.
+var parseDuration = helmengine.ParseDuration
 
 func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ListOptions) ([]*helmengine.ReleaseInfo, error) {
 	actionConfig, _, err := newActionConfig(cfg)
@@ -440,10 +436,16 @@ func (e *V3Engine) GetMetadata(_ context.Context, cfg *helmengine.GlobalConfig, 
 	if err != nil {
 		return nil, fmt.Errorf("helm get metadata failed: %w", err)
 	}
-	revision, _ := strconv.Atoi(md.Version)
+	revision, err := strconv.Atoi(md.Version)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse revision %q: %w", md.Version, err)
+	}
 	var deployedAt time.Time
 	if md.DeployedAt != "" {
-		deployedAt, _ = time.Parse(time.RFC3339, md.DeployedAt)
+		deployedAt, err = time.Parse(time.RFC3339, md.DeployedAt)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse deployed_at %q: %w", md.DeployedAt, err)
+		}
 	}
 	return &helmengine.MetadataInfo{
 		Name:         md.Name,
