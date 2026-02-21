@@ -6,6 +6,10 @@ coverage.html
 *.exe
 vendor/
 
+# Coverage reports
+python_coverage*.xml
+python/.coverage
+
 # Python
 python/.venv/
 python/dist/
