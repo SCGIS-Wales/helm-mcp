@@ -4,6 +4,11 @@
 [![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/report/github.com/SCGIS-Wales/helm-mcp)
 [![PyPI version](https://img.shields.io/pypi/v/helm-mcp)](https://pypi.org/project/helm-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![smithery badge](https://smithery.ai/badge/@SCGIS-Wales/helm-mcp)](https://smithery.ai/server/@SCGIS-Wales/helm-mcp)
+
+<a href="https://glama.ai/mcp/servers/@SCGIS-Wales/helm-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@SCGIS-Wales/helm-mcp/badge" alt="helm-mcp MCP server" />
+</a>
 
 An open-source MCP (Model Context Protocol) server that gives AI assistants **full access to Helm** — the Kubernetes package manager. Built with the native Helm Go SDK, supporting both Helm 3.x and 4.x in a single binary.
 
