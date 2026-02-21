@@ -93,10 +93,10 @@ func (e *V3Engine) Template(ctx context.Context, cfg *helmengine.GlobalConfig, o
 		client.KubeVersion = parsedVersion
 	}
 	if opts.Version != "" {
-		client.ChartPathOptions.Version = opts.Version
+		client.Version = opts.Version
 	}
 
-	chartPath, err := client.ChartPathOptions.LocateChart(opts.Chart, settings)
+	chartPath, err := client.LocateChart(opts.Chart, settings)
 	if err != nil {
 		return "", fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
@@ -231,7 +231,7 @@ func (e *V3Engine) showChart(cfg *helmengine.GlobalConfig, opts *helmengine.Show
 	if opts.Repo != "" {
 		client.RepoURL = opts.Repo
 	}
-	cp, err := client.ChartPathOptions.LocateChart(opts.Chart, settings)
+	cp, err := client.LocateChart(opts.Chart, settings)
 	if err != nil {
 		return "", fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
