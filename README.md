@@ -1,5 +1,10 @@
 # helm-mcp
 
+[![CI/CD Pipeline](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/ssddgreg/helm-mcp)](https://goreportcard.com/report/github.com/ssddgreg/helm-mcp)
+[![PyPI version](https://badge.fury.io/py/helm-mcp.svg)](https://pypi.org/project/helm-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 A comprehensive MCP (Model Context Protocol) server that exposes **all Helm CLI capabilities** via the native Helm Go SDK. Supports both Helm 3.x and 4.x with a single binary.
 
 ## Features
@@ -11,48 +16,100 @@ A comprehensive MCP (Model Context Protocol) server that exposes **all Helm CLI 
 - **Forward proxy support** — respects `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` environment variables
 - **Credential scrubbing** — tokens, passwords, and secrets are redacted from error output
 - **Cloud provider compatible** — EKS, GKE, AKS kubeconfig formats supported
+- **Python wrapper** — [FastMCP](https://github.com/PrefectHQ/fastmcp)-based proxy that auto-discovers all tools
 
-## Quick Start
+## Installation
 
-### Build
+### Pre-built Binaries
+
+Download the latest release for your platform from [GitHub Releases](https://github.com/SCGIS-Wales/helm-mcp/releases):
 
 ```bash
+# macOS (Apple Silicon)
+curl -LO https://github.com/SCGIS-Wales/helm-mcp/releases/latest/download/helm-mcp-darwin-arm64
+chmod +x helm-mcp-darwin-arm64
+sudo mv helm-mcp-darwin-arm64 /usr/local/bin/helm-mcp
+
+# macOS (Intel)
+curl -LO https://github.com/SCGIS-Wales/helm-mcp/releases/latest/download/helm-mcp-darwin-amd64
+chmod +x helm-mcp-darwin-amd64
+sudo mv helm-mcp-darwin-amd64 /usr/local/bin/helm-mcp
+
+# Linux (amd64)
+curl -LO https://github.com/SCGIS-Wales/helm-mcp/releases/latest/download/helm-mcp-linux-amd64
+chmod +x helm-mcp-linux-amd64
+sudo mv helm-mcp-linux-amd64 /usr/local/bin/helm-mcp
+
+# Linux (arm64)
+curl -LO https://github.com/SCGIS-Wales/helm-mcp/releases/latest/download/helm-mcp-linux-arm64
+chmod +x helm-mcp-linux-arm64
+sudo mv helm-mcp-linux-arm64 /usr/local/bin/helm-mcp
+```
+
+### Build from Source
+
+```bash
+git clone https://github.com/SCGIS-Wales/helm-mcp.git
+cd helm-mcp
 make build
 ```
 
-### Run (stdio mode for Claude Code, Cursor, etc.)
+### Docker
 
 ```bash
-./helm-mcp --mode stdio
+docker build -t helm-mcp .
+docker run -v ~/.kube:/home/helmuser/.kube:ro helm-mcp --mode stdio
 ```
 
-### Run (HTTP mode)
+### Python Package
 
 ```bash
-./helm-mcp --mode http --addr :8080
+pip install helm-mcp
 ```
 
-### Run (SSE mode)
+See [Python Package](#python-package) below for full details.
+
+## Quick Start
+
+### stdio mode (for Claude Code, Cursor, etc.)
 
 ```bash
-./helm-mcp --mode sse --addr :8080
+helm-mcp --mode stdio
+```
+
+### HTTP mode (Streamable HTTP)
+
+```bash
+helm-mcp --mode http --addr :8080
+```
+
+### SSE mode (Server-Sent Events)
+
+```bash
+helm-mcp --mode sse --addr :8080
 ```
 
 ## MCP Client Configuration
 
-### Claude Code
+### Claude Desktop
 
-Add to your Claude Code MCP configuration (`~/.claude/claude_desktop_config.json`):
+Add to `~/.claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "helm": {
-      "command": "/path/to/helm-mcp",
+      "command": "helm-mcp",
       "args": ["--mode", "stdio"]
     }
   }
 }
+```
+
+### Claude Code
+
+```bash
+claude mcp add helm -- helm-mcp --mode stdio
 ```
 
 ### Cursor / Windsurf / VS Code
@@ -62,17 +119,19 @@ Add to your MCP server configuration:
 ```json
 {
   "helm-mcp": {
-    "command": "/path/to/helm-mcp",
+    "command": "helm-mcp",
     "args": ["--mode", "stdio"]
   }
 }
 ```
 
-### Docker
+### Remote / HTTP Clients
+
+Start the server in HTTP mode, then connect any MCP-compatible client to the endpoint:
 
 ```bash
-docker build -t helm-mcp .
-docker run -v ~/.kube:/home/helmuser/.kube:ro helm-mcp --mode stdio
+helm-mcp --mode http --addr :8080
+# MCP endpoint: http://localhost:8080/mcp
 ```
 
 ## Available Tools (44)
@@ -295,12 +354,124 @@ When running in HTTP or SSE mode:
 - `MaxHeaderBytes: 1MB` — prevents header-based DoS
 - Graceful shutdown with 5-second timeout
 
+## Python Package
+
+A Python wrapper is available that uses [FastMCP](https://github.com/PrefectHQ/fastmcp) to create a transparent proxy around the helm-mcp Go binary. New tools added to the Go binary are automatically available in Python without code changes.
+
+### Installation
+
+```bash
+pip install helm-mcp
+```
+
+Requires Python 3.14+ and the `helm-mcp` Go binary on your PATH (or set `HELM_MCP_BINARY`).
+
+### Usage as a Server
+
+```python
+from helm_mcp import create_server
+
+# stdio mode (default, for MCP clients)
+server = create_server()
+server.run()
+
+# HTTP mode
+server = create_server()
+server.run(transport="http", host="0.0.0.0", port=8080)
+```
+
+### Usage as a Client
+
+```python
+import asyncio
+from helm_mcp import create_client
+
+async def main():
+    async with create_client() as client:
+        # List all available tools
+        tools = await client.list_tools()
+        print(f"Available tools: {len(tools)}")
+
+        # List Helm releases
+        result = await client.call_tool("helm_list", {"namespace": "default"})
+        print(result)
+
+        # Install a chart
+        result = await client.call_tool("helm_install", {
+            "release_name": "my-app",
+            "chart": "bitnami/nginx",
+            "namespace": "default",
+        })
+        print(result)
+
+asyncio.run(main())
+```
+
+### CLI
+
+```bash
+# stdio mode (for MCP clients like Claude Code)
+helm-mcp-python
+
+# HTTP mode
+helm-mcp-python --transport http --host 0.0.0.0 --port 8080
+
+# Custom binary path
+helm-mcp-python --binary /usr/local/bin/helm-mcp
+```
+
+### Integrating with FastMCP
+
+The Python package is built on [FastMCP](https://github.com/PrefectHQ/fastmcp) and returns standard FastMCP server/client objects. You can compose it with other FastMCP servers:
+
+```python
+from fastmcp import FastMCP
+from helm_mcp import create_server as create_helm_server
+
+# Create a composite server
+app = FastMCP("my-platform")
+
+# Mount helm-mcp as a sub-server
+helm = create_helm_server()
+app.mount("helm", helm)
+
+# Add your own tools alongside Helm
+@app.tool()
+def my_custom_tool(param: str) -> str:
+    return f"Custom: {param}"
+
+app.run()
+```
+
+### Binary Discovery
+
+The Python package locates the `helm-mcp` Go binary in this order:
+
+1. `HELM_MCP_BINARY` environment variable
+2. Bundled binary in the package `bin/` directory
+3. `helm-mcp` on `PATH`
+
+### Environment Variables
+
+The proxy forwards these environment variables to the Go subprocess:
+
+| Category | Variables |
+|----------|-----------|
+| Proxy | `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` (and lowercase variants) |
+| Kubernetes | `KUBECONFIG`, `KUBERNETES_SERVICE_HOST`, `KUBERNETES_SERVICE_PORT` |
+| Helm | `HELM_CACHE_HOME`, `HELM_CONFIG_HOME`, `HELM_DATA_HOME`, `HELM_PLUGINS`, `HELM_DEBUG` |
+| AWS | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`, `AWS_REGION`, `AWS_PROFILE` |
+| GCP | `GOOGLE_APPLICATION_CREDENTIALS`, `CLOUDSDK_COMPUTE_ZONE` |
+| Azure | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SUBSCRIPTION_ID` |
+| TLS | `SSL_CERT_FILE`, `SSL_CERT_DIR` |
+
 ## Development
 
 ### Prerequisites
 
-- Go 1.26+
-- golangci-lint (optional, for linting)
+- Go 1.25+
+- Python 3.14+ (for the Python package)
+- golangci-lint v2 (optional, for linting)
 
 ### Build
 
@@ -313,8 +484,12 @@ make build-all    # Cross-compile for Linux/macOS (amd64/arm64)
 ### Test
 
 ```bash
+# Go tests
 make test         # Run all tests with race detection and coverage
 make test-short   # Run tests without integration tests
+
+# Python tests
+cd python && pip install -e ".[dev]" && pytest -v tests/
 ```
 
 ### Lint
@@ -354,27 +529,15 @@ internal/
     env/                Env, version
   security/             Input validation, credential scrubbing
   server/               MCP server creation and tool registration
+python/                 FastMCP-based Python wrapper
+  src/helm_mcp/         Python package source
+  tests/                Python tests
 ```
 
-## Python Package
+## Contributing
 
-A Python wrapper is available that uses [FastMCP](https://github.com/PrefectHQ/fastmcp) to proxy the Go binary. This means new tools added to the Go binary are automatically available in Python without code changes.
-
-```bash
-pip install helm-mcp
-```
-
-Requires Python 3.14+ and the `helm-mcp` binary on PATH.
-
-```python
-from helm_mcp import create_server
-
-server = create_server()
-server.run()
-```
-
-See [python/README.md](python/README.md) for full documentation.
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-MIT
+[MIT](LICENSE)
