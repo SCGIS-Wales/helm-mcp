@@ -189,6 +189,52 @@ jobs:
           name: python-dist
           path: python/dist/
 
+  # ---------- Integration Tests ----------
+
+  integration-test:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Build helm-mcp binary
+        run: go build -o helm-mcp ./cmd/helm-mcp/
+
+      - name: Install k3d
+        run: curl -s https://raw.githubusercontent.com/k3d-io/k3d/main/install.sh | bash
+
+      - name: Create k3d cluster
+        run: k3d cluster create helm-mcp-test --wait --timeout 120s
+
+      - name: Wait for cluster ready
+        run: |
+          kubectl wait --for=condition=ready node --all --timeout=60s
+          kubectl cluster-info
+
+      - name: Add Helm repos
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
+      - name: Install Python test dependencies
+        run: pip install fastmcp pytest pytest-asyncio pytest-timeout
+
+      - name: Run integration tests
+        run: python3 -m pytest tests/integration/ -v --timeout=600
+
+      - name: Cleanup k3d cluster
+        if: always()
+        run: k3d cluster delete helm-mcp-test 2>/dev/null || true
+
   # ---------- Auto-tag on merge to main ----------
   # Determines the next semver patch version, updates pyproject.toml,
   # commits, creates a git tag, and pushes. Outputs the tag/version so

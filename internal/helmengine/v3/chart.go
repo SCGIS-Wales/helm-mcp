@@ -149,8 +149,8 @@ func (e *V3Engine) Package(_ context.Context, opts *helmengine.PackageOptions) (
 }
 
 func (e *V3Engine) Pull(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.PullOptions) (string, error) {
-	_, settings := newActionConfigNoCluster(cfg)
-	client := action.NewPullWithOpts(action.WithConfig(new(action.Configuration)))
+	actionConfig, settings := newActionConfigNoCluster(cfg)
+	client := action.NewPullWithOpts(action.WithConfig(actionConfig))
 	client.Settings = settings
 	client.Untar = opts.Untar
 	client.UntarDir = opts.UntarDir
@@ -226,8 +226,8 @@ func (e *V3Engine) showChart(cfg *helmengine.GlobalConfig, opts *helmengine.Show
 	if opts.JSONPath != "" {
 		return "", fmt.Errorf("jsonpath is only supported in Helm v4")
 	}
-	_, settings := newActionConfigNoCluster(cfg)
-	client := action.NewShow(outputFormat)
+	actionConfig, settings := newActionConfigNoCluster(cfg)
+	client := action.NewShowWithConfig(outputFormat, actionConfig)
 	client.Devel = opts.Devel
 	if opts.Version != "" {
 		client.Version = opts.Version

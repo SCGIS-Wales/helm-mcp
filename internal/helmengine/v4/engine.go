@@ -12,6 +12,7 @@ import (
 
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/cli"
+	"helm.sh/helm/v4/pkg/registry"
 )
 
 // V4Engine implements helmengine.Engine using the Helm v4 SDK.
@@ -76,6 +77,16 @@ func newActionConfig(cfg *helmengine.GlobalConfig) (*action.Configuration, *cli.
 		return nil, nil, fmt.Errorf("failed to initialize helm v4 configuration: %w", err)
 	}
 
+	// Initialise the OCI registry client so oci:// chart refs work.
+	registryClient, err := registry.NewClient(
+		registry.ClientOptWriter(io.Discard),
+		registry.ClientOptCredentialsFile(settings.RegistryConfig),
+	)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to create registry client: %w", err)
+	}
+	actionConfig.RegistryClient = registryClient
+
 	return actionConfig, settings, nil
 }
 
@@ -100,6 +111,14 @@ func newActionConfigNoCluster(cfg *helmengine.GlobalConfig) (*action.Configurati
 	actionConfig := action.NewConfiguration(
 		action.ConfigurationSetLogger(logHandler),
 	)
+
+	// Initialise the OCI registry client so oci:// chart refs work.
+	if registryClient, err := registry.NewClient(
+		registry.ClientOptWriter(io.Discard),
+		registry.ClientOptCredentialsFile(settings.RegistryConfig),
+	); err == nil {
+		actionConfig.RegistryClient = registryClient
+	}
 
 	return actionConfig, settings
 }

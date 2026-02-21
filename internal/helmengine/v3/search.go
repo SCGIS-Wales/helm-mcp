@@ -11,11 +11,8 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 )
 
-func (e *V3Engine) SearchHub(_ context.Context, opts *helmengine.SearchHubOptions) ([]*helmengine.SearchResult, error) {
-	// The Helm v3 SDK doesn't expose a direct API for Artifact Hub search.
-	// The CLI uses an HTTP client to query https://hub.helm.sh/api/chartsvc/v1/charts/search
-	// We'll make the HTTP call directly.
-	return nil, fmt.Errorf("search hub is not directly supported via the Helm v3 SDK; use the Artifact Hub API at https://artifacthub.io/api/v1/packages/search")
+func (e *V3Engine) SearchHub(ctx context.Context, opts *helmengine.SearchHubOptions) ([]*helmengine.SearchResult, error) {
+	return helmengine.SearchArtifactHub(ctx, opts)
 }
 
 func (e *V3Engine) SearchRepo(_ context.Context, opts *helmengine.SearchRepoOptions) ([]*helmengine.SearchResult, error) {

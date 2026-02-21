@@ -276,9 +276,8 @@ func (e *V4Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 	client.DryRun = opts.DryRun
 	client.DisableHooks = opts.DisableHooks
 
-	if opts.Wait {
-		client.WaitStrategy = kube.StatusWatcherStrategy
-	}
+	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
+	client.WaitStrategy = kube.StatusWatcherStrategy
 
 	if opts.Timeout != "" {
 		timeout, err := parseDuration(opts.Timeout)
@@ -321,6 +320,8 @@ func (e *V4Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 	client.MaxHistory = opts.MaxHistory
 	if opts.ServerSideApply {
 		client.ServerSideApply = "true"
+	} else {
+		client.ServerSideApply = "false"
 	}
 	client.ForceConflicts = opts.ForceConflicts
 
@@ -328,9 +329,8 @@ func (e *V4Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 		client.DryRunStrategy = action.DryRunClient
 	}
 
-	if opts.Wait {
-		client.WaitStrategy = kube.StatusWatcherStrategy
-	}
+	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
+	client.WaitStrategy = kube.StatusWatcherStrategy
 	if opts.WaitForJobs {
 		client.WaitForJobs = true
 	}
