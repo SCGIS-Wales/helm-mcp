@@ -31,7 +31,31 @@ def main() -> None:
         default=None,
         help="Path to helm-mcp Go binary (auto-detected if not set)",
     )
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Download the helm-mcp Go binary and exit",
+    )
     args = parser.parse_args()
+
+    if args.setup:
+        from helm_mcp import __version__
+        from helm_mcp.download import ensure_binary
+
+        try:
+            path = ensure_binary(__version__)
+            if path:
+                print(f"helm-mcp binary ready at: {path}")
+            else:
+                print(
+                    "No checksums available for this platform. Install the binary manually.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+        except Exception as e:
+            print(f"Error downloading binary: {e}", file=sys.stderr)
+            sys.exit(1)
+        return
 
     from helm_mcp.server import create_server
 

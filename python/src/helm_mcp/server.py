@@ -76,7 +76,8 @@ def _find_binary() -> str:
     Search order:
       1. ``HELM_MCP_BINARY`` environment variable
       2. Bundled binary in the package ``bin/`` directory
-      3. ``helm-mcp`` on ``PATH``
+      3. Auto-download from GitHub Releases (with checksum verification)
+      4. ``helm-mcp`` on ``PATH``
 
     Returns:
         Absolute path to the helm-mcp executable.
@@ -110,7 +111,18 @@ def _find_binary() -> str:
     if plain.is_file() and os.access(str(plain), os.X_OK):
         return str(plain)
 
-    # 3. PATH lookup
+    # 3. Auto-download from GitHub Releases
+    from helm_mcp import __version__
+    from helm_mcp.download import ensure_binary
+
+    try:
+        downloaded = ensure_binary(__version__)
+        if downloaded:
+            return downloaded
+    except Exception:
+        pass  # Fall through to PATH lookup
+
+    # 4. PATH lookup
     found = shutil.which("helm-mcp")
     if found:
         return found
