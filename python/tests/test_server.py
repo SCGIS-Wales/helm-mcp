@@ -32,10 +32,27 @@ def test_exports():
 
 
 def test_all_exports():
-    """Test __all__ matches expected exports."""
+    """Test __all__ contains core exports and tool wrappers."""
     import helm_mcp
 
-    assert set(helm_mcp.__all__) == {"create_server", "create_client", "__version__"}
+    all_exports = set(helm_mcp.__all__)
+    # Core exports
+    assert "__version__" in all_exports
+    assert "create_server" in all_exports
+    assert "create_client" in all_exports
+    # Client and exceptions
+    assert "HelmClient" in all_exports
+    assert "HelmError" in all_exports
+    assert "HelmTimeoutError" in all_exports
+    assert "HelmConnectionError" in all_exports
+    assert "HelmToolError" in all_exports
+    # Sample of tool wrappers (all 44)
+    assert "helm_list" in all_exports
+    assert "helm_install" in all_exports
+    assert "helm_status" in all_exports
+    assert "helm_version" in all_exports
+    # Total: 3 core + 6 client/exceptions + 44 tools = 53
+    assert len(all_exports) == 53
 
 
 def test_py_typed_marker():
@@ -104,6 +121,38 @@ def test_find_binary_path_lookup(tmp_path):
     with patch.dict(os.environ, env, clear=True):
         result = _find_binary()
         assert result == str(fake_binary)
+
+
+def test_find_binary_path_before_download(tmp_path):
+    """Test that PATH lookup is tried before auto-download.
+
+    Platform-specific wheel installs place the binary on PATH, so PATH
+    lookup must come before the (potentially failing) download attempt.
+    """
+    from helm_mcp.server import _find_binary
+
+    fake_binary = tmp_path / "helm-mcp"
+    fake_binary.write_text("#!/bin/sh\necho hello")
+    fake_binary.chmod(0o755)
+
+    env = {k: v for k, v in os.environ.items() if k != "HELM_MCP_BINARY"}
+    env["PATH"] = f"{tmp_path}:{env.get('PATH', '')}"
+
+    download_called = False
+
+    def mock_ensure_binary(version):
+        nonlocal download_called
+        download_called = True
+        return None
+
+    with (
+        patch.dict(os.environ, env, clear=True),
+        patch("helm_mcp.download.ensure_binary", mock_ensure_binary),
+    ):
+        result = _find_binary()
+        assert result == str(fake_binary)
+        # Download should NOT have been called because PATH found it first
+        assert not download_called
 
 
 def test_find_binary_not_found():
