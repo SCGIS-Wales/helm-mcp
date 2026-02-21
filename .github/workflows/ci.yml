@@ -511,13 +511,7 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - name: Download pre-built wheels
-        uses: actions/download-artifact@v4
-        with:
-          name: python-wheels
-          path: dist/
-
-      - name: Build sdist from source
+      - name: Checkout source (for sdist build)
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.auto-tag.outputs.tag }}
@@ -531,6 +525,15 @@ jobs:
         run: |
           pip install build
           python -m build --sdist
+
+      - name: Prepare dist directory
+        run: mkdir -p dist/
+
+      - name: Download pre-built wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: python-wheels
+          path: dist/
 
       - name: Copy sdist to dist/
         run: cp python/dist/*.tar.gz dist/
