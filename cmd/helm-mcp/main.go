@@ -51,7 +51,7 @@ func main() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer shutdownCancel()
-			httpServer.Shutdown(shutdownCtx)
+			_ = httpServer.Shutdown(shutdownCtx)
 		}()
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("HTTP server error: %v", err)
@@ -68,7 +68,7 @@ func main() {
 			<-ctx.Done()
 			shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer shutdownCancel()
-			httpServer.Shutdown(shutdownCtx)
+			_ = httpServer.Shutdown(shutdownCtx)
 		}()
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("SSE server error: %v", err)

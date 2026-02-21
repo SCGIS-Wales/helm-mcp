@@ -407,7 +407,7 @@ func (e *V4Engine) Test(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 
 	rel, shutdownFn, err := client.Run(opts.ReleaseName)
 	if shutdownFn != nil {
-		defer shutdownFn()
+		defer func() { _ = shutdownFn() }()
 	}
 	if err != nil {
 		return nil, fmt.Errorf("helm test failed: %w", err)

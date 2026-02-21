@@ -17,7 +17,10 @@ linters:
   settings:
     gosec:
       excludes:
+        - G101 # false positives on test fixtures with example credentials
         - G104 # unhandled errors on deferred Close()
+        - G117 # Password fields are required for Helm repo/registry auth inputs
+        - G204 # Plugin management requires subprocess execution with user args
   exclusions:
     paths:
       - vendor
