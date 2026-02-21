@@ -143,6 +143,9 @@ jobs:
   python-test:
     name: Python Test
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.12', '3.14']
     defaults:
       run:
         working-directory: python
@@ -151,7 +154,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: ${{ matrix.python-version }}
 
       - name: Install package with dev dependencies
         run: pip install -e ".[dev]"
@@ -188,6 +191,22 @@ jobs:
         with:
           name: python-dist
           path: python/dist/
+
+  wheel-builder-test:
+    name: Wheel Builder Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run wheel builder tests
+        run: pytest -v scripts/test_build_wheels.py
 
   # ---------- Integration Tests ----------
 
@@ -357,6 +376,77 @@ jobs:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           path: helm-mcp-*
 
+  # ---------- Build platform-specific Python wheels ----------
+
+  build-platform-wheels:
+    name: Build Platform Wheels
+    if: needs.auto-tag.outputs.created == 'true'
+    needs: [auto-tag, release-build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout (version-bumped commit)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.auto-tag.outputs.tag }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Download release binaries
+        uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          merge-multiple: true
+          path: release-assets/
+
+      - name: Generate checksums.json for universal wheel
+        run: |
+          python3 -c "
+          import hashlib, json, os
+          checksums = {
+              'version': '${{ needs.auto-tag.outputs.version }}',
+              'binaries': {},
+          }
+          assets_dir = 'release-assets'
+          for f in sorted(os.listdir(assets_dir)):
+              if f.startswith('helm-mcp-'):
+                  path = os.path.join(assets_dir, f)
+                  sha = hashlib.sha256(open(path, 'rb').read()).hexdigest()
+                  checksums['binaries'][f] = sha
+          with open('python/src/helm_mcp/checksums.json', 'w') as out:
+              json.dump(checksums, out, indent=2)
+              out.write('\n')
+          print(json.dumps(checksums, indent=2))
+          "
+
+      - name: Build universal wheel
+        working-directory: python
+        run: |
+          pip install build
+          python -m build --wheel
+
+      - name: Build platform-specific wheels
+        run: |
+          python scripts/build_wheels.py \
+            --wheel "python/dist/helm_mcp-${{ needs.auto-tag.outputs.version }}-py3-none-any.whl" \
+            --binaries-dir release-assets/ \
+            --output dist/
+
+      - name: Copy universal wheel to dist/
+        run: cp python/dist/*.whl dist/
+
+      - name: List built wheels
+        run: ls -la dist/
+
+      - name: Upload all wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-wheels
+          path: dist/*.whl
+
   # ---------- GitHub Release ----------
 
   github-release:
@@ -415,16 +505,19 @@ jobs:
   publish-pypi:
     name: Publish to PyPI
     if: needs.auto-tag.outputs.created == 'true'
-    needs: [auto-tag, release-build]
+    needs: [auto-tag, build-platform-wheels]
     runs-on: ubuntu-latest
     continue-on-error: true
-    defaults:
-      run:
-        working-directory: python
     permissions:
       id-token: write
     steps:
-      - name: Checkout (version-bumped commit)
+      - name: Download pre-built wheels
+        uses: actions/download-artifact@v4
+        with:
+          name: python-wheels
+          path: dist/
+
+      - name: Build sdist from source
         uses: actions/checkout@v4
         with:
           ref: ${{ needs.auto-tag.outputs.tag }}
@@ -433,44 +526,24 @@ jobs:
         with:
           python-version: '3.14'
 
-      - name: Download release binaries
-        uses: actions/download-artifact@v4
-        with:
-          pattern: release-*
-          merge-multiple: true
-          path: release-assets/
-
-      - name: Generate checksums.json
-        run: |
-          python3 -c "
-          import hashlib, json, os
-          checksums = {
-              'version': '${{ needs.auto-tag.outputs.version }}',
-              'binaries': {},
-          }
-          assets_dir = '../release-assets'
-          for f in sorted(os.listdir(assets_dir)):
-              if f.startswith('helm-mcp-'):
-                  path = os.path.join(assets_dir, f)
-                  sha = hashlib.sha256(open(path, 'rb').read()).hexdigest()
-                  checksums['binaries'][f] = sha
-          with open('src/helm_mcp/checksums.json', 'w') as out:
-              json.dump(checksums, out, indent=2)
-              out.write('\n')
-          print(json.dumps(checksums, indent=2))
-          "
-
-      - name: Build package
+      - name: Build sdist
+        working-directory: python
         run: |
           pip install build
-          python -m build
+          python -m build --sdist
 
-      - name: Verify package metadata
+      - name: Copy sdist to dist/
+        run: cp python/dist/*.tar.gz dist/
+
+      - name: Verify packages
         run: |
           pip install twine
           twine check dist/*
 
+      - name: List packages to publish
+        run: ls -la dist/
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: python/dist/
+          packages-dir: dist/

@@ -79,8 +79,8 @@ def _find_binary() -> str:
     Search order:
       1. ``HELM_MCP_BINARY`` environment variable
       2. Bundled binary in the package ``bin/`` directory
-      3. Auto-download from GitHub Releases (with checksum verification)
-      4. ``helm-mcp`` on ``PATH``
+      3. ``helm-mcp`` on ``PATH`` (platform-specific wheel installs here)
+      4. Auto-download from GitHub Releases (fallback for universal wheel)
 
     Returns:
         Absolute path to the helm-mcp executable.
@@ -117,7 +117,13 @@ def _find_binary() -> str:
         logger.info("using bundled binary: %s", plain)
         return str(plain)
 
-    # 3. Auto-download from GitHub Releases
+    # 3. PATH lookup (preferred over download — works with platform-specific wheels)
+    found = shutil.which("helm-mcp")
+    if found:
+        logger.info("using binary from PATH: %s", found)
+        return found
+
+    # 4. Auto-download from GitHub Releases (fallback for universal wheel)
     from helm_mcp import __version__
     from helm_mcp.download import ensure_binary
 
@@ -127,13 +133,7 @@ def _find_binary() -> str:
             logger.info("using auto-downloaded binary: %s", downloaded)
             return downloaded
     except Exception:
-        logger.warning("auto-download failed, falling back to PATH lookup", exc_info=True)
-
-    # 4. PATH lookup
-    found = shutil.which("helm-mcp")
-    if found:
-        logger.info("using binary from PATH: %s", found)
-        return found
+        logger.warning("auto-download failed", exc_info=True)
 
     raise FileNotFoundError(
         "helm-mcp binary not found. Either:\n"
