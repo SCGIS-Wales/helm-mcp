@@ -371,6 +371,7 @@ jobs:
     if: needs.auto-tag.outputs.created == 'true'
     needs: [auto-tag]
     runs-on: ubuntu-latest
+    continue-on-error: true
     defaults:
       run:
         working-directory: python

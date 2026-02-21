@@ -36,11 +36,11 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/ssddgreg/helm-mcp"
-Repository = "https://github.com/ssddgreg/helm-mcp"
-Issues = "https://github.com/ssddgreg/helm-mcp/issues"
-Documentation = "https://github.com/ssddgreg/helm-mcp#python-package"
-Changelog = "https://github.com/ssddgreg/helm-mcp/releases"
+Homepage = "https://github.com/SCGIS-Wales/helm-mcp"
+Repository = "https://github.com/SCGIS-Wales/helm-mcp"
+Issues = "https://github.com/SCGIS-Wales/helm-mcp/issues"
+Documentation = "https://github.com/SCGIS-Wales/helm-mcp#python-package"
+Changelog = "https://github.com/SCGIS-Wales/helm-mcp/releases"
 
 [project.scripts]
 helm-mcp-python = "helm_mcp.cli:main"
