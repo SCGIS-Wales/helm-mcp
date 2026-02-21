@@ -157,10 +157,10 @@ func (e *V4Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	}
 
 	if opts.Version != "" {
-		client.ChartPathOptions.Version = opts.Version
+		client.Version = opts.Version
 	}
 
-	chartPath, err := client.ChartPathOptions.LocateChart(opts.Chart, settings)
+	chartPath, err := client.LocateChart(opts.Chart, settings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
@@ -233,10 +233,10 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	}
 
 	if opts.Version != "" {
-		client.ChartPathOptions.Version = opts.Version
+		client.Version = opts.Version
 	}
 
-	chartPath, err := client.ChartPathOptions.LocateChart(opts.Chart, settings)
+	chartPath, err := client.LocateChart(opts.Chart, settings)
 	if err != nil {
 		return nil, fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
