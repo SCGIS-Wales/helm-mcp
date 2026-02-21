@@ -64,10 +64,14 @@ func (e *V4Engine) Lint(_ context.Context, opts *helmengine.LintOptions) (*helme
 	}
 
 	for _, msg := range result.Messages {
+		errMsg := ""
+		if msg.Err != nil {
+			errMsg = msg.Err.Error()
+		}
 		lintResult.Messages = append(lintResult.Messages, helmengine.LintMessage{
 			Severity: severityToString(msg.Severity),
 			Path:     msg.Path,
-			Message:  msg.Err.Error(),
+			Message:  errMsg,
 		})
 	}
 
