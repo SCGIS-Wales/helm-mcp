@@ -5,10 +5,6 @@
 [![PyPI version](https://img.shields.io/pypi/v/helm-mcp)](https://pypi.org/project/helm-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-<a href="https://glama.ai/mcp/servers/@SCGIS-Wales/helm-mcp">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@SCGIS-Wales/helm-mcp/badge" alt="helm-mcp MCP server" />
-</a>
-
 An open-source MCP (Model Context Protocol) server that gives AI assistants **full access to Helm** — the Kubernetes package manager. Built with the native Helm Go SDK, supporting both Helm 3.x and 4.x in a single binary.
 
 > **Use natural language to manage your Kubernetes deployments.** Connect helm-mcp to Claude, Cursor, VS Code, or any MCP-compatible client to install charts, manage releases, search repositories, and more — all through conversation.
@@ -339,7 +335,11 @@ A Python wrapper is available that uses [FastMCP](https://github.com/PrefectHQ/f
 pip install helm-mcp
 ```
 
-Requires Python 3.14+ and the `helm-mcp` Go binary on your PATH (or set `HELM_MCP_BINARY`).
+Requires Python 3.14+. The Go binary is **automatically downloaded** on first use (with SHA256 checksum verification). You can also pre-download it:
+
+```bash
+helm-mcp-python --setup
+```
 
 ### Usage as a Server
 
@@ -424,7 +424,8 @@ The Python package locates the `helm-mcp` Go binary in this order:
 
 1. `HELM_MCP_BINARY` environment variable
 2. Bundled binary in the package `bin/` directory
-3. `helm-mcp` on `PATH`
+3. Auto-download from GitHub Releases (with SHA256 checksum verification)
+4. `helm-mcp` on `PATH`
 
 ### Environment Variables
 

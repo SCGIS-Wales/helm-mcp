@@ -11,7 +11,7 @@ Uses [FastMCP](https://github.com/PrefectHQ/fastmcp) to create a transparent pro
 ## Requirements
 
 - Python 3.14+
-- The `helm-mcp` Go binary on your `PATH` or pointed to via `HELM_MCP_BINARY`
+- The `helm-mcp` Go binary is **automatically downloaded** on first use (with SHA256 checksum verification)
 
 ## Installation
 
@@ -56,6 +56,9 @@ helm-mcp-python
 # HTTP mode
 helm-mcp-python --transport http --host 0.0.0.0 --port 8080
 
+# Pre-download binary
+helm-mcp-python --setup
+
 # Explicit binary path
 helm-mcp-python --binary /usr/local/bin/helm-mcp
 ```
@@ -66,7 +69,8 @@ The package locates the `helm-mcp` Go binary in this order:
 
 1. `HELM_MCP_BINARY` environment variable
 2. Bundled binary in the package `bin/` directory
-3. `helm-mcp` on `PATH`
+3. Auto-download from GitHub Releases (with SHA256 checksum verification)
+4. `helm-mcp` on `PATH`
 
 ## Environment Variables
 
