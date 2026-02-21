@@ -19,6 +19,12 @@ import (
 	v1release "helm.sh/helm/v4/pkg/release/v1"
 )
 
+// Error format strings used across multiple release operations.
+const (
+	errInvalidTimeout      = "invalid timeout: %w"
+	errFailedAccessRelease = "failed to access release: %w"
+)
+
 func releaserToInfo(rel release.Releaser) *helmengine.ReleaseInfo {
 	if rel == nil {
 		return nil
@@ -141,7 +147,7 @@ func (e *V4Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
-		return nil, fmt.Errorf("invalid timeout: %w", err)
+		return nil, fmt.Errorf(errInvalidTimeout, err)
 	}
 	client.Timeout = timeout
 
@@ -219,7 +225,7 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
-		return nil, fmt.Errorf("invalid timeout: %w", err)
+		return nil, fmt.Errorf(errInvalidTimeout, err)
 	}
 	client.Timeout = timeout
 
@@ -277,7 +283,7 @@ func (e *V4Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 	if opts.Timeout != "" {
 		timeout, err := parseDuration(opts.Timeout)
 		if err != nil {
-			return nil, fmt.Errorf("invalid timeout: %w", err)
+			return nil, fmt.Errorf(errInvalidTimeout, err)
 		}
 		client.Timeout = timeout
 	}
@@ -332,7 +338,7 @@ func (e *V4Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 	if opts.Timeout != "" {
 		timeout, err := parseDuration(opts.Timeout)
 		if err != nil {
-			return fmt.Errorf("invalid timeout: %w", err)
+			return fmt.Errorf(errInvalidTimeout, err)
 		}
 		client.Timeout = timeout
 	}
@@ -396,7 +402,7 @@ func (e *V4Engine) Test(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	if opts.Timeout != "" {
 		timeout, err := parseDuration(opts.Timeout)
 		if err != nil {
-			return nil, fmt.Errorf("invalid timeout: %w", err)
+			return nil, fmt.Errorf(errInvalidTimeout, err)
 		}
 		client.Timeout = timeout
 	}
@@ -432,7 +438,7 @@ func (e *V4Engine) GetAll(_ context.Context, cfg *helmengine.GlobalConfig, opts 
 
 	accessor, err := release.NewAccessor(rel)
 	if err != nil {
-		return nil, fmt.Errorf("failed to access release: %w", err)
+		return nil, fmt.Errorf(errFailedAccessRelease, err)
 	}
 
 	detail := &helmengine.ReleaseDetail{
@@ -523,7 +529,7 @@ func (e *V4Engine) GetManifest(_ context.Context, cfg *helmengine.GlobalConfig, 
 
 	accessor, err := release.NewAccessor(rel)
 	if err != nil {
-		return "", fmt.Errorf("failed to access release: %w", err)
+		return "", fmt.Errorf(errFailedAccessRelease, err)
 	}
 
 	return accessor.Manifest(), nil
@@ -571,7 +577,7 @@ func (e *V4Engine) GetNotes(_ context.Context, cfg *helmengine.GlobalConfig, opt
 
 	accessor, err := release.NewAccessor(rel)
 	if err != nil {
-		return "", fmt.Errorf("failed to access release: %w", err)
+		return "", fmt.Errorf(errFailedAccessRelease, err)
 	}
 
 	return accessor.Notes(), nil

@@ -63,7 +63,7 @@ func newActionConfig(cfg *helmengine.GlobalConfig) (*action.Configuration, *cli.
 	if cfg.Debug {
 		logFunc = log.Printf
 	} else {
-		logFunc = func(format string, v ...interface{}) {}
+		logFunc = func(format string, v ...interface{}) { /* debug disabled */ }
 	}
 
 	if err := actionConfig.Init(
@@ -97,7 +97,7 @@ func newActionConfigNoCluster(cfg *helmengine.GlobalConfig) (*action.Configurati
 	}
 
 	actionConfig := new(action.Configuration)
-	actionConfig.Log = func(format string, v ...interface{}) {}
+	actionConfig.Log = func(format string, v ...interface{}) { /* no-cluster: logging disabled */ }
 
 	return actionConfig, settings
 }

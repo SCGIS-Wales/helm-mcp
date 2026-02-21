@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -15,6 +16,13 @@ import (
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/release"
+)
+
+// Error format strings used across multiple release operations.
+const (
+	errInvalidTimeout        = "invalid timeout: %w"
+	errServerSideApplyV4Only = "server_side_apply is only supported in Helm v4"
+	errForceConflictsV4Only  = "force_conflicts is only supported in Helm v4"
 )
 
 func releaseToInfo(rel *release.Release) *helmengine.ReleaseInfo {
@@ -97,7 +105,7 @@ func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 
 func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.InstallOptions) (*helmengine.ReleaseInfo, error) {
 	if opts.ServerSideApply {
-		return nil, fmt.Errorf("server_side_apply is only supported in Helm v4")
+		return nil, errors.New(errServerSideApplyV4Only)
 	}
 	if opts.TakeOwnership {
 		return nil, fmt.Errorf("take_ownership is only supported in Helm v4")
@@ -106,7 +114,7 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		return nil, fmt.Errorf("rollback_on_failure is only supported in Helm v4")
 	}
 	if opts.ForceConflicts {
-		return nil, fmt.Errorf("force_conflicts is only supported in Helm v4")
+		return nil, errors.New(errForceConflictsV4Only)
 	}
 	if opts.HideSecret {
 		return nil, fmt.Errorf("hide_secret is only supported in Helm v4")
@@ -135,7 +143,7 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
-		return nil, fmt.Errorf("invalid timeout: %w", err)
+		return nil, fmt.Errorf(errInvalidTimeout, err)
 	}
 	client.Timeout = timeout
 
@@ -178,13 +186,13 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 
 func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.UpgradeOptions) (*helmengine.ReleaseInfo, error) {
 	if opts.ServerSideApply {
-		return nil, fmt.Errorf("server_side_apply is only supported in Helm v4")
+		return nil, errors.New(errServerSideApplyV4Only)
 	}
 	if opts.TakeOwnership {
 		return nil, fmt.Errorf("take_ownership is only supported in Helm v4")
 	}
 	if opts.ForceConflicts {
-		return nil, fmt.Errorf("force_conflicts is only supported in Helm v4")
+		return nil, errors.New(errForceConflictsV4Only)
 	}
 	if opts.HideSecret {
 		return nil, fmt.Errorf("hide_secret is only supported in Helm v4")
@@ -216,7 +224,7 @@ func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
-		return nil, fmt.Errorf("invalid timeout: %w", err)
+		return nil, fmt.Errorf(errInvalidTimeout, err)
 	}
 	client.Timeout = timeout
 
@@ -265,7 +273,7 @@ func (e *V3Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 	if opts.Timeout != "" {
 		t, err := parseDuration(opts.Timeout)
 		if err != nil {
-			return nil, fmt.Errorf("invalid timeout: %w", err)
+			return nil, fmt.Errorf(errInvalidTimeout, err)
 		}
 		client.Timeout = t
 	}
@@ -287,10 +295,10 @@ func (e *V3Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 
 func (e *V3Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.RollbackOptions) error {
 	if opts.ServerSideApply {
-		return fmt.Errorf("server_side_apply is only supported in Helm v4")
+		return errors.New(errServerSideApplyV4Only)
 	}
 	if opts.ForceConflicts {
-		return fmt.Errorf("force_conflicts is only supported in Helm v4")
+		return errors.New(errForceConflictsV4Only)
 	}
 
 	actionConfig, _, err := newActionConfig(cfg)
@@ -310,7 +318,7 @@ func (e *V3Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 	if opts.Timeout != "" {
 		t, err := parseDuration(opts.Timeout)
 		if err != nil {
-			return fmt.Errorf("invalid timeout: %w", err)
+			return fmt.Errorf(errInvalidTimeout, err)
 		}
 		client.Timeout = t
 	}
@@ -364,7 +372,7 @@ func (e *V3Engine) Test(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	if opts.Timeout != "" {
 		t, err := parseDuration(opts.Timeout)
 		if err != nil {
-			return nil, fmt.Errorf("invalid timeout: %w", err)
+			return nil, fmt.Errorf(errInvalidTimeout, err)
 		}
 		client.Timeout = t
 	}

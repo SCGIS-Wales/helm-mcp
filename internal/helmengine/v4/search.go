@@ -37,38 +37,46 @@ func (e *V4Engine) SearchRepo(_ context.Context, opts *helmengine.SearchRepoOpti
 				continue
 			}
 
-			if opts.Keyword != "" {
-				matched := strings.Contains(strings.ToLower(name), strings.ToLower(opts.Keyword)) ||
-					strings.Contains(strings.ToLower(entries[0].Description), strings.ToLower(opts.Keyword))
-				if !matched {
-					continue
-				}
+			if opts.Keyword != "" && !matchesKeyword(name, entries[0].Description, opts.Keyword) {
+				continue
 			}
 
-			if opts.Versions {
-				for _, entry := range entries {
-					if opts.Devel || !strings.Contains(entry.Version, "-") {
-						results = append(results, &helmengine.SearchResult{
-							Name:         fmt.Sprintf("%s/%s", r.Name, name),
-							ChartVersion: entry.Version,
-							AppVersion:   entry.AppVersion,
-							Description:  entry.Description,
-						})
-					}
-				}
-			} else {
-				entry := entries[0]
-				if opts.Devel || !strings.Contains(entry.Version, "-") {
-					results = append(results, &helmengine.SearchResult{
-						Name:         fmt.Sprintf("%s/%s", r.Name, name),
-						ChartVersion: entry.Version,
-						AppVersion:   entry.AppVersion,
-						Description:  entry.Description,
-					})
-				}
-			}
+			fullName := fmt.Sprintf("%s/%s", r.Name, name)
+			results = appendMatchingEntries(results, fullName, entries, opts.Versions, opts.Devel)
 		}
 	}
 
 	return results, nil
+}
+
+func matchesKeyword(name, description, keyword string) bool {
+	kw := strings.ToLower(keyword)
+	return strings.Contains(strings.ToLower(name), kw) ||
+		strings.Contains(strings.ToLower(description), kw)
+}
+
+func appendMatchingEntries(results []*helmengine.SearchResult, fullName string, entries repo.ChartVersions, allVersions, devel bool) []*helmengine.SearchResult {
+	if allVersions {
+		for _, entry := range entries {
+			if devel || !strings.Contains(entry.Version, "-") {
+				results = append(results, &helmengine.SearchResult{
+					Name:         fullName,
+					ChartVersion: entry.Version,
+					AppVersion:   entry.AppVersion,
+					Description:  entry.Description,
+				})
+			}
+		}
+		return results
+	}
+	entry := entries[0]
+	if devel || !strings.Contains(entry.Version, "-") {
+		results = append(results, &helmengine.SearchResult{
+			Name:         fullName,
+			ChartVersion: entry.Version,
+			AppVersion:   entry.AppVersion,
+			Description:  entry.Description,
+		})
+	}
+	return results
 }

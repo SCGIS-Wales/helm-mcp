@@ -2,6 +2,8 @@ package security
 
 import (
 	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -333,7 +335,7 @@ func TestScrubError_CloudTokens(t *testing.T) {
 func TestScrubCredentials_CloudProviderKeys(t *testing.T) {
 	input := map[string]string{
 		"AWS_ACCESS_KEY_ID":     "AKIAIOSFODNN7EXAMPLE",
-		"AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+		"AWS_SECRET_ACCESS_KEY": "test-secret-value-not-real", //nolint:gosec
 		"AZURE_CLIENT_SECRET":   "azure-secret-value",
 		"GOOGLE_APPLICATION_CREDENTIALS": "/path/to/creds.json",
 		"HELM_REGISTRY_PASSWORD": "registry-pass",
@@ -432,5 +434,41 @@ func TestValidateTimeout(t *testing.T) {
 		if !tt.wantErr && err != nil {
 			t.Errorf("ValidateTimeout(%q) unexpected error: %v", tt.timeout, err)
 		}
+	}
+}
+
+// --- ValidateKubeConfig additional coverage ---
+
+func TestValidateKubeConfig_ValidFile(t *testing.T) {
+	// Create a temporary regular file that should pass validation
+	dir := t.TempDir()
+	validFile := filepath.Join(dir, "kubeconfig")
+	if err := os.WriteFile(validFile, []byte("test"), 0o600); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	if err := ValidateKubeConfig(validFile); err != nil {
+		t.Errorf("ValidateKubeConfig(%q) unexpected error for valid file: %v", validFile, err)
+	}
+}
+
+func TestValidateKubeConfig_SymlinkRejection(t *testing.T) {
+	dir := t.TempDir()
+	targetFile := filepath.Join(dir, "kubeconfig-target")
+	if err := os.WriteFile(targetFile, []byte("test"), 0o600); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+
+	symlinkPath := filepath.Join(dir, "kubeconfig-symlink")
+	if err := os.Symlink(targetFile, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	err := ValidateKubeConfig(symlinkPath)
+	if err == nil {
+		t.Error("ValidateKubeConfig should reject symlinks")
+	}
+	if err != nil && !strings.Contains(err.Error(), "symlink") {
+		t.Errorf("expected error about symlink, got: %v", err)
 	}
 }

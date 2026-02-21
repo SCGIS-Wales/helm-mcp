@@ -68,6 +68,8 @@ type MockEngine struct {
 	LastConfig          *GlobalConfig
 }
 
+const defaultMockAppVersion = "1.25.0"
+
 // DefaultRelease returns a standard test release.
 func DefaultRelease() *ReleaseInfo {
 	return &ReleaseInfo{
@@ -77,7 +79,7 @@ func DefaultRelease() *ReleaseInfo {
 		Status:       "deployed",
 		Chart:        "nginx",
 		ChartVersion: "1.0.0",
-		AppVersion:   "1.25.0",
+		AppVersion:   defaultMockAppVersion,
 		Updated:      time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 	}
 }
@@ -197,7 +199,7 @@ func (m *MockEngine) GetMetadata(ctx context.Context, cfg *GlobalConfig, opts *G
 		Status:       "deployed",
 		Chart:        "nginx",
 		ChartVersion: "1.0.0",
-		AppVersion:   "1.25.0",
+		AppVersion:   defaultMockAppVersion,
 		DeployedAt:   time.Date(2025, 1, 15, 10, 30, 0, 0, time.UTC),
 	}, nil
 }
@@ -402,7 +404,7 @@ func (m *MockEngine) SearchHub(ctx context.Context, opts *SearchHubOptions) ([]*
 		return m.SearchHubFn(ctx, opts)
 	}
 	return []*SearchResult{
-		{Name: "nginx", ChartVersion: "1.0.0", AppVersion: "1.25.0", Description: "An nginx chart"},
+		{Name: "nginx", ChartVersion: "1.0.0", AppVersion: defaultMockAppVersion, Description: "An nginx chart"},
 	}, nil
 }
 
@@ -411,7 +413,7 @@ func (m *MockEngine) SearchRepo(ctx context.Context, opts *SearchRepoOptions) ([
 		return m.SearchRepoFn(ctx, opts)
 	}
 	return []*SearchResult{
-		{Name: "stable/nginx", ChartVersion: "1.0.0", AppVersion: "1.25.0", Description: "An nginx chart"},
+		{Name: "stable/nginx", ChartVersion: "1.0.0", AppVersion: defaultMockAppVersion, Description: "An nginx chart"},
 	}, nil
 }
 
