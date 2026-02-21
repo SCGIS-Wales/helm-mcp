@@ -16,7 +16,7 @@ def test_version():
     """Test package version is set."""
     from helm_mcp import __version__
 
-    assert __version__ == "0.1.0"
+    assert __version__  # version is set (value managed by auto-tag)
 
 
 def test_exports():
@@ -502,6 +502,4 @@ def test_cli_http_transport(tmp_path):
     ):
         main()
 
-    mock_server.run.assert_called_once_with(
-        transport="http", host="127.0.0.1", port=9090
-    )
+    mock_server.run.assert_called_once_with(transport="http", host="127.0.0.1", port=9090)

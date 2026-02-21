@@ -2,6 +2,7 @@ package v3
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -104,7 +105,7 @@ func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 
 func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.InstallOptions) (*helmengine.ReleaseInfo, error) {
 	if opts.ServerSideApply {
-		return nil, fmt.Errorf(errServerSideApplyV4Only)
+		return nil, errors.New(errServerSideApplyV4Only)
 	}
 	if opts.TakeOwnership {
 		return nil, fmt.Errorf("take_ownership is only supported in Helm v4")
@@ -113,7 +114,7 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		return nil, fmt.Errorf("rollback_on_failure is only supported in Helm v4")
 	}
 	if opts.ForceConflicts {
-		return nil, fmt.Errorf(errForceConflictsV4Only)
+		return nil, errors.New(errForceConflictsV4Only)
 	}
 	if opts.HideSecret {
 		return nil, fmt.Errorf("hide_secret is only supported in Helm v4")
@@ -185,13 +186,13 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 
 func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.UpgradeOptions) (*helmengine.ReleaseInfo, error) {
 	if opts.ServerSideApply {
-		return nil, fmt.Errorf(errServerSideApplyV4Only)
+		return nil, errors.New(errServerSideApplyV4Only)
 	}
 	if opts.TakeOwnership {
 		return nil, fmt.Errorf("take_ownership is only supported in Helm v4")
 	}
 	if opts.ForceConflicts {
-		return nil, fmt.Errorf(errForceConflictsV4Only)
+		return nil, errors.New(errForceConflictsV4Only)
 	}
 	if opts.HideSecret {
 		return nil, fmt.Errorf("hide_secret is only supported in Helm v4")

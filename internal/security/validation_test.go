@@ -444,8 +444,8 @@ func TestValidateKubeConfig_ValidFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_ = tmpFile.Close()
 
 	if err := ValidateKubeConfig(tmpFile.Name()); err != nil {
 		t.Errorf("ValidateKubeConfig(%q) unexpected error for valid file: %v", tmpFile.Name(), err)
@@ -458,14 +458,14 @@ func TestValidateKubeConfig_SymlinkRejection(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create temp file: %v", err)
 	}
-	defer os.Remove(tmpFile.Name())
-	tmpFile.Close()
+	defer func() { _ = os.Remove(tmpFile.Name()) }()
+	_ = tmpFile.Close()
 
 	symlinkPath := tmpFile.Name() + "-symlink"
 	if err := os.Symlink(tmpFile.Name(), symlinkPath); err != nil {
 		t.Fatalf("failed to create symlink: %v", err)
 	}
-	defer os.Remove(symlinkPath)
+	defer func() { _ = os.Remove(symlinkPath) }()
 
 	err = ValidateKubeConfig(symlinkPath)
 	if err == nil {

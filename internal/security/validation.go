@@ -66,7 +66,8 @@ func ValidateKubeConfig(path string) error {
 	}
 
 	// Use Lstat to detect symlinks without following them
-	info, err := os.Lstat(absPath)
+	cleanPath := filepath.Clean(absPath)
+	info, err := os.Lstat(cleanPath)
 	if err != nil {
 		return fmt.Errorf("kubeconfig %q not accessible: %w", path, err)
 	}
