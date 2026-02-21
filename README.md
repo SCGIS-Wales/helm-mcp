@@ -21,6 +21,7 @@ An open-source MCP (Model Context Protocol) server that gives AI assistants **fu
 - [Kubernetes Authentication](#kubernetes-authentication)
 - [Helm Version Selection](#helm-version-selection)
 - [Python Package](#python-package)
+- [Known Limitations](#known-limitations)
 - [Security](#security)
 - [Development](#development)
 - [Architecture](#architecture)
@@ -440,6 +441,14 @@ The proxy forwards these environment variables to the Go subprocess:
 | GCP | `GOOGLE_APPLICATION_CREDENTIALS`, `CLOUDSDK_COMPUTE_ZONE` |
 | Azure | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SUBSCRIPTION_ID` |
 | TLS | `SSL_CERT_FILE`, `SSL_CERT_DIR` |
+
+## Known Limitations
+
+### Plugin Verification Required (Helm v4 CLI)
+
+Plugin operations (`helm_plugin_install`, `helm_plugin_uninstall`, `helm_plugin_update`) shell out to the system `helm` CLI. Helm v4 requires plugin source verification by default. Plugins that do not support verification (like `helm-diff`) need `--verify=false`, which the MCP tool does not yet expose.
+
+- **Workaround**: Install plugins directly via `helm plugin install <url> --verify=false`
 
 ## Security
 

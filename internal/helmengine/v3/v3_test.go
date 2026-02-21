@@ -415,19 +415,19 @@ func TestReleaseToInfo_WithNotes(t *testing.T) {
 // SearchHub()
 // ---------------------------------------------------------------------------
 
-func TestSearchHub_ReturnsError(t *testing.T) {
+func TestSearchHub_EmptyKeyword(t *testing.T) {
 	e := New()
 	results, err := e.SearchHub(context.Background(), &helmengine.SearchHubOptions{
-		Keyword: "nginx",
+		Keyword: "",
 	})
 	if err == nil {
-		t.Fatal("SearchHub() expected error, got nil")
+		t.Fatal("SearchHub() expected error for empty keyword, got nil")
 	}
 	if results != nil {
 		t.Errorf("SearchHub() results = %v, want nil", results)
 	}
-	if !strings.Contains(err.Error(), "search hub is not directly supported via the Helm v3 SDK") {
-		t.Errorf("SearchHub() error = %q, want it to contain 'search hub is not directly supported via the Helm v3 SDK'", err.Error())
+	if !strings.Contains(err.Error(), "keyword is required") {
+		t.Errorf("SearchHub() error = %q, want it to contain 'keyword is required'", err.Error())
 	}
 }
 

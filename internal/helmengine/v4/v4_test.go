@@ -3,6 +3,7 @@ package v4
 import (
 	"context"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -194,20 +195,19 @@ func TestSeverityToString(t *testing.T) {
 // 7. SearchHub()
 // ---------------------------------------------------------------------------
 
-func TestSearchHub(t *testing.T) {
+func TestSearchHub_EmptyKeyword(t *testing.T) {
 	e := New()
 	results, err := e.SearchHub(context.Background(), &helmengine.SearchHubOptions{
-		Keyword: "nginx",
+		Keyword: "",
 	})
 	if err == nil {
-		t.Fatal("SearchHub() expected error, got nil")
+		t.Fatal("SearchHub() expected error for empty keyword, got nil")
 	}
 	if results != nil {
 		t.Errorf("SearchHub() expected nil results, got %v", results)
 	}
-	expected := "search hub is not directly supported via the Helm v4 SDK"
-	if got := err.Error(); got[:len(expected)] != expected {
-		t.Errorf("SearchHub() error = %q, want prefix %q", got, expected)
+	if !strings.Contains(err.Error(), "keyword is required") {
+		t.Errorf("SearchHub() error = %q, want it to contain 'keyword is required'", err.Error())
 	}
 }
 

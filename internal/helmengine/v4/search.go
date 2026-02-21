@@ -11,8 +11,8 @@ import (
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
 
-func (e *V4Engine) SearchHub(_ context.Context, opts *helmengine.SearchHubOptions) ([]*helmengine.SearchResult, error) {
-	return nil, fmt.Errorf("search hub is not directly supported via the Helm v4 SDK; use the Artifact Hub API at https://artifacthub.io/api/v1/packages/search")
+func (e *V4Engine) SearchHub(ctx context.Context, opts *helmengine.SearchHubOptions) ([]*helmengine.SearchResult, error) {
+	return helmengine.SearchArtifactHub(ctx, opts)
 }
 
 func (e *V4Engine) SearchRepo(_ context.Context, opts *helmengine.SearchRepoOptions) ([]*helmengine.SearchResult, error) {
