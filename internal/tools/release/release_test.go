@@ -718,3 +718,89 @@ func TestHandleHistory_MultipleRevisions(t *testing.T) {
 		t.Errorf("expected 3 revisions, got %d", len(releases))
 	}
 }
+
+// --- Get Error Paths ---
+
+func TestHandleGetAll_Error(t *testing.T) {
+	mock := setup(t)
+	mock.GetAllFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetOptions) (*helmengine.ReleaseDetail, error) {
+		return nil, errors.New("get all failed")
+	}
+	result, _, err := HandleGetAll(context.Background(), nil, GetAllInput{ReleaseName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Error("expected error result")
+	}
+}
+
+func TestHandleGetHooks_Error(t *testing.T) {
+	mock := setup(t)
+	mock.GetHooksFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetOptions) (string, error) {
+		return "", errors.New("get hooks failed")
+	}
+	result, _, err := HandleGetHooks(context.Background(), nil, GetHooksInput{ReleaseName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Error("expected error result")
+	}
+}
+
+func TestHandleGetManifest_Error(t *testing.T) {
+	mock := setup(t)
+	mock.GetManifestFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetOptions) (string, error) {
+		return "", errors.New("get manifest failed")
+	}
+	result, _, err := HandleGetManifest(context.Background(), nil, GetManifestInput{ReleaseName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Error("expected error result")
+	}
+}
+
+func TestHandleGetMetadata_Error(t *testing.T) {
+	mock := setup(t)
+	mock.GetMetadataFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetOptions) (*helmengine.MetadataInfo, error) {
+		return nil, errors.New("get metadata failed")
+	}
+	result, _, err := HandleGetMetadata(context.Background(), nil, GetMetadataInput{ReleaseName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Error("expected error result")
+	}
+}
+
+func TestHandleGetNotes_Error(t *testing.T) {
+	mock := setup(t)
+	mock.GetNotesFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetOptions) (string, error) {
+		return "", errors.New("get notes failed")
+	}
+	result, _, err := HandleGetNotes(context.Background(), nil, GetNotesInput{ReleaseName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Error("expected error result")
+	}
+}
+
+func TestHandleGetValues_Error(t *testing.T) {
+	mock := setup(t)
+	mock.GetValuesFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetValuesOptions) (map[string]interface{}, error) {
+		return nil, errors.New("get values failed")
+	}
+	result, _, err := HandleGetValues(context.Background(), nil, GetValuesInput{ReleaseName: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.IsError {
+		t.Error("expected error result")
+	}
+}

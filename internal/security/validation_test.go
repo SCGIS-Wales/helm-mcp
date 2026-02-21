@@ -2,6 +2,7 @@ package security
 
 import (
 	"errors"
+	"os"
 	"strings"
 	"testing"
 )
@@ -333,7 +334,7 @@ func TestScrubError_CloudTokens(t *testing.T) {
 func TestScrubCredentials_CloudProviderKeys(t *testing.T) {
 	input := map[string]string{
 		"AWS_ACCESS_KEY_ID":     "AKIAIOSFODNN7EXAMPLE",
-		"AWS_SECRET_ACCESS_KEY": "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
+		"AWS_SECRET_ACCESS_KEY": "test-secret-value-not-real", //nolint:gosec
 		"AZURE_CLIENT_SECRET":   "azure-secret-value",
 		"GOOGLE_APPLICATION_CREDENTIALS": "/path/to/creds.json",
 		"HELM_REGISTRY_PASSWORD": "registry-pass",
@@ -432,5 +433,45 @@ func TestValidateTimeout(t *testing.T) {
 		if !tt.wantErr && err != nil {
 			t.Errorf("ValidateTimeout(%q) unexpected error: %v", tt.timeout, err)
 		}
+	}
+}
+
+// --- ValidateKubeConfig additional coverage ---
+
+func TestValidateKubeConfig_ValidFile(t *testing.T) {
+	// Create a temporary regular file that should pass validation
+	tmpFile, err := os.CreateTemp("", "kubeconfig-test-*")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	if err := ValidateKubeConfig(tmpFile.Name()); err != nil {
+		t.Errorf("ValidateKubeConfig(%q) unexpected error for valid file: %v", tmpFile.Name(), err)
+	}
+}
+
+func TestValidateKubeConfig_SymlinkRejection(t *testing.T) {
+	// Create a real file and a symlink pointing to it
+	tmpFile, err := os.CreateTemp("", "kubeconfig-target-*")
+	if err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+	tmpFile.Close()
+
+	symlinkPath := tmpFile.Name() + "-symlink"
+	if err := os.Symlink(tmpFile.Name(), symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+	defer os.Remove(symlinkPath)
+
+	err = ValidateKubeConfig(symlinkPath)
+	if err == nil {
+		t.Error("ValidateKubeConfig should reject symlinks")
+	}
+	if err != nil && !strings.Contains(err.Error(), "symlink") {
+		t.Errorf("expected error about symlink, got: %v", err)
 	}
 }

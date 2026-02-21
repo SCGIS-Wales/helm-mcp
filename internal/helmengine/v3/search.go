@@ -40,40 +40,12 @@ func (e *V3Engine) SearchRepo(_ context.Context, opts *helmengine.SearchRepoOpti
 				continue
 			}
 
-			// Match against keyword
-			if opts.Keyword != "" {
-				matched := false
-				if containsIgnoreCase(name, opts.Keyword) ||
-					containsIgnoreCase(entries[0].Description, opts.Keyword) {
-					matched = true
-				}
-				if !matched {
-					continue
-				}
+			if opts.Keyword != "" && !matchesKeyword(name, entries[0].Description, opts.Keyword) {
+				continue
 			}
 
-			if opts.Versions {
-				for _, entry := range entries {
-					if opts.Devel || !isPrerelease(entry.Version) {
-						results = append(results, &helmengine.SearchResult{
-							Name:         fmt.Sprintf("%s/%s", r.Name, name),
-							ChartVersion: entry.Version,
-							AppVersion:   entry.AppVersion,
-							Description:  entry.Description,
-						})
-					}
-				}
-			} else {
-				entry := entries[0]
-				if opts.Devel || !isPrerelease(entry.Version) {
-					results = append(results, &helmengine.SearchResult{
-						Name:         fmt.Sprintf("%s/%s", r.Name, name),
-						ChartVersion: entry.Version,
-						AppVersion:   entry.AppVersion,
-						Description:  entry.Description,
-					})
-				}
-			}
+			fullName := fmt.Sprintf("%s/%s", r.Name, name)
+			results = appendMatchingEntries(results, fullName, entries, opts.Versions, opts.Devel)
 		}
 	}
 
@@ -85,35 +57,36 @@ func isPrerelease(version string) bool {
 	return strings.Contains(version, "-")
 }
 
+func matchesKeyword(name, description, keyword string) bool {
+	return containsIgnoreCase(name, keyword) || containsIgnoreCase(description, keyword)
+}
+
+func appendMatchingEntries(results []*helmengine.SearchResult, fullName string, entries repo.ChartVersions, allVersions, devel bool) []*helmengine.SearchResult {
+	if allVersions {
+		for _, entry := range entries {
+			if devel || !isPrerelease(entry.Version) {
+				results = append(results, &helmengine.SearchResult{
+					Name:         fullName,
+					ChartVersion: entry.Version,
+					AppVersion:   entry.AppVersion,
+					Description:  entry.Description,
+				})
+			}
+		}
+		return results
+	}
+	entry := entries[0]
+	if devel || !isPrerelease(entry.Version) {
+		results = append(results, &helmengine.SearchResult{
+			Name:         fullName,
+			ChartVersion: entry.Version,
+			AppVersion:   entry.AppVersion,
+			Description:  entry.Description,
+		})
+	}
+	return results
+}
+
 func containsIgnoreCase(s, substr string) bool {
-	if s == "" || substr == "" {
-		return substr == ""
-	}
-	// Simple case-insensitive contains
-	sl := len(s)
-	subl := len(substr)
-	if subl > sl {
-		return false
-	}
-	for i := 0; i <= sl-subl; i++ {
-		match := true
-		for j := 0; j < subl; j++ {
-			sc := s[i+j]
-			tc := substr[j]
-			if sc >= 'A' && sc <= 'Z' {
-				sc += 32
-			}
-			if tc >= 'A' && tc <= 'Z' {
-				tc += 32
-			}
-			if sc != tc {
-				match = false
-				break
-			}
-		}
-		if match {
-			return true
-		}
-	}
-	return false
+	return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
 }

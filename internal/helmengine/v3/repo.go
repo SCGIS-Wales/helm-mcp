@@ -14,6 +14,8 @@ import (
 	"helm.sh/helm/v3/pkg/repo"
 )
 
+const errFailedLoadRepoFile = "failed to load repository file: %w"
+
 func (e *V3Engine) RepoAdd(_ context.Context, opts *helmengine.RepoAddOptions) error {
 	settings := cli.New()
 
@@ -41,7 +43,7 @@ func (e *V3Engine) RepoAdd(_ context.Context, opts *helmengine.RepoAddOptions) e
 		var err error
 		f, err = repo.LoadFile(repoFile)
 		if err != nil {
-			return fmt.Errorf("failed to load repository file: %w", err)
+			return fmt.Errorf(errFailedLoadRepoFile, err)
 		}
 	}
 
@@ -72,7 +74,7 @@ func (e *V3Engine) RepoList(_ context.Context, _ *helmengine.RepoListOptions) ([
 
 	f, err := repo.LoadFile(settings.RepositoryConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load repository file: %w", err)
+		return nil, fmt.Errorf(errFailedLoadRepoFile, err)
 	}
 
 	result := make([]*helmengine.RepoEntry, 0, len(f.Repositories))
@@ -91,7 +93,7 @@ func (e *V3Engine) RepoUpdate(_ context.Context, opts *helmengine.RepoUpdateOpti
 
 	f, err := repo.LoadFile(settings.RepositoryConfig)
 	if err != nil {
-		return "", fmt.Errorf("failed to load repository file: %w", err)
+		return "", fmt.Errorf(errFailedLoadRepoFile, err)
 	}
 
 	var repos []*repo.Entry
@@ -130,7 +132,7 @@ func (e *V3Engine) RepoRemove(_ context.Context, opts *helmengine.RepoRemoveOpti
 
 	f, err := repo.LoadFile(settings.RepositoryConfig)
 	if err != nil {
-		return fmt.Errorf("failed to load repository file: %w", err)
+		return fmt.Errorf(errFailedLoadRepoFile, err)
 	}
 
 	for _, name := range opts.Names {

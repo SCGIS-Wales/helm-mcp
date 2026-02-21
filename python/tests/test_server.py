@@ -431,3 +431,77 @@ def test_cli_invalid_transport(capsys):
     ):
         main()
     assert exc_info.value.code != 0
+
+
+def test_cli_binary_not_found(capsys):
+    """Test CLI exits with error when binary not found."""
+    from helm_mcp.cli import main
+
+    env = {k: v for k, v in os.environ.items() if k != "HELM_MCP_BINARY"}
+    env["PATH"] = "/nonexistent"
+
+    with (
+        patch.dict(os.environ, env, clear=True),
+        patch("sys.argv", ["helm-mcp-python"]),
+        pytest.raises(SystemExit) as exc_info,
+    ):
+        main()
+    assert exc_info.value.code == 1
+
+
+def test_cli_stdio_transport(tmp_path):
+    """Test CLI with stdio transport calls server.run()."""
+    from unittest.mock import MagicMock
+
+    from helm_mcp.cli import main
+
+    mock_server = MagicMock()
+
+    fake_binary = tmp_path / "helm-mcp"
+    fake_binary.write_text("#!/bin/sh\necho hello")
+    fake_binary.chmod(0o755)
+
+    with (
+        patch("sys.argv", ["helm-mcp-python", "--binary", str(fake_binary)]),
+        patch("helm_mcp.server.create_server", return_value=mock_server) as mock_create,
+    ):
+        main()
+
+    mock_create.assert_called_once_with(binary_path=str(fake_binary))
+    mock_server.run.assert_called_once_with()
+
+
+def test_cli_http_transport(tmp_path):
+    """Test CLI with http transport passes host and port."""
+    from unittest.mock import MagicMock
+
+    from helm_mcp.cli import main
+
+    mock_server = MagicMock()
+
+    fake_binary = tmp_path / "helm-mcp"
+    fake_binary.write_text("#!/bin/sh\necho hello")
+    fake_binary.chmod(0o755)
+
+    with (
+        patch(
+            "sys.argv",
+            [
+                "helm-mcp-python",
+                "--binary",
+                str(fake_binary),
+                "--transport",
+                "http",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "9090",
+            ],
+        ),
+        patch("helm_mcp.server.create_server", return_value=mock_server),
+    ):
+        main()
+
+    mock_server.run.assert_called_once_with(
+        transport="http", host="127.0.0.1", port=9090
+    )

@@ -3,8 +3,11 @@ package tools
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"strings"
 	"testing"
+
+	"github.com/ssddgreg/helm-mcp/internal/helmengine"
 )
 
 func TestSelectEngine(t *testing.T) {
@@ -218,5 +221,40 @@ func TestTextResult_LargeJSON(t *testing.T) {
 	}
 	if result.IsError {
 		t.Error("expected IsError=false for large map")
+	}
+}
+
+func TestSetEnginesForTest(t *testing.T) {
+	mock := &helmengine.MockEngine{}
+	cleanup := SetEnginesForTest(mock, mock)
+
+	// Verify engines were swapped
+	if SelectEngine("v3") != mock {
+		t.Error("expected v3 engine to be mock")
+	}
+	if SelectEngine("v4") != mock {
+		t.Error("expected v4 engine to be mock")
+	}
+
+	// Restore originals
+	cleanup()
+
+	// Verify restored
+	if SelectEngine("v3") == mock {
+		t.Error("expected v3 engine to be restored")
+	}
+	if SelectEngine("v4") == mock {
+		t.Error("expected v4 engine to be restored")
+	}
+}
+
+func TestTextResult_MarshalError(t *testing.T) {
+	// math.Inf causes json.MarshalIndent to fail
+	result := TextResult(math.Inf(1))
+	if result == nil {
+		t.Fatal("TextResult returned nil")
+	}
+	if result.IsError {
+		t.Error("expected IsError=false even with marshal error")
 	}
 }

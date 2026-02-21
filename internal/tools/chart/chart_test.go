@@ -485,3 +485,73 @@ func TestToDependencyOpts(t *testing.T) {
 		t.Error("skip refresh not mapped")
 	}
 }
+
+// --- Show Error Tests ---
+
+func TestHandleShowChart_Error(t *testing.T) {
+	mock := setup(t)
+	mock.ShowChartFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ShowOptions) (string, error) {
+		return "", errors.New("chart not found")
+	}
+	result, _, _ := HandleShowChart(context.Background(), nil, ShowInput{Chart: "missing"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+}
+
+func TestHandleShowCRDs_Error(t *testing.T) {
+	mock := setup(t)
+	mock.ShowCRDsFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ShowOptions) (string, error) {
+		return "", errors.New("chart not found")
+	}
+	result, _, _ := HandleShowCRDs(context.Background(), nil, ShowInput{Chart: "missing"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+}
+
+func TestHandleShowReadme_Error(t *testing.T) {
+	mock := setup(t)
+	mock.ShowReadmeFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ShowOptions) (string, error) {
+		return "", errors.New("chart not found")
+	}
+	result, _, _ := HandleShowReadme(context.Background(), nil, ShowInput{Chart: "missing"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+}
+
+func TestHandleShowValues_Error(t *testing.T) {
+	mock := setup(t)
+	mock.ShowValuesFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ShowOptions) (string, error) {
+		return "", errors.New("chart not found")
+	}
+	result, _, _ := HandleShowValues(context.Background(), nil, ShowInput{Chart: "missing"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+}
+
+// --- Dependency Error Tests ---
+
+func TestHandleDependencyList_Error(t *testing.T) {
+	mock := setup(t)
+	mock.DependencyListFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.DependencyOptions) (string, error) {
+		return "", errors.New("Chart.yaml not found")
+	}
+	result, _, _ := HandleDependencyList(context.Background(), nil, DependencyListInput{ChartPath: "./broken"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+}
+
+func TestHandleDependencyUpdate_Error(t *testing.T) {
+	mock := setup(t)
+	mock.DependencyUpdateFn = func(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.DependencyOptions) error {
+		return errors.New("repository not found")
+	}
+	result, _, _ := HandleDependencyUpdate(context.Background(), nil, DependencyInput{ChartPath: "./broken"})
+	if !result.IsError {
+		t.Fatal("expected error")
+	}
+}
