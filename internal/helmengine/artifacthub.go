@@ -42,14 +42,11 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	params := url.Values{}
 	params.Set("ts_query_web", opts.Keyword)
 	params.Set("kind", "0") // 0 = Helm charts
-	limit := defaultLimit
-	if opts.MaxColWidth > 0 {
-		// MaxColWidth is a display hint, not a result limit, but we use a reasonable default.
-		limit = defaultLimit
-	}
-	params.Set("limit", strconv.Itoa(limit))
+	params.Set("limit", strconv.Itoa(defaultLimit))
 	params.Set("offset", "0")
 
+	// Build a fixed URL from the constant base and user-controlled query params.
+	// The base URL is hardcoded (not from user input), so this is safe from SSRF.
 	reqURL := artifactHubAPIBase + "?" + params.Encode()
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
@@ -58,15 +55,15 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL base is a hardcoded constant, not user-controlled
 	if err != nil {
 		return nil, fmt.Errorf("failed to query Artifact Hub: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("Artifact Hub returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("artifact Hub returned status %d: %s", resp.StatusCode, string(body))
 	}
 
 	var apiResp artifactHubResponse
