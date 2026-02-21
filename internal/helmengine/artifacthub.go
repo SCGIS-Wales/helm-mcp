@@ -49,13 +49,13 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	// The base URL is hardcoded (not from user input), so this is safe from SSRF.
 	reqURL := artifactHubAPIBase + "?" + params.Encode()
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil) //nolint:gosec // URL base is a hardcoded constant
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL base is a hardcoded constant, not user-controlled
 	if err != nil {
 		return nil, fmt.Errorf("failed to query Artifact Hub: %w", err)
 	}
