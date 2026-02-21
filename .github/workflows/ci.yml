@@ -252,14 +252,18 @@ jobs:
           # Update Python __init__.py version
           sed -i "s/^__version__ = \".*\"/__version__ = \"$VERSION\"/" python/src/helm_mcp/__init__.py
 
-          # Commit the version bump
+          # Commit the version bump (if there are changes)
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add python/pyproject.toml python/src/helm_mcp/__init__.py
-          git commit -m "chore: bump version to ${VERSION} [skip ci]"
-          git push origin main
+          if git diff --cached --quiet; then
+            echo "Version files already up to date"
+          else
+            git commit -m "chore: bump version to ${VERSION} [skip ci]"
+            git push origin main
+          fi
 
-          # Create and push tag on the version-bump commit
+          # Create and push tag on the current commit
           git tag "$TAG"
           git push origin "$TAG"
           echo "::notice::Created tag $TAG"
