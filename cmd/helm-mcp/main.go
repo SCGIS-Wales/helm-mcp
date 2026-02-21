@@ -22,7 +22,13 @@ var version = "dev"
 func main() {
 	mode := flag.String("mode", "stdio", "Transport mode: stdio, http, or sse")
 	addr := flag.String("addr", ":8080", "Listen address for http/sse mode")
+	showVersion := flag.Bool("version", false, "Print version and exit")
 	flag.Parse()
+
+	if *showVersion {
+		fmt.Println(version)
+		return
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
