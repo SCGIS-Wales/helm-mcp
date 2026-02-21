@@ -59,10 +59,14 @@ func (e *V3Engine) Lint(_ context.Context, opts *helmengine.LintOptions) (*helme
 		TotalCharts: result.TotalChartsLinted,
 	}
 	for _, msg := range result.Messages {
+		errMsg := ""
+		if msg.Err != nil {
+			errMsg = msg.Err.Error()
+		}
 		lintResult.Messages = append(lintResult.Messages, helmengine.LintMessage{
 			Severity: severityToString(msg.Severity),
 			Path:     msg.Path,
-			Message:  msg.Err.Error(),
+			Message:  errMsg,
 		})
 	}
 	lintResult.Passed = len(result.Errors) == 0

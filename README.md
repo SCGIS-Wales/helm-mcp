@@ -5,18 +5,38 @@
 [![PyPI version](https://badge.fury.io/py/helm-mcp.svg)](https://pypi.org/project/helm-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive MCP (Model Context Protocol) server that exposes **all Helm CLI capabilities** via the native Helm Go SDK. Supports both Helm 3.x and 4.x with a single binary.
+An open-source MCP (Model Context Protocol) server that gives AI assistants **full access to Helm** — the Kubernetes package manager. Built with the native Helm Go SDK, supporting both Helm 3.x and 4.x in a single binary.
 
-## Features
+> **Use natural language to manage your Kubernetes deployments.** Connect helm-mcp to Claude, Cursor, VS Code, or any MCP-compatible client to install charts, manage releases, search repositories, and more — all through conversation.
+
+---
+
+## Table of Contents
+
+- [Why helm-mcp?](#why-helm-mcp)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [MCP Client Configuration](#mcp-client-configuration)
+- [Available Tools](#available-tools-44)
+- [Kubernetes Authentication](#kubernetes-authentication)
+- [Helm Version Selection](#helm-version-selection)
+- [Python Package](#python-package)
+- [Security](#security)
+- [Development](#development)
+- [Architecture](#architecture)
+- [Contributing](#contributing)
+- [Community](#community)
+- [License](#license)
+
+## Why helm-mcp?
 
 - **44 MCP tools** covering every Helm CLI command (minus shell completion and help)
-- **Dual Helm SDK support** — Helm v3 (helm.sh/helm/v3) and Helm v4 (helm.sh/helm/v4)
+- **Dual Helm SDK support** — Helm v3 and v4 via native Go SDK (not CLI wrappers)
 - **Three transport modes** — stdio (default), HTTP (Streamable HTTP), SSE
-- **Full Kubernetes authentication** — kubeconfig, context selection, bearer tokens, TLS config
-- **Forward proxy support** — respects `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY` environment variables
-- **Credential scrubbing** — tokens, passwords, and secrets are redacted from error output
-- **Cloud provider compatible** — EKS, GKE, AKS kubeconfig formats supported
+- **Cloud provider ready** — EKS, GKE, AKS kubeconfig formats work out of the box
+- **Security first** — credential scrubbing, input validation, path traversal prevention
 - **Python wrapper** — [FastMCP](https://github.com/PrefectHQ/fastmcp)-based proxy that auto-discovers all tools
+- **Forward proxy support** — respects `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`
 
 ## Installation
 
@@ -47,6 +67,8 @@ sudo mv helm-mcp-linux-arm64 /usr/local/bin/helm-mcp
 ```
 
 ### Build from Source
+
+Requires Go 1.25+.
 
 ```bash
 git clone https://github.com/SCGIS-Wales/helm-mcp.git
@@ -303,57 +325,6 @@ These fields are only available when using `helm_version: "v4"`:
 - `show_resources` — Show resources table in status
 - `reset_then_reuse_values` — Reset then reuse values in upgrade
 
-## Forward Proxy Support
-
-helm-mcp respects standard proxy environment variables:
-
-```bash
-export HTTP_PROXY=http://proxy.example.com:8080
-export HTTPS_PROXY=http://proxy.example.com:8080
-export NO_PROXY=localhost,127.0.0.1,.internal.company.com
-```
-
-These are automatically used by Go's `net/http` package (via `http.ProxyFromEnvironment`) for all HTTP operations including:
-
-- Chart downloads (`helm_pull`)
-- Repository index updates (`helm_repo_update`)
-- Artifact Hub searches (`helm_search_hub`)
-- OCI registry operations (`helm_registry_login`, `helm_push`, `helm_pull`)
-- Kubernetes API server communication
-
-## Security
-
-### Credential Scrubbing
-
-All error messages are automatically scrubbed to remove:
-- Bearer tokens (including EKS, GKE, and Azure JWT tokens)
-- Basic authentication credentials
-- URL-embedded passwords (`https://user:password@host`)
-
-### Input Validation
-
-The security package provides validators for:
-- Release names (DNS-1123 compliant)
-- Namespace names
-- Kubeconfig file paths (path traversal prevention, symlink detection)
-- URLs (scheme validation)
-- File paths (traversal prevention)
-- Timeout durations (max 24h)
-
-### File Permissions
-
-- Repository configuration files are written with `0600` (owner read/write only)
-- Config directories are created with `0700` (owner only)
-
-### HTTP Server Hardening
-
-When running in HTTP or SSE mode:
-- `ReadTimeout: 30s` — prevents slow client attacks
-- `WriteTimeout: 60s` — prevents connection exhaustion
-- `IdleTimeout: 120s` — reclaims idle connections
-- `MaxHeaderBytes: 1MB` — prevents header-based DoS
-- Graceful shutdown with 5-second timeout
-
 ## Python Package
 
 A Python wrapper is available that uses [FastMCP](https://github.com/PrefectHQ/fastmcp) to create a transparent proxy around the helm-mcp Go binary. New tools added to the Go binary are automatically available in Python without code changes.
@@ -465,6 +436,49 @@ The proxy forwards these environment variables to the Go subprocess:
 | Azure | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SUBSCRIPTION_ID` |
 | TLS | `SSL_CERT_FILE`, `SSL_CERT_DIR` |
 
+## Security
+
+### Credential Scrubbing
+
+All error messages are automatically scrubbed to remove:
+- Bearer tokens (including EKS, GKE, and Azure JWT tokens)
+- Basic authentication credentials
+- URL-embedded passwords (`https://user:password@host`)
+
+### Input Validation
+
+The security package provides validators for:
+- Release names (DNS-1123 compliant)
+- Namespace names
+- Kubeconfig file paths (path traversal prevention, symlink detection)
+- URLs (scheme validation)
+- File paths (traversal prevention)
+- Timeout durations (max 24h)
+
+### File Permissions
+
+- Repository configuration files are written with `0600` (owner read/write only)
+- Config directories are created with `0700` (owner only)
+
+### HTTP Server Hardening
+
+When running in HTTP or SSE mode:
+- `ReadTimeout: 30s` — prevents slow client attacks
+- `WriteTimeout: 60s` — prevents connection exhaustion
+- `IdleTimeout: 120s` — reclaims idle connections
+- `MaxHeaderBytes: 1MB` — prevents header-based DoS
+- Graceful shutdown with 5-second timeout
+
+### Forward Proxy Support
+
+helm-mcp respects standard proxy environment variables:
+
+```bash
+export HTTP_PROXY=http://proxy.example.com:8080
+export HTTPS_PROXY=http://proxy.example.com:8080
+export NO_PROXY=localhost,127.0.0.1,.internal.company.com
+```
+
 ## Development
 
 ### Prerequisites
@@ -484,11 +498,11 @@ make build-all    # Cross-compile for Linux/macOS (amd64/arm64)
 ### Test
 
 ```bash
-# Go tests
+# Go tests (141 tests)
 make test         # Run all tests with race detection and coverage
 make test-short   # Run tests without integration tests
 
-# Python tests
+# Python tests (33 tests)
 cd python && pip install -e ".[dev]" && pytest -v tests/
 ```
 
@@ -536,8 +550,20 @@ python/                 FastMCP-based Python wrapper
 
 ## Contributing
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions from the community! Whether it's bug reports, feature requests, documentation improvements, or code contributions — all help is appreciated.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines on:
+- Setting up your development environment
+- Running tests and linters
+- Submitting pull requests
+- Commit message conventions
+
+## Community
+
+- **Bug reports & feature requests**: [GitHub Issues](https://github.com/SCGIS-Wales/helm-mcp/issues)
+- **Discussions & questions**: [GitHub Discussions](https://github.com/SCGIS-Wales/helm-mcp/discussions)
+- **Releases**: [GitHub Releases](https://github.com/SCGIS-Wales/helm-mcp/releases) (auto-published on every merge to main)
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the [MIT License](LICENSE) — free to use, modify, and distribute.

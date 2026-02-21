@@ -1,6 +1,7 @@
 """CLI entry point for helm-mcp-python."""
 
 import argparse
+import sys
 
 
 def main() -> None:
@@ -34,7 +35,11 @@ def main() -> None:
 
     from helm_mcp.server import create_server
 
-    server = create_server(binary_path=args.binary)
+    try:
+        server = create_server(binary_path=args.binary)
+    except FileNotFoundError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
     if args.transport == "stdio":
         server.run()
