@@ -47,6 +47,7 @@ Documentation = "https://github.com/SCGIS-Wales/helm-mcp#python-package"
 Changelog = "https://github.com/SCGIS-Wales/helm-mcp/releases"
 
 [project.scripts]
+helm-mcp = "helm_mcp.cli:helm_mcp_main"
 helm-mcp-python = "helm_mcp.cli:main"
 
 [tool.hatch.build.targets.wheel]

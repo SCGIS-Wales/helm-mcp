@@ -199,8 +199,7 @@ class TestBuildPlatformWheel:
 
         with ZipFile(result, "r") as zf:
             names = zf.namelist()
-            binary_path = "helm_mcp-1.0.0.data/scripts/helm-mcp"
-            assert binary_path in names
+            assert "helm_mcp/bin/helm-mcp" in names
 
     def test_binary_has_executable_permissions(self, tmp_path):
         source = _make_universal_wheel(tmp_path / "src")
@@ -213,9 +212,12 @@ class TestBuildPlatformWheel:
         )
 
         with ZipFile(result, "r") as zf:
-            info = zf.getinfo("helm_mcp-1.0.0.data/scripts/helm-mcp")
-            unix_perms = (info.external_attr >> 16) & 0o777
-            assert unix_perms == 0o755
+            info = zf.getinfo("helm_mcp/bin/helm-mcp")
+            # Verify Unix create_system
+            assert info.create_system == 3, "create_system must be Unix (3)"
+            # Verify file type is regular file (0o100000) + rwxr-xr-x (0o755)
+            mode = (info.external_attr >> 16) & 0o777
+            assert mode == 0o755, f"expected 0o755, got {oct(mode)}"
 
     def test_wheel_metadata_has_platform_tag(self, tmp_path):
         source = _make_universal_wheel(tmp_path / "src")
@@ -284,7 +286,7 @@ class TestBuildPlatformWheel:
 
         with ZipFile(result, "r") as zf:
             names = zf.namelist()
-            assert "helm_mcp-1.0.0.data/scripts/helm-mcp.exe" in names
+            assert "helm_mcp/bin/helm-mcp.exe" in names
 
 
 # ---------------------------------------------------------------------------
