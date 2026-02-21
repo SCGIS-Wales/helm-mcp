@@ -1,0 +1,12 @@
+.git
+.github
+.scannerwork
+*.md
+LICENSE
+python/
+scripts/
+tests/
+dist/
+coverage.out
+*.whl
+*.tar.gz
