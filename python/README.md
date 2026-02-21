@@ -1,6 +1,10 @@
 # helm-mcp (Python)
 
-A Python MCP wrapper for the [helm-mcp](https://github.com/ssddgreg/helm-mcp) Go server.
+[![CI/CD Pipeline](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/helm-mcp)](https://pypi.org/project/helm-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A Python MCP wrapper for the [helm-mcp](https://github.com/SCGIS-Wales/helm-mcp) Go server.
 
 Uses [FastMCP](https://github.com/PrefectHQ/fastmcp) to create a transparent proxy around the helm-mcp Go binary, exposing all Helm tools via the Model Context Protocol. **New tools added to the Go binary are automatically available without any Python code changes.**
 
