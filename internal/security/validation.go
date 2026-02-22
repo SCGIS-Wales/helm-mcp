@@ -15,6 +15,18 @@ import (
 // Helm names must be lowercase alphanumeric, dashes, or dots.
 var validNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?$`)
 
+// validPluginNamePattern matches Helm plugin names.
+// Plugin names must be alphanumeric (case-insensitive), dashes, or underscores,
+// and must not start with a dash (to prevent argument injection).
+var validPluginNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_\-]*$`)
+
+// Regex patterns for credential scrubbing (compiled once at package init).
+var (
+	scrubTokenPattern       = regexp.MustCompile(`(?i)(bearer\s+|token[=:]\s*)[^\s"']+`)
+	scrubBasicAuthPattern   = regexp.MustCompile(`(?i)(basic\s+)[^\s"']+`)
+	scrubURLPasswordPattern = regexp.MustCompile(`://[^:]+:[^@]+@`)
+)
+
 // maxNameLength is the maximum length for release names.
 const maxNameLength = 253
 
@@ -145,6 +157,22 @@ func ScrubCredentials(m map[string]string) map[string]string {
 	return scrubbed
 }
 
+// ValidatePluginName validates a Helm plugin name.
+// Plugin names must be alphanumeric, dashes, or underscores, and must not
+// start with a dash (to prevent argument injection when passed to helm CLI).
+func ValidatePluginName(name string) error {
+	if name == "" {
+		return fmt.Errorf("plugin name is required")
+	}
+	if len(name) > maxNameLength {
+		return fmt.Errorf("plugin name %q exceeds maximum length of %d", name, maxNameLength)
+	}
+	if !validPluginNamePattern.MatchString(name) {
+		return fmt.Errorf("plugin name %q is invalid: must consist of alphanumeric characters, dashes, or underscores, and must start with an alphanumeric character", name)
+	}
+	return nil
+}
+
 // ScrubError removes potentially sensitive information from error messages
 // (tokens, passwords) before returning them to the user.
 func ScrubError(err error) error {
@@ -152,15 +180,9 @@ func ScrubError(err error) error {
 		return nil
 	}
 	msg := err.Error()
-	// Remove bearer tokens
-	tokenPattern := regexp.MustCompile(`(?i)(bearer\s+|token[=:]\s*)[^\s"']+`)
-	msg = tokenPattern.ReplaceAllString(msg, "${1}***REDACTED***")
-	// Remove basic auth
-	basicAuthPattern := regexp.MustCompile(`(?i)(basic\s+)[^\s"']+`)
-	msg = basicAuthPattern.ReplaceAllString(msg, "${1}***REDACTED***")
-	// Remove password-like values in URLs
-	urlPasswordPattern := regexp.MustCompile(`://[^:]+:[^@]+@`)
-	msg = urlPasswordPattern.ReplaceAllString(msg, "://***:***@")
+	msg = scrubTokenPattern.ReplaceAllString(msg, "${1}***REDACTED***")
+	msg = scrubBasicAuthPattern.ReplaceAllString(msg, "${1}***REDACTED***")
+	msg = scrubURLPasswordPattern.ReplaceAllString(msg, "://***:***@")
 
 	if msg != err.Error() {
 		return fmt.Errorf("%s", msg)

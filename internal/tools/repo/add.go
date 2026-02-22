@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
+	"github.com/ssddgreg/helm-mcp/internal/security"
 	"github.com/ssddgreg/helm-mcp/internal/tools"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -26,10 +27,14 @@ var AddTool = &mcp.Tool{
 }
 
 func HandleAdd(ctx context.Context, req *mcp.CallToolRequest, input AddInput) (*mcp.CallToolResult, any, error) {
-	engine := tools.SelectEngine(input.HelmVersion)
-	defer input.ZeroSensitiveFields()
+	if err := security.ValidateURL(input.URL); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
-	err := engine.RepoAdd(ctx, &helmengine.RepoAddOptions{
+	engine := tools.SelectEngine(input.HelmVersion)
+	defer input.ZeroBearerToken()
+
+	opts := &helmengine.RepoAddOptions{
 		Name:                  input.Name,
 		URL:                   input.URL,
 		Username:              input.Username,
@@ -37,7 +42,10 @@ func HandleAdd(ctx context.Context, req *mcp.CallToolRequest, input AddInput) (*
 		ForceUpdate:           input.ForceUpdate,
 		CAFile:                input.CAFile,
 		InsecureSkipTLSVerify: input.InsecureSkipTLS,
-	})
+	}
+	defer opts.ZeroPassword()
+
+	err := engine.RepoAdd(ctx, opts)
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

@@ -9,10 +9,14 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"time"
 )
 
 //nolint:gochecknoglobals // test override
 var artifactHubAPIBase = "https://artifacthub.io/api/v1/packages/search"
+
+//nolint:gochecknoglobals // dedicated client with timeout instead of http.DefaultClient
+var artifactHubClient = &http.Client{Timeout: 30 * time.Second}
 
 const defaultLimit = 25
 
@@ -63,7 +67,7 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := http.DefaultClient.Do(req) //nolint:gosec // URL base is a hardcoded constant, not user-controlled
+	resp, err := artifactHubClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query Artifact Hub: %w", err)
 	}

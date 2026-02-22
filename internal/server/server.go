@@ -18,11 +18,15 @@ const (
 )
 
 // NewServer creates a new MCP server with all Helm tools registered.
-func NewServer() *mcp.Server {
+// If version is empty, the default ServerVersion constant is used.
+func NewServer(version string) *mcp.Server {
+	if version == "" {
+		version = ServerVersion
+	}
 	server := mcp.NewServer(
 		&mcp.Implementation{
 			Name:    ServerName,
-			Version: ServerVersion,
+			Version: version,
 		},
 		nil,
 	)

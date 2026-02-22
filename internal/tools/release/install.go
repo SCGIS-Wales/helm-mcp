@@ -44,6 +44,18 @@ var InstallTool = &mcp.Tool{
 }
 
 func HandleInstall(ctx context.Context, req *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if !input.GenerateName {
+		if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+			return tools.ErrorResult(err), nil, nil
+		}
+	}
+	if err := tools.ValidateTimeout(input.Timeout); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()

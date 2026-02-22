@@ -27,9 +27,9 @@ type GlobalInput struct {
 	QPS               float32 `json:"qps,omitempty" jsonschema_description:"Client-side QPS rate limit"`
 }
 
-// ZeroSensitiveFields zeroes credential fields in the input after use.
+// ZeroBearerToken zeroes the bearer token field in the input after use.
 // Call via defer to reduce the credential lifetime in memory.
-func (g *GlobalInput) ZeroSensitiveFields() {
+func (g *GlobalInput) ZeroBearerToken() {
 	if g == nil {
 		return
 	}
@@ -86,6 +86,27 @@ func ValidateRequired(fieldName, value string) *mcp.CallToolResult {
 		return ErrorResult(fmt.Errorf("%s is required", fieldName))
 	}
 	return nil
+}
+
+// ValidateGlobalInput validates the shared GlobalInput fields (namespace, kubeconfig path).
+func ValidateGlobalInput(g *GlobalInput) error {
+	if err := security.ValidateNamespace(g.Namespace); err != nil {
+		return err
+	}
+	if err := security.ValidatePath(g.KubeConfig); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ValidateReleaseName delegates to security.ValidateReleaseName.
+func ValidateReleaseName(name string) error {
+	return security.ValidateReleaseName(name)
+}
+
+// ValidateTimeout delegates to security.ValidateTimeout.
+func ValidateTimeout(timeout string) error {
+	return security.ValidateTimeout(timeout)
 }
 
 // TextResult creates a CallToolResult with text content.
