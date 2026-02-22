@@ -7,7 +7,7 @@ GOFLAGS := -trimpath
 
 all: lint test build
 
-build:
+build: lint
 	go build $(GOFLAGS) $(LDFLAGS) -o $(BINARY) ./cmd/helm-mcp/
 
 install:
