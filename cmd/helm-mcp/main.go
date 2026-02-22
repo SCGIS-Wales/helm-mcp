@@ -100,8 +100,7 @@ func main() {
 		} else {
 			fmt.Fprintf(os.Stderr, "  authentication: NONE (set HELM_MCP_AUTH_TOKEN to enable)\n")
 		}
-		listenAddr := *addr
-		slog.Info("starting HTTP server", "addr", listenAddr, "auth", authToken != "")
+		slog.Info("starting HTTP server", "addr", *addr, "auth", authToken != "") //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
@@ -121,8 +120,7 @@ func main() {
 		} else {
 			fmt.Fprintf(os.Stderr, "  authentication: NONE (set HELM_MCP_AUTH_TOKEN to enable)\n")
 		}
-		listenAddr := *addr
-		slog.Info("starting SSE server", "addr", listenAddr, "auth", authToken != "")
+		slog.Info("starting SSE server", "addr", *addr, "auth", authToken != "") //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(os.Stderr, "SSE server error: %v\n", err)
