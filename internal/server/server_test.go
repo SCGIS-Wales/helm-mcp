@@ -5,9 +5,16 @@ import (
 )
 
 func TestNewServer(t *testing.T) {
-	s := NewServer()
+	s := NewServer("")
 	if s == nil {
 		t.Fatal("NewServer() returned nil")
+	}
+}
+
+func TestNewServerWithVersion(t *testing.T) {
+	s := NewServer("1.2.3")
+	if s == nil {
+		t.Fatal("NewServer(version) returned nil")
 	}
 }
 

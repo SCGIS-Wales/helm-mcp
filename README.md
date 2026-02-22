@@ -392,7 +392,9 @@ A Python wrapper is available that uses [FastMCP](https://github.com/PrefectHQ/f
 pip install helm-mcp
 ```
 
-Requires Python 3.12+. The Go binary is **automatically downloaded** on first use (with SHA256 checksum verification). You can also pre-download it:
+Requires Python 3.12+. The Go binary is **bundled inside platform-specific wheels** — no Go toolchain is required. Supported platforms: `linux-amd64`, `linux-arm64`, `darwin-amd64`, `darwin-arm64`, `windows-amd64`. The binary is extracted from the wheel on first use, with SHA256 checksum verification to protect against tampering.
+
+You can verify the binary is available:
 
 ```bash
 helm-mcp-python --setup

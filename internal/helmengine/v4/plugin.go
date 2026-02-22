@@ -18,10 +18,11 @@ import (
 const pluginExecTimeout = 5 * time.Minute
 
 func (e *V4Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginInstallOptions) error {
-	args := []string{"plugin", "install", opts.URLOrPath}
+	args := []string{"plugin", "install"}
 	if opts.Version != "" {
 		args = append(args, "--version", opts.Version)
 	}
+	args = append(args, "--", opts.URLOrPath)
 
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
@@ -78,7 +79,7 @@ func (e *V4Engine) PluginUninstall(ctx context.Context, opts *helmengine.PluginU
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", "plugin", "uninstall", opts.Name)
+	cmd := exec.CommandContext(execCtx, "helm", "plugin", "uninstall", "--", opts.Name)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 
@@ -93,7 +94,7 @@ func (e *V4Engine) PluginUpdate(ctx context.Context, opts *helmengine.PluginUpda
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", "plugin", "update", opts.Name)
+	cmd := exec.CommandContext(execCtx, "helm", "plugin", "update", "--", opts.Name)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 

@@ -57,11 +57,6 @@ func TestHandleLogin_Success(t *testing.T) {
 
 func TestHandleLogin_FieldMapping(t *testing.T) {
 	mock := setup(t)
-	var capturedOpts *helmengine.RegistryLoginOptions
-	mock.RegistryLoginFn = func(ctx context.Context, opts *helmengine.RegistryLoginOptions) error {
-		capturedOpts = opts
-		return nil
-	}
 	input := LoginInput{
 		Hostname: "ghcr.io",
 		Username: "user",
@@ -70,6 +65,8 @@ func TestHandleLogin_FieldMapping(t *testing.T) {
 		CAFile:   "/path/ca.pem",
 	}
 	_, _, _ = HandleLogin(context.Background(), nil, input)
+	// Use mock.LastRegistryLoginOpts (deep-copied before ZeroPassword runs)
+	capturedOpts := mock.LastRegistryLoginOpts
 	if capturedOpts.Hostname != "ghcr.io" {
 		t.Error("hostname not mapped")
 	}

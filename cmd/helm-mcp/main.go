@@ -68,7 +68,7 @@ func main() {
 		cancel()
 	}()
 
-	s := server.NewServer()
+	s := server.NewServer(version)
 
 	switch *mode {
 	case "stdio":

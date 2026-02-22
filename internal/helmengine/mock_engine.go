@@ -64,8 +64,11 @@ type MockEngine struct {
 	LastHistoryOpts     *HistoryOptions
 	LastTestOpts        *TestOptions
 	LastGetOpts         *GetOptions
-	LastGetValuesOpts   *GetValuesOptions
-	LastConfig          *GlobalConfig
+	LastGetValuesOpts       *GetValuesOptions
+	LastConfig              *GlobalConfig
+	LastRepoAddOpts         *RepoAddOptions
+	LastRegistryLoginOpts   *RegistryLoginOptions
+	LastPullOpts            *PullOptions
 }
 
 // copyConfig creates a shallow copy of a GlobalConfig so that
@@ -75,6 +78,36 @@ func copyConfig(cfg *GlobalConfig) *GlobalConfig {
 		return nil
 	}
 	cp := *cfg
+	return &cp
+}
+
+// copyRepoAddOptions creates a shallow copy so that ZeroPassword in
+// handlers does not affect test assertions.
+func copyRepoAddOptions(opts *RepoAddOptions) *RepoAddOptions {
+	if opts == nil {
+		return nil
+	}
+	cp := *opts
+	return &cp
+}
+
+// copyRegistryLoginOptions creates a shallow copy so that ZeroPassword
+// in handlers does not affect test assertions.
+func copyRegistryLoginOptions(opts *RegistryLoginOptions) *RegistryLoginOptions {
+	if opts == nil {
+		return nil
+	}
+	cp := *opts
+	return &cp
+}
+
+// copyPullOptions creates a shallow copy so that ZeroPassword in
+// handlers does not affect test assertions.
+func copyPullOptions(opts *PullOptions) *PullOptions {
+	if opts == nil {
+		return nil
+	}
+	cp := *opts
 	return &cp
 }
 
@@ -272,6 +305,7 @@ func (m *MockEngine) Package(ctx context.Context, opts *PackageOptions) (string,
 
 func (m *MockEngine) Pull(ctx context.Context, cfg *GlobalConfig, opts *PullOptions) (string, error) {
 	m.LastConfig = copyConfig(cfg)
+	m.LastPullOpts = copyPullOptions(opts)
 	if m.PullFn != nil {
 		return m.PullFn(ctx, cfg, opts)
 	}
@@ -358,6 +392,7 @@ func (m *MockEngine) DependencyUpdate(ctx context.Context, cfg *GlobalConfig, op
 }
 
 func (m *MockEngine) RepoAdd(ctx context.Context, opts *RepoAddOptions) error {
+	m.LastRepoAddOpts = copyRepoAddOptions(opts)
 	if m.RepoAddFn != nil {
 		return m.RepoAddFn(ctx, opts)
 	}
@@ -396,6 +431,7 @@ func (m *MockEngine) RepoIndex(ctx context.Context, opts *RepoIndexOptions) erro
 }
 
 func (m *MockEngine) RegistryLogin(ctx context.Context, opts *RegistryLoginOptions) error {
+	m.LastRegistryLoginOpts = copyRegistryLoginOptions(opts)
 	if m.RegistryLoginFn != nil {
 		return m.RegistryLoginFn(ctx, opts)
 	}

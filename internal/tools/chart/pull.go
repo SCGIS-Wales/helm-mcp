@@ -32,9 +32,9 @@ func HandlePull(ctx context.Context, req *mcp.CallToolRequest, input PullInput) 
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
-	defer input.ZeroSensitiveFields()
+	defer input.ZeroBearerToken()
 
-	result, err := engine.Pull(ctx, cfg, &helmengine.PullOptions{
+	opts := &helmengine.PullOptions{
 		Chart:       input.Chart,
 		Version:     input.Version,
 		Repo:        input.Repo,
@@ -45,7 +45,10 @@ func HandlePull(ctx context.Context, req *mcp.CallToolRequest, input PullInput) 
 		Keyring:     input.Keyring,
 		Username:    input.Username,
 		Password:    input.Password,
-	})
+	}
+	defer opts.ZeroPassword()
+
+	result, err := engine.Pull(ctx, cfg, opts)
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

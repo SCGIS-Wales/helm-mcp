@@ -23,6 +23,13 @@ var GetAllTool = &mcp.Tool{
 }
 
 func HandleGetAll(ctx context.Context, req *mcp.CallToolRequest, input GetAllInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -52,6 +59,13 @@ var GetHooksTool = &mcp.Tool{
 }
 
 func HandleGetHooks(ctx context.Context, req *mcp.CallToolRequest, input GetHooksInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -81,6 +95,13 @@ var GetManifestTool = &mcp.Tool{
 }
 
 func HandleGetManifest(ctx context.Context, req *mcp.CallToolRequest, input GetManifestInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -110,6 +131,13 @@ var GetMetadataTool = &mcp.Tool{
 }
 
 func HandleGetMetadata(ctx context.Context, req *mcp.CallToolRequest, input GetMetadataInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -139,6 +167,13 @@ var GetNotesTool = &mcp.Tool{
 }
 
 func HandleGetNotes(ctx context.Context, req *mcp.CallToolRequest, input GetNotesInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -169,6 +204,13 @@ var GetValuesTool = &mcp.Tool{
 }
 
 func HandleGetValues(ctx context.Context, req *mcp.CallToolRequest, input GetValuesInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()

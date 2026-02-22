@@ -21,6 +21,13 @@ var HistoryTool = &mcp.Tool{
 }
 
 func HandleHistory(ctx context.Context, req *mcp.CallToolRequest, input HistoryInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()

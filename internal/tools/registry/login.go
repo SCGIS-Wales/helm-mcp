@@ -25,7 +25,7 @@ var LoginTool = &mcp.Tool{
 
 func HandleLogin(ctx context.Context, req *mcp.CallToolRequest, input LoginInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
-	defer input.ZeroSensitiveFields()
+	defer input.ZeroBearerToken()
 
 	opts := &helmengine.RegistryLoginOptions{
 		Hostname: input.Hostname,
@@ -34,6 +34,7 @@ func HandleLogin(ctx context.Context, req *mcp.CallToolRequest, input LoginInput
 		Insecure: input.Insecure,
 		CAFile:   input.CAFile,
 	}
+	defer opts.ZeroPassword()
 
 	err := engine.RegistryLogin(ctx, opts)
 	if err != nil {
