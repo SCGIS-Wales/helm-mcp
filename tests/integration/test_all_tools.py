@@ -534,7 +534,7 @@ class TestReleaseLifecycle:
         result = await call_tool(
             mcp_client,
             "helm_list",
-            {"namespace": TEST_NAMESPACE, "all_namespaces": True},
+            {"all_namespaces": True},
         )
         text = extract_text(result)
         assert not result.is_error, f"list all_namespaces failed: {text}"

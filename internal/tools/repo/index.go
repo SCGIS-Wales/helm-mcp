@@ -22,6 +22,10 @@ var IndexTool = &mcp.Tool{
 }
 
 func HandleIndex(ctx context.Context, req *mcp.CallToolRequest, input IndexInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	err := engine.RepoIndex(ctx, &helmengine.RepoIndexOptions{

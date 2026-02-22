@@ -24,6 +24,10 @@ var ShowAllTool = &mcp.Tool{
 }
 
 func HandleShowAll(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -40,6 +44,10 @@ var ShowChartTool = &mcp.Tool{
 }
 
 func HandleShowChart(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -56,6 +64,10 @@ var ShowCRDsTool = &mcp.Tool{
 }
 
 func HandleShowCRDs(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -72,6 +84,10 @@ var ShowReadmeTool = &mcp.Tool{
 }
 
 func HandleShowReadme(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -88,6 +104,10 @@ var ShowValuesTool = &mcp.Tool{
 }
 
 func HandleShowValues(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()

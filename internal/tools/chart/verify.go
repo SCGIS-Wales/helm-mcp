@@ -21,6 +21,10 @@ var VerifyTool = &mcp.Tool{
 }
 
 func HandleVerify(ctx context.Context, req *mcp.CallToolRequest, input VerifyInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.Verify(ctx, &helmengine.VerifyOptions{

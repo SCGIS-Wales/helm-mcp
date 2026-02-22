@@ -24,6 +24,10 @@ var RepoTool = &mcp.Tool{
 }
 
 func HandleRepo(ctx context.Context, req *mcp.CallToolRequest, input RepoInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.SearchRepo(ctx, &helmengine.SearchRepoOptions{

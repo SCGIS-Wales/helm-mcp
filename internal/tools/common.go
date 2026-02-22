@@ -3,6 +3,8 @@ package tools
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
 	v3 "github.com/ssddgreg/helm-mcp/internal/helmengine/v3"
@@ -11,6 +13,16 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// sensitivePrefixes lists path prefixes that should never be accepted as kubeconfig.
+var sensitivePrefixes = []string{
+	"/etc/shadow",
+	"/etc/passwd",
+	"/etc/master.passwd",
+	"/proc/",
+	"/dev/",
+	"/sys/",
+}
 
 // GlobalInput is embedded in every tool input struct to provide shared fields.
 type GlobalInput struct {
@@ -95,6 +107,23 @@ func ValidateGlobalInput(g *GlobalInput) error {
 	}
 	if err := security.ValidatePath(g.KubeConfig); err != nil {
 		return err
+	}
+	if err := validateNotSensitivePath(g.KubeConfig); err != nil {
+		return err
+	}
+	return nil
+}
+
+// validateNotSensitivePath rejects paths targeting sensitive system files.
+func validateNotSensitivePath(path string) error {
+	if path == "" {
+		return nil
+	}
+	cleaned := filepath.Clean(path)
+	for _, prefix := range sensitivePrefixes {
+		if strings.HasPrefix(cleaned, prefix) {
+			return fmt.Errorf("path %q targets a sensitive system location", path)
+		}
 	}
 	return nil
 }

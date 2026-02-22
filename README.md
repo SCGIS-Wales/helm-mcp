@@ -548,13 +548,16 @@ All error messages are automatically scrubbed to remove:
 
 ### Input Validation
 
+Every tool handler calls `ValidateGlobalInput` before executing, ensuring namespace and kubeconfig fields are validated on every request.
+
 The security package provides validators for:
 - Release names (DNS-1123 compliant)
 - Namespace names
-- Kubeconfig file paths (path traversal prevention, symlink detection)
-- URLs (scheme validation)
+- Kubeconfig file paths (path traversal prevention, symlink detection, sensitive path rejection — `/etc/shadow`, `/proc/`, `/dev/`, `/sys/` are blocked)
+- URLs (scheme validation + **SSRF protection**: DNS resolution with private IP blocking for `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, and IPv6 loopback/link-local ranges)
 - File paths (traversal prevention)
 - Timeout durations (max 24h)
+- Plugin names (alphanumeric + dashes/underscores, no leading dash to prevent argument injection)
 
 ### File Permissions
 

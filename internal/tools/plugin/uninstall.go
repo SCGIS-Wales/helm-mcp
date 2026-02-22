@@ -21,6 +21,9 @@ var UninstallTool = &mcp.Tool{
 }
 
 func HandleUninstall(ctx context.Context, req *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 	if err := security.ValidatePluginName(input.Name); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

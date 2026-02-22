@@ -20,6 +20,10 @@ var RemoveTool = &mcp.Tool{
 }
 
 func HandleRemove(ctx context.Context, req *mcp.CallToolRequest, input RemoveInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	err := engine.RepoRemove(ctx, &helmengine.RepoRemoveOptions{

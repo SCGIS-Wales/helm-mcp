@@ -27,6 +27,10 @@ var PackageTool = &mcp.Tool{
 }
 
 func HandlePackage(ctx context.Context, req *mcp.CallToolRequest, input PackageInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.Package(ctx, &helmengine.PackageOptions{

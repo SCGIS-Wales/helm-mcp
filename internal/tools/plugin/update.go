@@ -21,6 +21,9 @@ var UpdateTool = &mcp.Tool{
 }
 
 func HandleUpdate(ctx context.Context, req *mcp.CallToolRequest, input UpdateInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 	if err := security.ValidatePluginName(input.Name); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

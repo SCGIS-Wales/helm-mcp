@@ -23,6 +23,10 @@ var DependencyBuildTool = &mcp.Tool{
 }
 
 func HandleDependencyBuild(ctx context.Context, req *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -46,6 +50,10 @@ type DependencyListInput struct {
 }
 
 func HandleDependencyList(ctx context.Context, req *mcp.CallToolRequest, input DependencyListInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
@@ -66,6 +74,10 @@ var DependencyUpdateTool = &mcp.Tool{
 }
 
 func HandleDependencyUpdate(ctx context.Context, req *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()

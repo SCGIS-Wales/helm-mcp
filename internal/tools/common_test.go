@@ -258,3 +258,33 @@ func TestTextResult_MarshalError(t *testing.T) {
 		t.Error("expected IsError=false even with marshal error")
 	}
 }
+
+func TestValidateGlobalInput(t *testing.T) {
+	tests := []struct {
+		desc    string
+		input   GlobalInput
+		wantErr bool
+	}{
+		{"empty is valid", GlobalInput{}, false},
+		{"valid namespace", GlobalInput{Namespace: "production"}, false},
+		{"valid kubeconfig", GlobalInput{KubeConfig: "/home/user/.kube/config"}, false},
+		{"invalid namespace", GlobalInput{Namespace: "INVALID"}, true},
+		{"path traversal", GlobalInput{KubeConfig: "/tmp/../etc/shadow"}, true},
+		// Sensitive path rejection
+		{"etc shadow", GlobalInput{KubeConfig: "/etc/shadow"}, true},
+		{"etc passwd", GlobalInput{KubeConfig: "/etc/passwd"}, true},
+		{"proc path", GlobalInput{KubeConfig: "/proc/self/environ"}, true},
+		{"dev path", GlobalInput{KubeConfig: "/dev/null"}, true},
+		{"sys path", GlobalInput{KubeConfig: "/sys/class/net"}, true},
+		{"master.passwd", GlobalInput{KubeConfig: "/etc/master.passwd"}, true},
+	}
+	for _, tt := range tests {
+		err := ValidateGlobalInput(&tt.input)
+		if tt.wantErr && err == nil {
+			t.Errorf("[%s] expected error", tt.desc)
+		}
+		if !tt.wantErr && err != nil {
+			t.Errorf("[%s] unexpected error: %v", tt.desc, err)
+		}
+	}
+}
