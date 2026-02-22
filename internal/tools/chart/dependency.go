@@ -25,6 +25,7 @@ var DependencyBuildTool = &mcp.Tool{
 func HandleDependencyBuild(ctx context.Context, req *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	err := engine.DependencyBuild(ctx, cfg, toDependencyOpts(&input))
 	if err != nil {
@@ -47,6 +48,7 @@ type DependencyListInput struct {
 func HandleDependencyList(ctx context.Context, req *mcp.CallToolRequest, input DependencyListInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.DependencyList(ctx, cfg, &helmengine.DependencyOptions{
 		ChartPath: input.ChartPath,
@@ -66,6 +68,7 @@ var DependencyUpdateTool = &mcp.Tool{
 func HandleDependencyUpdate(ctx context.Context, req *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	err := engine.DependencyUpdate(ctx, cfg, toDependencyOpts(&input))
 	if err != nil {

@@ -25,6 +25,7 @@ var GetAllTool = &mcp.Tool{
 func HandleGetAll(ctx context.Context, req *mcp.CallToolRequest, input GetAllInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.GetAll(ctx, cfg, &helmengine.GetOptions{
 		ReleaseName: input.ReleaseName,
@@ -53,6 +54,7 @@ var GetHooksTool = &mcp.Tool{
 func HandleGetHooks(ctx context.Context, req *mcp.CallToolRequest, input GetHooksInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.GetHooks(ctx, cfg, &helmengine.GetOptions{
 		ReleaseName: input.ReleaseName,
@@ -81,6 +83,7 @@ var GetManifestTool = &mcp.Tool{
 func HandleGetManifest(ctx context.Context, req *mcp.CallToolRequest, input GetManifestInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.GetManifest(ctx, cfg, &helmengine.GetOptions{
 		ReleaseName: input.ReleaseName,
@@ -109,6 +112,7 @@ var GetMetadataTool = &mcp.Tool{
 func HandleGetMetadata(ctx context.Context, req *mcp.CallToolRequest, input GetMetadataInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.GetMetadata(ctx, cfg, &helmengine.GetOptions{
 		ReleaseName: input.ReleaseName,
@@ -137,6 +141,7 @@ var GetNotesTool = &mcp.Tool{
 func HandleGetNotes(ctx context.Context, req *mcp.CallToolRequest, input GetNotesInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.GetNotes(ctx, cfg, &helmengine.GetOptions{
 		ReleaseName: input.ReleaseName,
@@ -166,6 +171,7 @@ var GetValuesTool = &mcp.Tool{
 func HandleGetValues(ctx context.Context, req *mcp.CallToolRequest, input GetValuesInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.GetValues(ctx, cfg, &helmengine.GetValuesOptions{
 		ReleaseName: input.ReleaseName,

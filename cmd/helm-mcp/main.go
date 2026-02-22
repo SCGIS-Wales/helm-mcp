@@ -14,6 +14,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ssddgreg/helm-mcp/internal/security"
 	"github.com/ssddgreg/helm-mcp/internal/server"
 )
 
@@ -25,6 +26,7 @@ func main() {
 	addr := flag.String("addr", ":8080", "Listen address for http/sse mode")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	debug := flag.Bool("debug", false, "Enable debug logging")
+	noHarden := flag.Bool("no-harden", false, "Disable process security hardening (for debugging)")
 	flag.Parse()
 
 	if *showVersion {
@@ -39,6 +41,19 @@ func main() {
 	} else {
 		log.SetOutput(os.Stderr)
 		log.Printf("debug logging enabled (version=%s, mode=%s)", version, *mode)
+	}
+
+	// Apply process security hardening (Linux: PR_SET_DUMPABLE, capability dropping).
+	// This must happen early, before any sensitive data is loaded.
+	hardenResult := security.ApplyHardening(security.HardenOptions{
+		DisableAll: *noHarden,
+		Debug:      *debug,
+	})
+	if *debug {
+		log.Printf("security hardening: %s", hardenResult.String())
+		for _, e := range hardenResult.Errors {
+			log.Printf("security hardening error: %s", e)
+		}
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())

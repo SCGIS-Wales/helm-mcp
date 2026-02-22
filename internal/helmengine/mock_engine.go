@@ -68,6 +68,16 @@ type MockEngine struct {
 	LastConfig          *GlobalConfig
 }
 
+// copyConfig creates a shallow copy of a GlobalConfig so that
+// credential zeroing in handlers does not affect test assertions.
+func copyConfig(cfg *GlobalConfig) *GlobalConfig {
+	if cfg == nil {
+		return nil
+	}
+	cp := *cfg
+	return &cp
+}
+
 const defaultMockAppVersion = "1.25.0"
 
 // DefaultRelease returns a standard test release.
@@ -86,7 +96,7 @@ func DefaultRelease() *ReleaseInfo {
 
 func (m *MockEngine) Install(ctx context.Context, cfg *GlobalConfig, opts *InstallOptions) (*ReleaseInfo, error) {
 	m.LastInstallOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.InstallFn != nil {
 		return m.InstallFn(ctx, cfg, opts)
 	}
@@ -95,7 +105,7 @@ func (m *MockEngine) Install(ctx context.Context, cfg *GlobalConfig, opts *Insta
 
 func (m *MockEngine) Upgrade(ctx context.Context, cfg *GlobalConfig, opts *UpgradeOptions) (*ReleaseInfo, error) {
 	m.LastUpgradeOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.UpgradeFn != nil {
 		return m.UpgradeFn(ctx, cfg, opts)
 	}
@@ -106,7 +116,7 @@ func (m *MockEngine) Upgrade(ctx context.Context, cfg *GlobalConfig, opts *Upgra
 
 func (m *MockEngine) Uninstall(ctx context.Context, cfg *GlobalConfig, opts *UninstallOptions) (*UninstallResult, error) {
 	m.LastUninstallOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.UninstallFn != nil {
 		return m.UninstallFn(ctx, cfg, opts)
 	}
@@ -115,7 +125,7 @@ func (m *MockEngine) Uninstall(ctx context.Context, cfg *GlobalConfig, opts *Uni
 
 func (m *MockEngine) Rollback(ctx context.Context, cfg *GlobalConfig, opts *RollbackOptions) error {
 	m.LastRollbackOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.RollbackFn != nil {
 		return m.RollbackFn(ctx, cfg, opts)
 	}
@@ -124,7 +134,7 @@ func (m *MockEngine) Rollback(ctx context.Context, cfg *GlobalConfig, opts *Roll
 
 func (m *MockEngine) List(ctx context.Context, cfg *GlobalConfig, opts *ListOptions) ([]*ReleaseInfo, error) {
 	m.LastListOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.ListFn != nil {
 		return m.ListFn(ctx, cfg, opts)
 	}
@@ -133,7 +143,7 @@ func (m *MockEngine) List(ctx context.Context, cfg *GlobalConfig, opts *ListOpti
 
 func (m *MockEngine) Status(ctx context.Context, cfg *GlobalConfig, opts *StatusOptions) (*ReleaseInfo, error) {
 	m.LastStatusOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.StatusFn != nil {
 		return m.StatusFn(ctx, cfg, opts)
 	}
@@ -142,7 +152,7 @@ func (m *MockEngine) Status(ctx context.Context, cfg *GlobalConfig, opts *Status
 
 func (m *MockEngine) History(ctx context.Context, cfg *GlobalConfig, opts *HistoryOptions) ([]*ReleaseInfo, error) {
 	m.LastHistoryOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.HistoryFn != nil {
 		return m.HistoryFn(ctx, cfg, opts)
 	}
@@ -155,7 +165,7 @@ func (m *MockEngine) History(ctx context.Context, cfg *GlobalConfig, opts *Histo
 
 func (m *MockEngine) Test(ctx context.Context, cfg *GlobalConfig, opts *TestOptions) (*ReleaseInfo, error) {
 	m.LastTestOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.TestFn != nil {
 		return m.TestFn(ctx, cfg, opts)
 	}
@@ -164,7 +174,7 @@ func (m *MockEngine) Test(ctx context.Context, cfg *GlobalConfig, opts *TestOpti
 
 func (m *MockEngine) GetAll(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (*ReleaseDetail, error) {
 	m.LastGetOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.GetAllFn != nil {
 		return m.GetAllFn(ctx, cfg, opts)
 	}
@@ -179,7 +189,7 @@ func (m *MockEngine) GetAll(ctx context.Context, cfg *GlobalConfig, opts *GetOpt
 
 func (m *MockEngine) GetValues(ctx context.Context, cfg *GlobalConfig, opts *GetValuesOptions) (map[string]interface{}, error) {
 	m.LastGetValuesOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.GetValuesFn != nil {
 		return m.GetValuesFn(ctx, cfg, opts)
 	}
@@ -188,7 +198,7 @@ func (m *MockEngine) GetValues(ctx context.Context, cfg *GlobalConfig, opts *Get
 
 func (m *MockEngine) GetMetadata(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (*MetadataInfo, error) {
 	m.LastGetOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.GetMetadataFn != nil {
 		return m.GetMetadataFn(ctx, cfg, opts)
 	}
@@ -206,7 +216,7 @@ func (m *MockEngine) GetMetadata(ctx context.Context, cfg *GlobalConfig, opts *G
 
 func (m *MockEngine) GetManifest(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error) {
 	m.LastGetOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.GetManifestFn != nil {
 		return m.GetManifestFn(ctx, cfg, opts)
 	}
@@ -215,7 +225,7 @@ func (m *MockEngine) GetManifest(ctx context.Context, cfg *GlobalConfig, opts *G
 
 func (m *MockEngine) GetHooks(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error) {
 	m.LastGetOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.GetHooksFn != nil {
 		return m.GetHooksFn(ctx, cfg, opts)
 	}
@@ -224,7 +234,7 @@ func (m *MockEngine) GetHooks(ctx context.Context, cfg *GlobalConfig, opts *GetO
 
 func (m *MockEngine) GetNotes(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error) {
 	m.LastGetOpts = opts
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.GetNotesFn != nil {
 		return m.GetNotesFn(ctx, cfg, opts)
 	}
@@ -246,7 +256,7 @@ func (m *MockEngine) Lint(ctx context.Context, opts *LintOptions) (*LintResult, 
 }
 
 func (m *MockEngine) Template(ctx context.Context, cfg *GlobalConfig, opts *TemplateOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.TemplateFn != nil {
 		return m.TemplateFn(ctx, cfg, opts)
 	}
@@ -261,7 +271,7 @@ func (m *MockEngine) Package(ctx context.Context, opts *PackageOptions) (string,
 }
 
 func (m *MockEngine) Pull(ctx context.Context, cfg *GlobalConfig, opts *PullOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.PullFn != nil {
 		return m.PullFn(ctx, cfg, opts)
 	}
@@ -269,7 +279,7 @@ func (m *MockEngine) Pull(ctx context.Context, cfg *GlobalConfig, opts *PullOpti
 }
 
 func (m *MockEngine) Push(ctx context.Context, cfg *GlobalConfig, opts *PushOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.PushFn != nil {
 		return m.PushFn(ctx, cfg, opts)
 	}
@@ -284,7 +294,7 @@ func (m *MockEngine) Verify(ctx context.Context, opts *VerifyOptions) (string, e
 }
 
 func (m *MockEngine) ShowAll(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.ShowAllFn != nil {
 		return m.ShowAllFn(ctx, cfg, opts)
 	}
@@ -292,7 +302,7 @@ func (m *MockEngine) ShowAll(ctx context.Context, cfg *GlobalConfig, opts *ShowO
 }
 
 func (m *MockEngine) ShowChart(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.ShowChartFn != nil {
 		return m.ShowChartFn(ctx, cfg, opts)
 	}
@@ -300,7 +310,7 @@ func (m *MockEngine) ShowChart(ctx context.Context, cfg *GlobalConfig, opts *Sho
 }
 
 func (m *MockEngine) ShowValues(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.ShowValuesFn != nil {
 		return m.ShowValuesFn(ctx, cfg, opts)
 	}
@@ -308,7 +318,7 @@ func (m *MockEngine) ShowValues(ctx context.Context, cfg *GlobalConfig, opts *Sh
 }
 
 func (m *MockEngine) ShowReadme(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.ShowReadmeFn != nil {
 		return m.ShowReadmeFn(ctx, cfg, opts)
 	}
@@ -316,7 +326,7 @@ func (m *MockEngine) ShowReadme(ctx context.Context, cfg *GlobalConfig, opts *Sh
 }
 
 func (m *MockEngine) ShowCRDs(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.ShowCRDsFn != nil {
 		return m.ShowCRDsFn(ctx, cfg, opts)
 	}
@@ -324,7 +334,7 @@ func (m *MockEngine) ShowCRDs(ctx context.Context, cfg *GlobalConfig, opts *Show
 }
 
 func (m *MockEngine) DependencyBuild(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) error {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.DependencyBuildFn != nil {
 		return m.DependencyBuildFn(ctx, cfg, opts)
 	}
@@ -332,7 +342,7 @@ func (m *MockEngine) DependencyBuild(ctx context.Context, cfg *GlobalConfig, opt
 }
 
 func (m *MockEngine) DependencyList(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) (string, error) {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.DependencyListFn != nil {
 		return m.DependencyListFn(ctx, cfg, opts)
 	}
@@ -340,7 +350,7 @@ func (m *MockEngine) DependencyList(ctx context.Context, cfg *GlobalConfig, opts
 }
 
 func (m *MockEngine) DependencyUpdate(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) error {
-	m.LastConfig = cfg
+	m.LastConfig = copyConfig(cfg)
 	if m.DependencyUpdateFn != nil {
 		return m.DependencyUpdateFn(ctx, cfg, opts)
 	}

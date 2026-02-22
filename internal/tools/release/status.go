@@ -24,6 +24,7 @@ var StatusTool = &mcp.Tool{
 func HandleStatus(ctx context.Context, req *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.Status(ctx, cfg, &helmengine.StatusOptions{
 		ReleaseName:   input.ReleaseName,

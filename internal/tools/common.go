@@ -27,6 +27,15 @@ type GlobalInput struct {
 	QPS               float32 `json:"qps,omitempty" jsonschema_description:"Client-side QPS rate limit"`
 }
 
+// ZeroSensitiveFields zeroes credential fields in the input after use.
+// Call via defer to reduce the credential lifetime in memory.
+func (g *GlobalInput) ZeroSensitiveFields() {
+	if g == nil {
+		return
+	}
+	g.KubeBearerToken = ""
+}
+
 // ToGlobalConfig converts GlobalInput to a helmengine.GlobalConfig.
 func (g *GlobalInput) ToGlobalConfig() *helmengine.GlobalConfig {
 	return &helmengine.GlobalConfig{

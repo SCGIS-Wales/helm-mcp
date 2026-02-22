@@ -46,6 +46,7 @@ var UpgradeTool = &mcp.Tool{
 func HandleUpgrade(ctx context.Context, req *mcp.CallToolRequest, input UpgradeInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.Upgrade(ctx, cfg, &helmengine.UpgradeOptions{
 		ReleaseName:          input.ReleaseName,

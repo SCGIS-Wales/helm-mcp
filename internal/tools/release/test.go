@@ -24,6 +24,7 @@ var TestTool = &mcp.Tool{
 func HandleTest(ctx context.Context, req *mcp.CallToolRequest, input TestInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.Test(ctx, cfg, &helmengine.TestOptions{
 		ReleaseName: input.ReleaseName,
