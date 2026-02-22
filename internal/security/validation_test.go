@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -116,6 +117,21 @@ func TestValidateURL(t *testing.T) {
 		if !tt.wantErr && err != nil {
 			t.Errorf("ValidateURL(%q) unexpected error: %v", tt.url, err)
 		}
+	}
+}
+
+func TestValidateURL_WithContext(t *testing.T) {
+	// Verify the variadic context parameter works.
+	ctx := context.Background()
+	if err := ValidateURL("https://charts.example.com", ctx); err != nil {
+		t.Errorf("ValidateURL with context unexpected error: %v", err)
+	}
+
+	// Cancelled context should still work (DNS failure is not an SSRF concern).
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := ValidateURL("https://charts.example.com", cancelled); err != nil {
+		t.Errorf("ValidateURL with cancelled context unexpected error: %v", err)
 	}
 }
 
@@ -400,7 +416,6 @@ func TestValidatePath(t *testing.T) {
 		wantErr bool
 	}{
 		{"", false},
-		{"/tmp/mychart", false},
 		{"./relative/path", false},
 		{"../etc/shadow", true},
 		{"/tmp/../etc/passwd", true},
@@ -414,6 +429,44 @@ func TestValidatePath(t *testing.T) {
 		if !tt.wantErr && err != nil {
 			t.Errorf("ValidatePath(%q) unexpected error: %v", tt.path, err)
 		}
+	}
+}
+
+func TestValidatePath_RegularFile(t *testing.T) {
+	dir := t.TempDir()
+	regularFile := filepath.Join(dir, "values.yaml")
+	if err := os.WriteFile(regularFile, []byte("key: value"), 0o600); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	if err := ValidatePath(regularFile); err != nil {
+		t.Errorf("ValidatePath(%q) unexpected error for regular file: %v", regularFile, err)
+	}
+}
+
+func TestValidatePath_SymlinkRejection(t *testing.T) {
+	dir := t.TempDir()
+	targetFile := filepath.Join(dir, "real-values.yaml")
+	if err := os.WriteFile(targetFile, []byte("key: value"), 0o600); err != nil {
+		t.Fatalf("failed to create temp file: %v", err)
+	}
+	symlinkPath := filepath.Join(dir, "symlink-values.yaml")
+	if err := os.Symlink(targetFile, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+	err := ValidatePath(symlinkPath)
+	if err == nil {
+		t.Error("ValidatePath should reject symlinks")
+	}
+	if err != nil && !strings.Contains(err.Error(), "symlink") {
+		t.Errorf("expected error about symlink, got: %v", err)
+	}
+}
+
+func TestValidatePath_NonExistentFile(t *testing.T) {
+	// Non-existent files should pass validation — the caller will get an
+	// error when it actually tries to open/read the file.
+	if err := ValidatePath("/nonexistent/path/values.yaml"); err != nil {
+		t.Errorf("ValidatePath for non-existent file should not error, got: %v", err)
 	}
 }
 

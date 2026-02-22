@@ -246,6 +246,8 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		client.DryRunStrategy = action.DryRunServer
 	case "none", "":
 		client.DryRunStrategy = action.DryRunNone
+	default:
+		return nil, fmt.Errorf("invalid dry_run value: %s (valid: none, client, server)", opts.DryRun)
 	}
 
 	if opts.Version != "" {
@@ -597,6 +599,14 @@ func (e *V4Engine) GetNotes(_ context.Context, cfg *helmengine.GlobalConfig, opt
 }
 
 func mergeValues(inline map[string]interface{}, valuesFiles []string, settings *cli.EnvSettings) (map[string]interface{}, error) {
+	// Validate that values files actually exist before passing them to the
+	// Helm SDK, which produces opaque errors for missing files.
+	for _, f := range valuesFiles {
+		if _, err := os.Stat(f); err != nil {
+			return nil, fmt.Errorf("values file %q: %w", f, err)
+		}
+	}
+
 	providers := getter.All(settings)
 	valueOpts := &values.Options{
 		ValueFiles: valuesFiles,
