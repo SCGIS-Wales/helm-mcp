@@ -18,6 +18,10 @@ var EnvTool = &mcp.Tool{
 }
 
 func HandleEnv(ctx context.Context, req *mcp.CallToolRequest, input EnvInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.Env(ctx)

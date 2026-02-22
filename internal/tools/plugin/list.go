@@ -18,6 +18,10 @@ var ListTool = &mcp.Tool{
 }
 
 func HandleList(ctx context.Context, req *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.PluginList(ctx)

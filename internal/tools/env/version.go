@@ -19,6 +19,10 @@ var VersionTool = &mcp.Tool{
 }
 
 func HandleVersion(ctx context.Context, req *mcp.CallToolRequest, input VersionInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.Version(ctx)

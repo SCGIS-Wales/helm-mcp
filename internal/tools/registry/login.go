@@ -24,6 +24,10 @@ var LoginTool = &mcp.Tool{
 }
 
 func HandleLogin(ctx context.Context, req *mcp.CallToolRequest, input LoginInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 	defer input.ZeroBearerToken()
 

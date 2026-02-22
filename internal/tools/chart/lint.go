@@ -25,6 +25,10 @@ var LintTool = &mcp.Tool{
 }
 
 func HandleLint(ctx context.Context, req *mcp.CallToolRequest, input LintInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.Lint(ctx, &helmengine.LintOptions{

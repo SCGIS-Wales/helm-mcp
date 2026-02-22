@@ -67,6 +67,13 @@ func releaserToInfo(rel release.Releaser) *helmengine.ReleaseInfo {
 var parseDuration = helmengine.ParseDuration
 
 func (e *V4Engine) List(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ListOptions) ([]*helmengine.ReleaseInfo, error) {
+	// When AllNamespaces is requested, clear namespace so the SDK doesn't filter by it.
+	if opts.AllNamespaces {
+		cfgCopy := *cfg
+		cfgCopy.Namespace = ""
+		cfg = &cfgCopy
+	}
+
 	actionConfig, _, err := newActionConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -134,9 +141,8 @@ func (e *V4Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.ForceConflicts = opts.ForceConflicts
 	client.HideSecret = opts.HideSecret
 
-	if opts.Wait {
-		client.WaitStrategy = kube.StatusWatcherStrategy
-	}
+	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
+	client.WaitStrategy = kube.StatusWatcherStrategy
 	if opts.WaitForJobs {
 		client.WaitForJobs = true
 	}
@@ -212,9 +218,8 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.ForceConflicts = opts.ForceConflicts
 	client.HideSecret = opts.HideSecret
 
-	if opts.Wait {
-		client.WaitStrategy = kube.StatusWatcherStrategy
-	}
+	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
+	client.WaitStrategy = kube.StatusWatcherStrategy
 	if opts.WaitForJobs {
 		client.WaitForJobs = true
 	}

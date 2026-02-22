@@ -57,6 +57,13 @@ func releaseToInfo(rel *release.Release) *helmengine.ReleaseInfo {
 var parseDuration = helmengine.ParseDuration
 
 func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ListOptions) ([]*helmengine.ReleaseInfo, error) {
+	// When AllNamespaces is requested, clear namespace so the SDK doesn't filter by it.
+	if opts.AllNamespaces {
+		cfgCopy := *cfg
+		cfgCopy.Namespace = ""
+		cfg = &cfgCopy
+	}
+
 	actionConfig, _, err := newActionConfig(cfg)
 	if err != nil {
 		return nil, err

@@ -89,13 +89,23 @@ func TestValidateURL(t *testing.T) {
 		wantErr bool
 	}{
 		{"https://charts.example.com", false},
-		{"http://localhost:8080", false},
 		{"oci://registry.example.com/charts", false},
 		// Invalid
 		{"", true},
 		{"ftp://invalid.com", true},
 		{"not-a-url", true},
 		{"file:///etc/passwd", true},
+		// SSRF: localhost blocked
+		{"http://localhost:8080", true},
+		{"https://localhost/path", true},
+		{"oci://localhost/charts", true},
+		// SSRF: private IPs blocked
+		{"http://127.0.0.1:8080", true},
+		{"http://10.0.0.1/repo", true},
+		{"http://172.16.0.1/repo", true},
+		{"http://192.168.1.1/repo", true},
+		{"http://169.254.169.254/latest/meta-data", true}, // AWS IMDS
+		{"http://[::1]/repo", true},                       // IPv6 loopback
 	}
 
 	for _, tt := range tests {

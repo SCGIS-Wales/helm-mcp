@@ -4,6 +4,8 @@ package security
 
 import (
 	"fmt"
+	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -26,6 +28,40 @@ var (
 	scrubBasicAuthPattern   = regexp.MustCompile(`(?i)(basic\s+)[^\s"']+`)
 	scrubURLPasswordPattern = regexp.MustCompile(`://[^:]+:[^@]+@`)
 )
+
+// privateIPNets contains CIDR ranges considered private/internal.
+// Used by ValidateURL to block SSRF attempts.
+var privateIPNets []*net.IPNet
+
+func init() {
+	cidrs := []string{
+		"127.0.0.0/8",    // loopback
+		"10.0.0.0/8",     // RFC 1918
+		"172.16.0.0/12",  // RFC 1918
+		"192.168.0.0/16", // RFC 1918
+		"169.254.0.0/16", // link-local
+		"::1/128",        // IPv6 loopback
+		"fe80::/10",      // IPv6 link-local
+		"fc00::/7",       // IPv6 unique-local
+	}
+	for _, cidr := range cidrs {
+		_, ipNet, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic("invalid CIDR in privateIPNets: " + cidr)
+		}
+		privateIPNets = append(privateIPNets, ipNet)
+	}
+}
+
+// isPrivateIP checks whether an IP address falls within a private/internal range.
+func isPrivateIP(ip net.IP) bool {
+	for _, ipNet := range privateIPNets {
+		if ipNet.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
 
 // maxNameLength is the maximum length for release names.
 const maxNameLength = 253
@@ -95,7 +131,7 @@ func ValidateKubeConfig(path string) error {
 	return nil
 }
 
-// ValidateURL performs basic URL validation.
+// ValidateURL validates a URL and blocks SSRF attempts targeting private/internal networks.
 func ValidateURL(u string) error {
 	if u == "" {
 		return fmt.Errorf("URL is required")
@@ -105,6 +141,49 @@ func ValidateURL(u string) error {
 		!strings.HasPrefix(u, "oci://") {
 		return fmt.Errorf("URL %q must start with https://, http://, or oci://", u)
 	}
+
+	// Swap oci:// to https:// for net/url parsing (oci isn't a standard scheme).
+	parseURL := u
+	if strings.HasPrefix(u, "oci://") {
+		parseURL = "https://" + strings.TrimPrefix(u, "oci://")
+	}
+
+	parsed, err := url.Parse(parseURL)
+	if err != nil {
+		return fmt.Errorf("URL %q is malformed: %w", u, err)
+	}
+
+	hostname := parsed.Hostname()
+	if hostname == "" {
+		return fmt.Errorf("URL %q has no hostname", u)
+	}
+
+	// Block literal "localhost"
+	if strings.EqualFold(hostname, "localhost") {
+		return fmt.Errorf("URL %q targets localhost, which is not allowed", u)
+	}
+
+	// If hostname is a literal IP address, check immediately.
+	if ip := net.ParseIP(hostname); ip != nil {
+		if isPrivateIP(ip) {
+			return fmt.Errorf("URL %q resolves to a private IP address", u)
+		}
+		return nil
+	}
+
+	// Resolve hostname and check all returned IPs.
+	// On DNS failure we pass through — let the Helm SDK handle the actual connection error.
+	addrs, err := net.LookupHost(hostname)
+	if err != nil {
+		return nil // DNS failure is not an SSRF concern; let Helm handle it
+	}
+	for _, addr := range addrs {
+		ip := net.ParseIP(addr)
+		if ip != nil && isPrivateIP(ip) {
+			return fmt.Errorf("URL %q resolves to a private IP address", u)
+		}
+	}
+
 	return nil
 }
 

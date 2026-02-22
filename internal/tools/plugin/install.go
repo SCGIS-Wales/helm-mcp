@@ -23,6 +23,9 @@ var InstallTool = &mcp.Tool{
 }
 
 func HandleInstall(ctx context.Context, req *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 	// Validate URL or path
 	if strings.Contains(input.URLOrPath, "://") {
 		if err := security.ValidateURL(input.URLOrPath); err != nil {
