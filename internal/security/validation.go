@@ -3,6 +3,7 @@
 package security
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -173,7 +174,7 @@ func ValidateURL(u string) error {
 
 	// Resolve hostname and check all returned IPs.
 	// On DNS failure we pass through — let the Helm SDK handle the actual connection error.
-	addrs, err := net.LookupHost(hostname)
+	addrs, err := net.DefaultResolver.LookupHost(context.Background(), hostname)
 	if err != nil {
 		return nil // DNS failure is not an SSRF concern; let Helm handle it
 	}
