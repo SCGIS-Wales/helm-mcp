@@ -34,6 +34,7 @@ var TemplateTool = &mcp.Tool{
 func HandleTemplate(ctx context.Context, req *mcp.CallToolRequest, input TemplateInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.Template(ctx, cfg, &helmengine.TemplateOptions{
 		ReleaseName:      input.ReleaseName,

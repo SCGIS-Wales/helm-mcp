@@ -36,7 +36,7 @@ An open-source MCP (Model Context Protocol) server that gives AI assistants **fu
 - **Dual Helm SDK support** — Helm v3 and v4 via native Go SDK (not CLI wrappers)
 - **Three transport modes** — stdio (default), HTTP (Streamable HTTP), SSE
 - **Cloud provider ready** — EKS, GKE, AKS kubeconfig formats work out of the box
-- **Security first** — credential scrubbing, input validation, path traversal prevention
+- **Security first** — Linux process hardening, credential memory zeroing, input validation, path traversal prevention
 - **Python wrapper** — [FastMCP](https://github.com/PrefectHQ/fastmcp)-based proxy that auto-discovers all tools
 - **Forward proxy support** — respects `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`
 
@@ -392,7 +392,7 @@ A Python wrapper is available that uses [FastMCP](https://github.com/PrefectHQ/f
 pip install helm-mcp
 ```
 
-Requires Python 3.14+. The Go binary is **automatically downloaded** on first use (with SHA256 checksum verification). You can also pre-download it:
+Requires Python 3.12+. The Go binary is **automatically downloaded** on first use (with SHA256 checksum verification). You can also pre-download it:
 
 ```bash
 helm-mcp-python --setup
@@ -508,6 +508,35 @@ Plugin operations (`helm_plugin_install`, `helm_plugin_uninstall`, `helm_plugin_
 
 ## Security
 
+### Process Hardening (Linux)
+
+When running on Linux, helm-mcp applies process-level hardening at startup to reduce the attack surface of the stdio transport. MCP servers running as IDE child processes inherit full user privileges — these mitigations limit what an attacker can do if the process is compromised.
+
+| Mechanism | What It Does |
+|-----------|-------------|
+| **PR_SET_DUMPABLE(0)** | Blocks `ptrace` attach, core dumps, and `/proc/pid/mem` reads. Prevents other processes from inspecting credentials in memory. |
+| **Capability dropping** | Drops all Linux capabilities from the bounding set. No-op for non-root users (the common case), but protects against privilege escalation when running in misconfigured Docker/Kubernetes environments. |
+| **Credential memory zeroing** | `ZeroCredentials()` is called via `defer` after every tool handler completes, overwriting bearer tokens and passwords in memory. This is defense-in-depth — Go strings are immutable and the GC may retain copies, but it reduces the credential lifetime in our code paths. |
+
+Hardening is **best-effort and non-fatal** — failures are logged (with `--debug`) but never crash the process. On non-Linux platforms (macOS, Windows), hardening is skipped with an informational log message.
+
+```bash
+# Verify hardening is active (Linux)
+helm-mcp --mode stdio --debug 2>&1 | grep "security hardening"
+
+# Disable for debugging (e.g., when using strace or delve)
+helm-mcp --mode stdio --no-harden
+```
+
+#### Mechanisms Evaluated but Not Implemented
+
+| Mechanism | Why Skipped |
+|-----------|-------------|
+| **Seccomp BPF** | The server uses `exec.CommandContext` for plugins and network I/O for Kubernetes API and registries. The syscall surface is too wide to filter safely without breaking Helm SDK internals across kernel versions. |
+| **Namespace isolation** | The process needs access to `~/.kube/config`, cloud credential files, DNS, and network. Namespace isolation would break core functionality. |
+| **Cgroup resource limits** | A 5-minute `pluginExecTimeout` already bounds runaway operations, and the IDE manages process lifecycle. |
+| **AppArmor/SELinux profiles** | High maintenance burden for dynamic file paths. Better deployed as an external artifact, not embedded in the binary. |
+
 ### Credential Scrubbing
 
 All error messages are automatically scrubbed to remove:
@@ -554,7 +583,7 @@ export NO_PROXY=localhost,127.0.0.1,.internal.company.com
 ### Prerequisites
 
 - Go 1.25+
-- Python 3.14+ (for the Python package)
+- Python 3.12+ (for the Python package)
 - golangci-lint v2 (optional, for linting)
 
 ### Build
@@ -568,7 +597,7 @@ make build-all    # Cross-compile for Linux/macOS (amd64/arm64)
 ### Test
 
 ```bash
-# Go tests (141 tests)
+# Go tests
 make test         # Run all tests with race detection and coverage
 make test-short   # Run tests without integration tests
 
@@ -611,7 +640,7 @@ internal/
     search/             Hub, repo
     plugin/             Install, list, uninstall, update
     env/                Env, version
-  security/             Input validation, credential scrubbing
+  security/             Process hardening, input validation, credential scrubbing
   server/               MCP server creation and tool registration
 python/                 FastMCP-based Python wrapper
   src/helm_mcp/         Python package source

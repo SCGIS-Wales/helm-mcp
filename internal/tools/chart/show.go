@@ -26,6 +26,7 @@ var ShowAllTool = &mcp.Tool{
 func HandleShowAll(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 	result, err := engine.ShowAll(ctx, cfg, toShowOpts(&input))
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
@@ -41,6 +42,7 @@ var ShowChartTool = &mcp.Tool{
 func HandleShowChart(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 	result, err := engine.ShowChart(ctx, cfg, toShowOpts(&input))
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
@@ -56,6 +58,7 @@ var ShowCRDsTool = &mcp.Tool{
 func HandleShowCRDs(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 	result, err := engine.ShowCRDs(ctx, cfg, toShowOpts(&input))
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
@@ -71,6 +74,7 @@ var ShowReadmeTool = &mcp.Tool{
 func HandleShowReadme(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 	result, err := engine.ShowReadme(ctx, cfg, toShowOpts(&input))
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
@@ -86,6 +90,7 @@ var ShowValuesTool = &mcp.Tool{
 func HandleShowValues(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 	result, err := engine.ShowValues(ctx, cfg, toShowOpts(&input))
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

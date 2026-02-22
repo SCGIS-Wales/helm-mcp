@@ -27,6 +27,7 @@ var AddTool = &mcp.Tool{
 
 func HandleAdd(ctx context.Context, req *mcp.CallToolRequest, input AddInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
+	defer input.ZeroSensitiveFields()
 
 	err := engine.RepoAdd(ctx, &helmengine.RepoAddOptions{
 		Name:                  input.Name,

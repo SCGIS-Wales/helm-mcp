@@ -23,6 +23,7 @@ var HistoryTool = &mcp.Tool{
 func HandleHistory(ctx context.Context, req *mcp.CallToolRequest, input HistoryInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.History(ctx, cfg, &helmengine.HistoryOptions{
 		ReleaseName: input.ReleaseName,

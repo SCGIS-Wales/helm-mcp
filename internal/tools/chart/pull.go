@@ -31,6 +31,8 @@ var PullTool = &mcp.Tool{
 func HandlePull(ctx context.Context, req *mcp.CallToolRequest, input PullInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
+	defer input.ZeroSensitiveFields()
 
 	result, err := engine.Pull(ctx, cfg, &helmengine.PullOptions{
 		Chart:       input.Chart,

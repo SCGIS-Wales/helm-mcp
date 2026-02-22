@@ -27,6 +27,7 @@ var PushTool = &mcp.Tool{
 func HandlePush(ctx context.Context, req *mcp.CallToolRequest, input PushInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.Push(ctx, cfg, &helmengine.PushOptions{
 		ChartRef:  input.ChartRef,

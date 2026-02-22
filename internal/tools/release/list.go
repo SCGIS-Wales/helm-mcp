@@ -33,6 +33,7 @@ var ListTool = &mcp.Tool{
 func HandleList(ctx context.Context, req *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.List(ctx, cfg, &helmengine.ListOptions{
 		AllNamespaces: input.AllNamespaces,

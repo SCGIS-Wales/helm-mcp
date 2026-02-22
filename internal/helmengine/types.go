@@ -403,3 +403,24 @@ type PluginUninstallOptions struct {
 type PluginUpdateOptions struct {
 	Name string `json:"name"`
 }
+
+// ZeroPassword zeroes the Password field after use.
+func (o *PullOptions) ZeroPassword() {
+	if o != nil {
+		zeroString(&o.Password)
+	}
+}
+
+// ZeroPassword zeroes the Password field after use.
+func (o *RepoAddOptions) ZeroPassword() {
+	if o != nil {
+		zeroString(&o.Password)
+	}
+}
+
+// ZeroPassword zeroes the Password field after use.
+func (o *RegistryLoginOptions) ZeroPassword() {
+	if o != nil {
+		zeroString(&o.Password)
+	}
+}

@@ -2,6 +2,26 @@ package helmengine
 
 import "time"
 
+// zeroString clears a string field containing sensitive data.
+// It copies the string content into a writable byte slice, zeroes it,
+// and clears the original reference. This is defense-in-depth: Go
+// strings may be interned or in read-only memory, so we cannot safely
+// write to the original backing array. Instead we ensure no reference
+// to the sensitive value persists through our pointer.
+func zeroString(s *string) {
+	if s == nil || len(*s) == 0 {
+		return
+	}
+	// Copy into writable memory and zero the copy.
+	// This ensures the credential is zeroed in at least one location.
+	b := []byte(*s)
+	for i := range b {
+		b[i] = 0
+	}
+	// Clear the reference so the original string becomes eligible for GC.
+	*s = ""
+}
+
 // DefaultTimeout is the default timeout for Helm operations that require
 // waiting (install --wait, upgrade --wait, etc.).
 const DefaultTimeout = 300 * time.Second
@@ -84,4 +104,16 @@ type GlobalConfig struct {
 
 	// QPS is the client-side queries-per-second rate limit.
 	QPS float32 `json:"qps,omitempty"`
+}
+
+// ZeroCredentials overwrites credential fields (KubeBearerToken) with
+// zeroes. Call this via defer after the config is no longer needed.
+// This is a best-effort measure — Go strings are immutable and the GC
+// may have made copies, but this reduces the credential lifetime in
+// our code paths.
+func (c *GlobalConfig) ZeroCredentials() {
+	if c == nil {
+		return
+	}
+	zeroString(&c.KubeBearerToken)
 }

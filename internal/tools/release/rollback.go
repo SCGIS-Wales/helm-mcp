@@ -33,6 +33,7 @@ var RollbackTool = &mcp.Tool{
 func HandleRollback(ctx context.Context, req *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	err := engine.Rollback(ctx, cfg, &helmengine.RollbackOptions{
 		ReleaseName:     input.ReleaseName,

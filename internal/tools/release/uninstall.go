@@ -28,6 +28,7 @@ var UninstallTool = &mcp.Tool{
 func HandleUninstall(ctx context.Context, req *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
+	defer cfg.ZeroCredentials()
 
 	result, err := engine.Uninstall(ctx, cfg, &helmengine.UninstallOptions{
 		ReleaseName:  input.ReleaseName,
