@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -57,16 +58,25 @@ func releaseToInfo(rel *release.Release) *helmengine.ReleaseInfo {
 var parseDuration = helmengine.ParseDuration
 
 func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ListOptions) ([]*helmengine.ReleaseInfo, error) {
-	// When AllNamespaces is requested, clear namespace so the SDK doesn't filter by it.
-	if opts.AllNamespaces {
-		cfgCopy := *cfg
-		cfgCopy.Namespace = ""
-		cfg = &cfgCopy
-	}
-
-	actionConfig, _, err := newActionConfig(cfg)
+	actionConfig, settings, err := newActionConfig(cfg)
 	if err != nil {
 		return nil, err
+	}
+
+	// When AllNamespaces is requested, re-init the action config with an empty
+	// namespace so the underlying storage driver queries all namespaces.
+	// Clearing cfg.Namespace before newActionConfig doesn't work because
+	// settings.Namespace() falls back to "default", scoping the driver to only
+	// the default namespace.
+	if opts.AllNamespaces {
+		if err := actionConfig.Init(
+			settings.RESTClientGetter(),
+			"",
+			os.Getenv("HELM_DRIVER"),
+			actionConfig.Log,
+		); err != nil {
+			return nil, fmt.Errorf("failed to reinitialize action config for all namespaces: %w", err)
+		}
 	}
 
 	client := action.NewList(actionConfig)
