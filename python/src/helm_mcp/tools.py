@@ -103,7 +103,15 @@ def _clean_args(args: dict[str, Any]) -> dict[str, Any]:
 
 
 def _extract_text(result: Any) -> Any:
-    """Extract text content from an MCP result, handling various FastMCP response shapes."""
+    """Extract text content from an MCP result, handling various FastMCP response shapes.
+
+    When the result is a list with exactly one text block, the raw text is
+    returned directly.  If the single text block looks like JSON it is parsed
+    and returned as a dict/list so callers get structured data instead of a
+    string.  Multiple text blocks are still joined with newlines — but a
+    warning is logged because this may indicate truncation or unexpected
+    multi-part responses from the Go binary.
+    """
     if result is None:
         return result
 
@@ -117,7 +125,30 @@ def _extract_text(result: Any) -> Any:
                 texts.append(item["text"])
             else:
                 texts.append(str(item))
-        return "\n".join(texts) if texts else str(result)
+
+        if not texts:
+            return str(result)
+
+        # Single block — try to return structured JSON if applicable
+        if len(texts) == 1:
+            raw = texts[0]
+            stripped = raw.strip()
+            if stripped and stripped[0] in ("{", "["):
+                import json
+
+                try:
+                    return json.loads(stripped)
+                except (json.JSONDecodeError, ValueError):
+                    pass
+            return raw
+
+        # Multiple blocks — warn and join
+        logger.warning(
+            "MCP result contained %d content blocks; joining with newline "
+            "(may indicate unexpected multi-part response)",
+            len(texts),
+        )
+        return "\n".join(texts)
 
     # If it has a text attribute directly
     if hasattr(result, "text"):
@@ -193,9 +224,21 @@ class HelmClient:
                 self._client = None
                 self._connected = False
 
-    async def _reconnect(self) -> None:
-        """Reconnect after a subprocess crash."""
-        logger.info("attempting to reconnect to helm-mcp subprocess")
+    async def _reconnect(self, attempt: int = 0) -> None:
+        """Reconnect after a subprocess crash with exponential backoff.
+
+        Args:
+            attempt: Current retry attempt number (0-indexed), used to
+                calculate backoff delay.  Delay = min(2^attempt, 30) seconds.
+        """
+        delay = min(2**attempt, 30)
+        logger.info(
+            "attempting to reconnect to helm-mcp subprocess (attempt %d, backoff %.1fs)",
+            attempt + 1,
+            delay,
+        )
+        if delay > 0:
+            await asyncio.sleep(delay)
         await self.close()
         await self.connect()
 
@@ -229,7 +272,7 @@ class HelmClient:
         while attempts <= self.max_reconnects:
             if not self._connected or self._client is None:
                 try:
-                    await self._reconnect()
+                    await self._reconnect(attempt=attempts)
                 except HelmConnectionError:
                     attempts += 1
                     last_exc = HelmConnectionError(

@@ -5,6 +5,7 @@ package security
 import (
 	"context"
 	"fmt"
+	"log"
 	"net"
 	"net/url"
 	"os"
@@ -48,7 +49,7 @@ func init() {
 	for _, cidr := range cidrs {
 		_, ipNet, err := net.ParseCIDR(cidr)
 		if err != nil {
-			panic("invalid CIDR in privateIPNets: " + cidr)
+			log.Fatalf("invalid CIDR in privateIPNets: %s", cidr)
 		}
 		privateIPNets = append(privateIPNets, ipNet)
 	}
@@ -133,7 +134,13 @@ func ValidateKubeConfig(path string) error {
 }
 
 // ValidateURL validates a URL and blocks SSRF attempts targeting private/internal networks.
-func ValidateURL(u string) error {
+// The ctx parameter allows the caller to cancel DNS resolution if the parent
+// operation times out (previously this used context.Background which could hang).
+//
+// NOTE: The DNS check is inherently TOCTOU — the hostname may resolve to a
+// different IP at actual connection time. This is a best-effort pre-flight
+// check; full SSRF protection requires network-level controls.
+func ValidateURL(u string, ctx ...context.Context) error {
 	if u == "" {
 		return fmt.Errorf("URL is required")
 	}
@@ -172,9 +179,21 @@ func ValidateURL(u string) error {
 		return nil
 	}
 
+	// Use the provided context (if any) so DNS resolution can be cancelled
+	// when the parent request times out. Falls back to a 10-second timeout
+	// to avoid hanging indefinitely on slow DNS.
+	dnsCtx := context.Background()
+	if len(ctx) > 0 && ctx[0] != nil {
+		dnsCtx = ctx[0]
+	} else {
+		var cancel context.CancelFunc
+		dnsCtx, cancel = context.WithTimeout(dnsCtx, 10*time.Second)
+		defer cancel()
+	}
+
 	// Resolve hostname and check all returned IPs.
 	// On DNS failure we pass through — let the Helm SDK handle the actual connection error.
-	addrs, err := net.DefaultResolver.LookupHost(context.Background(), hostname)
+	addrs, err := net.DefaultResolver.LookupHost(dnsCtx, hostname)
 	if err != nil {
 		return nil // DNS failure is not an SSRF concern; let Helm handle it
 	}
@@ -188,13 +207,34 @@ func ValidateURL(u string) error {
 	return nil
 }
 
-// ValidatePath checks that a file path does not contain path traversal sequences.
+// ValidatePath checks that a file path does not contain path traversal
+// sequences and is not a symlink (which could point to sensitive files).
 func ValidatePath(path string) error {
 	if path == "" {
 		return nil
 	}
 	if strings.Contains(path, "..") {
 		return fmt.Errorf("path %q must not contain '..'", path)
+	}
+
+	// Resolve to absolute and check for symlinks — without this a symlink
+	// to /etc/shadow (for example) could be read via values files.
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("invalid path %q: %w", path, err)
+	}
+	cleanPath := filepath.Clean(absPath)
+	info, err := os.Lstat(cleanPath)
+	if err != nil {
+		// File doesn't exist yet — that's OK; the caller will get an error
+		// when it actually tries to open it.
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("path %q not accessible: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("path %q is a symlink, which is not allowed for security", path)
 	}
 	return nil
 }

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"runtime"
 
@@ -62,7 +62,9 @@ func newActionConfig(cfg *helmengine.GlobalConfig) (*action.Configuration, *cli.
 
 	var logFunc action.DebugLog
 	if cfg.Debug {
-		logFunc = log.Printf
+		logFunc = func(format string, v ...interface{}) {
+			slog.Debug(fmt.Sprintf(format, v...))
+		}
 	} else {
 		logFunc = func(format string, v ...interface{}) { /* debug disabled */ }
 	}
