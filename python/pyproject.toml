@@ -29,7 +29,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "fastmcp>=3.0.0",
+    "fastmcp>=3.0.1",
 ]
 
 [project.optional-dependencies]
