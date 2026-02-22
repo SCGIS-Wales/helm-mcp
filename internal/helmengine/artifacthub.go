@@ -67,7 +67,7 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	}
 	req.Header.Set("Accept", "application/json")
 
-	resp, err := artifactHubClient.Do(req)
+	resp, err := artifactHubClient.Do(req) //nolint:gosec // URL base is a hardcoded constant, not user-controlled
 	if err != nil {
 		return nil, fmt.Errorf("failed to query Artifact Hub: %w", err)
 	}
