@@ -2,6 +2,8 @@
 
 [![CI/CD Pipeline](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/helm-mcp)](https://pypi.org/project/helm-mcp/)
+[![Python versions](https://img.shields.io/pypi/pyversions/helm-mcp)](https://pypi.org/project/helm-mcp/)
+[![Downloads](https://img.shields.io/pypi/dm/helm-mcp)](https://pypistats.org/packages/helm-mcp)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Python MCP wrapper for the [helm-mcp](https://github.com/SCGIS-Wales/helm-mcp) Go server.

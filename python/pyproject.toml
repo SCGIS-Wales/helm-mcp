@@ -10,19 +10,44 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12"
 authors = [
-    { name = "sreengineer" },
+    { name = "Dejan Gregor", email = "sreengineer@users.noreply.github.com" },
 ]
-keywords = ["helm", "kubernetes", "mcp", "model-context-protocol", "fastmcp", "ai-tools"]
+maintainers = [
+    { name = "Dejan Gregor", email = "sreengineer@users.noreply.github.com" },
+]
+keywords = [
+    "helm",
+    "kubernetes",
+    "k8s",
+    "mcp",
+    "model-context-protocol",
+    "fastmcp",
+    "ai-tools",
+    "devops",
+    "cloud-native",
+    "charts",
+    "deployment",
+    "ai",
+    "llm",
+    "claude",
+    "infrastructure",
+    "container-orchestration",
+]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
     "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: System :: Systems Administration",
+    "Topic :: Internet",
+    "Topic :: Utilities",
     "Operating System :: MacOS",
     "Operating System :: POSIX :: Linux",
     "Operating System :: Microsoft :: Windows",
