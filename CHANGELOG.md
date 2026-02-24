@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.1.24] - 2026-02-24
+
+### Added
+- **Automated CHANGELOG updates**: Added `scripts/update_changelog.py` that extracts PR `## Summary` sections via the GitHub API and injects them into CHANGELOG.md under the correct version heading, with proper Keep a Changelog categorisation (Added/Fixed/Changed) based on PR title prefixes (feat/fix/docs/chore/refactor/perf) ([#31](https://github.com/SCGIS-Wales/helm-mcp/pull/31))
+- **CI integration**: Added `update-changelog` job to CI pipeline that runs after `auto-tag` and `github-release`, automatically committing CHANGELOG updates with `[skip ci]` to prevent recursive triggers ([#31](https://github.com/SCGIS-Wales/helm-mcp/pull/31))
+- **Comprehensive test coverage**: Added 22 unit tests in `scripts/test_update_changelog.py` covering PR classification, summary-to-changelog conversion (bullet extraction, table/code-block/header skipping, PR link injection), and CHANGELOG file manipulation (version insertion, link updates) ([#31](https://github.com/SCGIS-Wales/helm-mcp/pull/31))
+- **Full CHANGELOG retrofit**: Backfilled meaningful entries for all 24 releases (v0.1.0 through v0.1.23) with accurate descriptions sourced from actual PR summaries, replacing the minimal placeholder entries ([#31](https://github.com/SCGIS-Wales/helm-mcp/pull/31))
+
 ## [0.1.23] - 2026-02-24
 
 ### Changed
@@ -222,7 +231,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.23...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.24...HEAD
+[0.1.24]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.21...v0.1.22
 [0.1.21]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.20...v0.1.21
