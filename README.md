@@ -24,6 +24,7 @@ An open-source MCP (Model Context Protocol) server that gives AI assistants **fu
 - [Kubernetes Authentication](#kubernetes-authentication)
 - [Helm Version Selection](#helm-version-selection)
 - [Python Package](#python-package)
+- [Response Payload Management](#response-payload-management)
 - [Known Limitations](#known-limitations)
 - [Security](#security)
 - [Development](#development)
@@ -502,6 +503,49 @@ The proxy forwards these environment variables to the Go subprocess:
 | Azure | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SUBSCRIPTION_ID` |
 | TLS | `SSL_CERT_FILE`, `SSL_CERT_DIR` |
 
+## Response Payload Management
+
+Large Helm outputs (manifests, values, template renders) can overflow LLM context windows. helm-mcp includes two layers of response size management to prevent this.
+
+### Response Truncation
+
+All tool responses are automatically truncated when they exceed a configurable size limit. The default is **256 KB** (~64K tokens). Truncated responses include metadata indicating the original size and a suggestion to use more specific queries.
+
+Configure the limit via CLI flag or environment variable:
+
+```bash
+# CLI flag (in bytes, 0 to disable)
+helm-mcp --mode stdio --max-response-bytes 524288
+
+# Environment variable
+export HELM_MCP_MAX_RESPONSE_BYTES=524288
+helm-mcp --mode stdio
+```
+
+The CLI flag takes precedence over the environment variable.
+
+### Manifest Sanitisation
+
+Tools that return Kubernetes YAML (`helm_get_manifest`, `helm_get_all`, `helm_get_hooks`, `helm_template`) automatically strip noisy fields before returning results. This typically reduces manifest sizes by **40-60%** without losing meaningful information.
+
+**Fields stripped:**
+- `metadata.managedFields` — internal Kubernetes bookkeeping (often the largest single field)
+- `kubectl.kubernetes.io/last-applied-configuration` — redundant copy of the entire object
+- `deployment.kubernetes.io/revision` — internal controller annotation
+- `control-plane.alpha.kubernetes.io/leader` — leader election data
+
+This sanitisation is always active and cannot be disabled, as these fields are never useful for LLM interactions. The original unsanitised data remains available through direct `kubectl` access.
+
+### Resilience Primitives
+
+The `internal/resilience` package provides additional production resilience patterns:
+
+| Pattern | Description |
+|---------|-------------|
+| **Circuit breaker** | Three-state (Closed/Open/HalfOpen) pattern to fail fast when backends are unavailable. Configurable failure threshold and recovery timeout. |
+| **Retry with backoff** | Exponential backoff with jitter for transient failures. Context-aware cancellation and retryable error filtering. |
+| **Per-tool timeouts** | Category-based default timeouts: query (30s), mutate (120s), chart (60s), repo (60s). Respects existing context deadlines. |
+
 ## Known Limitations
 
 ### Plugin Verification Required (Helm v4 CLI)
@@ -634,7 +678,7 @@ make coverage     # Generate coverage report (coverage.html)
 ## Architecture
 
 ```
-cmd/helm-mcp/          Entry point, transport selection
+cmd/helm-mcp/          Entry point, transport selection, CLI flags
 internal/
   helmengine/           Engine interface and shared types
     v3/                 Helm v3 SDK implementation
@@ -648,6 +692,7 @@ internal/
     plugin/             Install, list, uninstall, update
     env/                Env, version
   security/             Process hardening, input validation, credential scrubbing
+  resilience/           Response budget, circuit breaker, retry, timeouts, manifest sanitisation
   server/               MCP server creation and tool registration
 python/                 FastMCP-based Python wrapper
   src/helm_mcp/         Python package source

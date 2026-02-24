@@ -10,13 +10,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ssddgreg/helm-mcp/internal/resilience"
 	"github.com/ssddgreg/helm-mcp/internal/security"
 	"github.com/ssddgreg/helm-mcp/internal/server"
+	"github.com/ssddgreg/helm-mcp/internal/tools"
 )
 
 // version is set at build time via -ldflags "-X main.version=..."
@@ -28,11 +31,25 @@ func main() {
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	noHarden := flag.Bool("no-harden", false, "Disable process security hardening (for debugging)")
+	maxResponseBytes := flag.Int("max-response-bytes", resilience.DefaultMaxResponseBytes,
+		"Maximum response size in bytes before truncation (0 to disable)")
 	flag.Parse()
 
 	if *showVersion {
 		fmt.Println(version)
 		return
+	}
+
+	// Configure max response size: CLI flag takes precedence,
+	// then HELM_MCP_MAX_RESPONSE_BYTES env var, then the compiled default.
+	if envVal := os.Getenv("HELM_MCP_MAX_RESPONSE_BYTES"); envVal != "" && *maxResponseBytes == resilience.DefaultMaxResponseBytes {
+		if n, err := strconv.Atoi(envVal); err == nil {
+			tools.MaxResponseBytes = n
+		} else {
+			fmt.Fprintf(os.Stderr, "warning: ignoring invalid HELM_MCP_MAX_RESPONSE_BYTES=%q\n", envVal)
+		}
+	} else {
+		tools.MaxResponseBytes = *maxResponseBytes
 	}
 
 	// Configure structured logging via slog.

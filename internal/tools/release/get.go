@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
+	"github.com/ssddgreg/helm-mcp/internal/resilience"
 	"github.com/ssddgreg/helm-mcp/internal/tools"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -42,6 +43,13 @@ func HandleGetAll(ctx context.Context, req *mcp.CallToolRequest, input GetAllInp
 		return tools.ErrorResult(err), nil, nil
 	}
 
+	// Strip noisy Kubernetes fields from manifest and hooks to reduce
+	// payload size for LLM consumption.
+	if result != nil {
+		result.Manifest = resilience.SanitizeManifest(result.Manifest)
+		result.Hooks = resilience.SanitizeManifest(result.Hooks)
+	}
+
 	return tools.TextResult(result), nil, nil
 }
 
@@ -78,7 +86,7 @@ func HandleGetHooks(ctx context.Context, req *mcp.CallToolRequest, input GetHook
 		return tools.ErrorResult(err), nil, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(resilience.SanitizeManifest(result)), nil, nil
 }
 
 // --- Get Manifest ---
@@ -114,7 +122,9 @@ func HandleGetManifest(ctx context.Context, req *mcp.CallToolRequest, input GetM
 		return tools.ErrorResult(err), nil, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	// Strip noisy Kubernetes fields (managedFields, last-applied-configuration)
+	// to reduce payload size for LLM consumption.
+	return tools.TextResult(resilience.SanitizeManifest(result)), nil, nil
 }
 
 // --- Get Metadata ---

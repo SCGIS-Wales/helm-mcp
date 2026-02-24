@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
+	"github.com/ssddgreg/helm-mcp/internal/resilience"
 	"github.com/ssddgreg/helm-mcp/internal/tools"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -62,5 +63,7 @@ func HandleTemplate(ctx context.Context, req *mcp.CallToolRequest, input Templat
 		return tools.ErrorResult(err), nil, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	// Strip noisy Kubernetes fields from rendered templates to reduce
+	// payload size for LLM consumption.
+	return tools.TextResult(resilience.SanitizeManifest(result)), nil, nil
 }

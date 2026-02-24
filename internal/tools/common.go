@@ -9,10 +9,16 @@ import (
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
 	v3 "github.com/ssddgreg/helm-mcp/internal/helmengine/v3"
 	v4 "github.com/ssddgreg/helm-mcp/internal/helmengine/v4"
+	"github.com/ssddgreg/helm-mcp/internal/resilience"
 	"github.com/ssddgreg/helm-mcp/internal/security"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+// MaxResponseBytes controls the maximum response size before truncation.
+// Defaults to resilience.DefaultMaxResponseBytes (256 KB).
+// Set to 0 to disable truncation.
+var MaxResponseBytes = resilience.DefaultMaxResponseBytes
 
 // sensitivePrefixes lists path prefixes that should never be accepted as kubeconfig.
 var sensitivePrefixes = []string{
@@ -139,6 +145,8 @@ func ValidateTimeout(timeout string) error {
 }
 
 // TextResult creates a CallToolResult with text content.
+// Responses exceeding MaxResponseBytes are automatically truncated
+// with metadata indicating the original size.
 func TextResult(data interface{}) *mcp.CallToolResult {
 	var text string
 	switch v := data.(type) {
@@ -152,6 +160,8 @@ func TextResult(data interface{}) *mcp.CallToolResult {
 			text = string(b)
 		}
 	}
+
+	text = resilience.TruncateResponse(text, MaxResponseBytes)
 
 	return &mcp.CallToolResult{
 		Content: []mcp.Content{
