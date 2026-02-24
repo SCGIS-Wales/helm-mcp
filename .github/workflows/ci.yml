@@ -192,6 +192,22 @@ jobs:
           name: python-dist
           path: python/dist/
 
+  changelog-script-test:
+    name: Changelog Script Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Install test dependencies
+        run: pip install pytest
+
+      - name: Run changelog script tests
+        run: pytest -v scripts/test_update_changelog.py
+
   wheel-builder-test:
     name: Wheel Builder Test
     runs-on: ubuntu-latest
@@ -569,6 +585,47 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+
+  # ---------- Update CHANGELOG.md with PR description ----------
+
+  update-changelog:
+    name: Update CHANGELOG
+    if: needs.auto-tag.outputs.created == 'true'
+    needs: [auto-tag, github-release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.14'
+
+      - name: Update CHANGELOG.md
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python scripts/update_changelog.py \
+            "${{ needs.auto-tag.outputs.version }}" \
+            "${{ github.repository }}"
+
+      - name: Commit and push CHANGELOG
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          if git diff --cached --quiet; then
+            echo "No CHANGELOG changes to commit"
+          else
+            git commit -m "docs: update CHANGELOG for v${{ needs.auto-tag.outputs.version }} [skip ci]"
+            git push origin main
+          fi
 
   # ---------- Publish container image to GitHub Container Registry ----------
 
