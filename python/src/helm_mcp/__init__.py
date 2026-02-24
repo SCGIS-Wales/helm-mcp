@@ -19,7 +19,7 @@ Usage as a client:
         result = await client.call_tool("helm_list", {"namespace": "default"})
 """
 
-__version__ = "0.1.20"
+__version__ = "0.1.21"
 
 from helm_mcp.client import create_client
 from helm_mcp.server import create_server
