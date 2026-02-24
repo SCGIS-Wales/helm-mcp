@@ -117,7 +117,7 @@ def _extract_text(result: Any) -> Any:
 
     # If the result is a CallToolResult (or similar object with .content),
     # unwrap to the inner content list before further processing.
-    if hasattr(result, "content") and isinstance(getattr(result, "content"), list):
+    if hasattr(result, "content") and isinstance(result.content, list):
         return _extract_text(result.content)
 
     # If the result is a list of content blocks, extract text
