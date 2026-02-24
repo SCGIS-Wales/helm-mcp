@@ -7,16 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- CODE_OF_CONDUCT.md (Contributor Covenant v2.1)
-- CHANGELOG.md (this file)
-- GitHub issue templates for bug reports and feature requests
-- Expanded PyPI metadata: author name, maintainer, keywords, classifiers
-- Python versions and downloads badges on both READMEs
+## [0.1.22] - 2026-02-24
+
+### Fixed
+- `_extract_text()` now handles `CallToolResult` objects with `.content` attribute (previously fell through returning the raw object)
+- `call_tool()` error detection now checks `isError` on `CallToolResult` objects at the top level (previously only checked per-item in lists)
 
 ### Changed
-- Updated LICENSE copyright holder to Dejan Gregor
-- Updated glama.json maintainer to PyPI username
+- Bumped `fastmcp` dependency from `>=3.0.1` to `>=3.0.2`
+
+## [0.1.21] - 2026-02-24
+
+### Added
+- Resilience primitives for production deployments: circuit breaker, retry with exponential backoff, error budgets, per-call timeouts
+- Configurable `max_response_bytes` with manifest summarisation for large responses
+- Response payload sanitisation (credential scrubbing in output)
+
+### Changed
+- Documented response payload management and resilience features in README
+
+## [0.1.20] - 2026-02-23
+
+### Changed
+- Improved PyPI discoverability: expanded description, keywords, classifiers
+
+## [0.1.19] - 2026-02-22
+
+### Fixed
+- Suppressed gosec G706 false positive with nolint directive for CLI flag address binding
+- Resolved gosec G706 log injection lint finding
+- Addressed security, correctness, and code quality audit findings (round 3)
 
 ## [0.1.18] - 2025-02-23
 
@@ -39,5 +59,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Docker support with non-root user and read-only kubeconfig mount
 - Python client and server APIs with FastMCP composition support
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.18...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.22...HEAD
+[0.1.22]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.21...v0.1.22
+[0.1.21]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.20...v0.1.21
+[0.1.20]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.19...v0.1.20
+[0.1.19]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.18...v0.1.19
 [0.1.18]: https://github.com/SCGIS-Wales/helm-mcp/releases/tag/v0.1.18
