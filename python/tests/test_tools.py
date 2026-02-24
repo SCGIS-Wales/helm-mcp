@@ -1,6 +1,7 @@
 """Tests for helm_mcp.tools — resilient async tool wrappers."""
 
 import asyncio
+import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -115,6 +116,26 @@ class TestHelpers:
         items = [{"text": "a"}, {"text": "b"}]
         result = _extract_text(items)
         assert result == "a\nb"
+
+    def test_extract_text_call_tool_result_with_content(self):
+        """CallToolResult objects have .content (list) instead of .text."""
+        inner = MagicMock(text="inner-text")
+        ctr = types.SimpleNamespace(content=[inner], isError=False)
+        assert _extract_text(ctr) == "inner-text"
+
+    def test_extract_text_call_tool_result_json(self):
+        """CallToolResult wrapping a JSON text block is parsed to dict."""
+        inner = MagicMock(text='{"key": "value"}')
+        ctr = types.SimpleNamespace(content=[inner], isError=False)
+        assert _extract_text(ctr) == {"key": "value"}
+
+    def test_extract_text_call_tool_result_multiple_blocks(self):
+        """CallToolResult with multiple content blocks are joined."""
+        ctr = types.SimpleNamespace(
+            content=[MagicMock(text="a"), MagicMock(text="b")],
+            isError=False,
+        )
+        assert _extract_text(ctr) == "a\nb"
 
 
 # ---------------------------------------------------------------------------
@@ -358,6 +379,42 @@ class TestToolError:
         with pytest.raises(HelmToolError, match="helm_status") as exc_info:
             await helm.call_tool("helm_status", {"release_name": "missing"})
         assert exc_info.value.tool_name == "helm_status"
+
+    @pytest.mark.asyncio
+    async def test_tool_error_on_call_tool_result_object(self):
+        """CallToolResult with isError=True at top level raises HelmToolError."""
+        mock_client = AsyncMock()
+        ctr = types.SimpleNamespace(
+            isError=True,
+            content=[MagicMock(text="release not found")],
+        )
+        mock_client.call_tool = AsyncMock(return_value=ctr)
+
+        helm = HelmClient()
+        helm._client = mock_client
+        helm._connected = True
+
+        with pytest.raises(HelmToolError, match="helm_status") as exc_info:
+            await helm.call_tool("helm_status", {"release_name": "missing"})
+        assert exc_info.value.tool_name == "helm_status"
+        assert exc_info.value.error_content == "release not found"
+
+    @pytest.mark.asyncio
+    async def test_call_tool_result_success(self):
+        """CallToolResult with isError=False is unwrapped correctly."""
+        mock_client = AsyncMock()
+        ctr = types.SimpleNamespace(
+            isError=False,
+            content=[MagicMock(text="deployed")],
+        )
+        mock_client.call_tool = AsyncMock(return_value=ctr)
+
+        helm = HelmClient()
+        helm._client = mock_client
+        helm._connected = True
+
+        result = await helm.call_tool("helm_status", {"release_name": "my-rel"})
+        assert result == "deployed"
 
 
 # ---------------------------------------------------------------------------

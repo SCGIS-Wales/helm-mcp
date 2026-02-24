@@ -115,6 +115,11 @@ def _extract_text(result: Any) -> Any:
     if result is None:
         return result
 
+    # If the result is a CallToolResult (or similar object with .content),
+    # unwrap to the inner content list before further processing.
+    if hasattr(result, "content") and isinstance(getattr(result, "content"), list):
+        return _extract_text(result.content)
+
     # If the result is a list of content blocks, extract text
     if isinstance(result, list):
         texts = []
@@ -289,7 +294,12 @@ class HelmClient:
                 elapsed = time.monotonic() - t0
                 logger.debug("%s completed in %.2fs", tool_name, elapsed)
 
-                # Check for error content in MCP result
+                # Check for error content in MCP result.
+                # CallToolResult objects expose isError at the top level;
+                # older list-of-content-blocks may carry it per item.
+                if getattr(result, "isError", False):
+                    raise HelmToolError(tool_name, _extract_text(result))
+
                 if isinstance(result, list):
                     for item in result:
                         is_error = getattr(item, "isError", False) or (
