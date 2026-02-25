@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 
+
+## [0.1.25] - 2026-02-25
+
+### Added
+- Add production-grade resilience stack to the Python MCP proxy, configurable via `HELM_MCP_*` env vars, CLI flags, and programmatic `ResilienceConfig` API ([#32](https://github.com/SCGIS-Wales/helm-mcp/pull/32))
+- Proxy-level: FastMCP middleware (retry, rate limiting, caching, error handling, timing); Tool-level: circuit breaker, tenacity retry with jitter, bulkhead concurrency limiter ([#32](https://github.com/SCGIS-Wales/helm-mcp/pull/32))
+- New `resilience.py` module with 9 frozen dataclass configs, middleware builder, and opt-in OpenTelemetry SDK setup ([#32](https://github.com/SCGIS-Wales/helm-mcp/pull/32))
+- CLI gains `--no-retry`, `--rate-limit`, `--cache`, `--no-circuit-breaker`, `--bulkhead-max`, `--otel` flags ([#32](https://github.com/SCGIS-Wales/helm-mcp/pull/32))
+- Full documentation in README Resilience Configuration section; all config classes exported for MCP client consumption ([#32](https://github.com/SCGIS-Wales/helm-mcp/pull/32))
+- 52 new tests (177 total): circuit breaker opens/resets, tenacity retry/no-retry, bulkhead concurrency limiting, middleware integration, CLI flag handling, env var parsing ([#32](https://github.com/SCGIS-Wales/helm-mcp/pull/32))
+
 ## [0.1.24] - 2026-02-24
 
 ### Added
@@ -231,7 +242,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.24...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.25...HEAD
+[0.1.25]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.22...v0.1.23
 [0.1.22]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.21...v0.1.22
