@@ -16,6 +16,8 @@ from pathlib import Path
 from fastmcp.client.transports import StdioTransport
 from fastmcp.server import create_proxy
 
+from helm_mcp.resilience import ResilienceConfig, build_middleware, setup_otel
+
 logger = logging.getLogger(__name__)
 
 # Environment variables forwarded to the Go subprocess.
@@ -178,6 +180,7 @@ def create_server(
     binary_path: str | None = None,
     name: str = "helm-mcp",
     env: dict[str, str] | None = None,
+    resilience: ResilienceConfig | None = None,
 ):
     """Create a FastMCP proxy server wrapping the helm-mcp Go binary.
 
@@ -185,12 +188,18 @@ def create_server(
     which means any new tools added to the binary are automatically
     available without changing this Python code.
 
+    Resilience middleware (retry, rate limiting, caching, error handling,
+    timing) is applied based on the ``resilience`` config.  If ``None``,
+    the config is read from ``HELM_MCP_*`` environment variables with
+    sensible defaults.
+
     Args:
         binary_path: Explicit path to the helm-mcp binary. Auto-detected if ``None``.
         name: Server name advertised via MCP.
         env: Additional environment variables to pass to the subprocess.
             These are merged on top of the default passthrough list
             (``PASSTHROUGH_ENV_VARS``).
+        resilience: Resilience configuration. If ``None``, reads from env vars.
 
     Returns:
         A FastMCP server instance ready to run.
@@ -200,7 +209,20 @@ def create_server(
         server = create_server()
         server.run()                                       # stdio
         server.run(transport="http", host="0.0.0.0", port=8080)  # HTTP
+
+    With custom resilience config::
+
+        from helm_mcp.resilience import ResilienceConfig, RateLimitConfig
+        config = ResilienceConfig(
+            rate_limit=RateLimitConfig(enabled=True, max_requests_per_second=50),
+        )
+        server = create_server(resilience=config)
     """
+    config = resilience or ResilienceConfig()
+
+    # Set up OpenTelemetry SDK if enabled
+    setup_otel(config.otel)
+
     binary = binary_path or _find_binary()
     subprocess_env = _build_subprocess_env(extra_env=env)
     logger.info("creating proxy server with binary: %s", binary)
@@ -209,4 +231,13 @@ def create_server(
         args=["--mode", "stdio"],
         env=subprocess_env or None,
     )
-    return create_proxy(transport, name=name)
+    proxy = create_proxy(transport, name=name)
+
+    # Apply resilience middleware
+    middlewares = build_middleware(config)
+    for mw in middlewares:
+        proxy.add_middleware(mw)
+    if middlewares:
+        logger.info("applied %d resilience middleware(s) to proxy server", len(middlewares))
+
+    return proxy

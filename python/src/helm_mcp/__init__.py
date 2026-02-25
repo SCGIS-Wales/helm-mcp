@@ -17,13 +17,33 @@ Usage as a client:
     async with create_client() as client:
         tools = await client.list_tools()
         result = await client.call_tool("helm_list", {"namespace": "default"})
+
+Usage with custom resilience config:
+    from helm_mcp import create_server, ResilienceConfig, RateLimitConfig
+    config = ResilienceConfig(
+        rate_limit=RateLimitConfig(enabled=True, max_requests_per_second=50),
+    )
+    server = create_server(resilience=config)
 """
 
 __version__ = "0.1.24"
 
 from helm_mcp.client import create_client
+from helm_mcp.resilience import (
+    BulkheadConfig,
+    CacheConfig,
+    CircuitBreakerConfig,
+    ErrorHandlingConfig,
+    OTelConfig,
+    RateLimitConfig,
+    ResilienceConfig,
+    RetryConfig,
+    TenacityConfig,
+    TimingConfig,
+)
 from helm_mcp.server import create_server
 from helm_mcp.tools import (
+    HelmCircuitOpenError,
     HelmClient,
     HelmConnectionError,
     HelmError,
@@ -85,8 +105,20 @@ __all__ = [
     "HelmError",
     "HelmTimeoutError",
     "HelmConnectionError",
+    "HelmCircuitOpenError",
     "HelmToolError",
     "close_default_client",
+    # Resilience configuration
+    "ResilienceConfig",
+    "RetryConfig",
+    "RateLimitConfig",
+    "CacheConfig",
+    "ErrorHandlingConfig",
+    "TimingConfig",
+    "CircuitBreakerConfig",
+    "TenacityConfig",
+    "BulkheadConfig",
+    "OTelConfig",
     # Async tool wrappers (all 44 tools)
     "helm_list",
     "helm_install",

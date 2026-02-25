@@ -55,6 +55,8 @@ classifiers = [
 ]
 dependencies = [
     "fastmcp>=3.0.2",
+    "circuitbreaker>=2.0.0,<3",
+    "tenacity>=9.0.0,<10",
 ]
 
 [project.optional-dependencies]
@@ -62,6 +64,10 @@ dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.24",
     "ruff>=0.9",
+]
+otel = [
+    "opentelemetry-sdk>=1.20.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
 ]
 
 [project.urls]
