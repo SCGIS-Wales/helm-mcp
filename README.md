@@ -24,6 +24,7 @@ An open-source MCP (Model Context Protocol) server that gives AI assistants **fu
 - [Kubernetes Authentication](#kubernetes-authentication)
 - [Helm Version Selection](#helm-version-selection)
 - [Python Package](#python-package)
+- [Resilience Configuration (Python)](#resilience-configuration-python)
 - [Response Payload Management](#response-payload-management)
 - [Known Limitations](#known-limitations)
 - [Security](#security)
@@ -502,6 +503,94 @@ The proxy forwards these environment variables to the Go subprocess:
 | GCP | `GOOGLE_APPLICATION_CREDENTIALS`, `CLOUDSDK_COMPUTE_ZONE` |
 | Azure | `AZURE_TENANT_ID`, `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_SUBSCRIPTION_ID` |
 | TLS | `SSL_CERT_FILE`, `SSL_CERT_DIR` |
+
+## Resilience Configuration (Python)
+
+The Python package includes a comprehensive resilience stack built on [FastMCP](https://github.com/PrefectHQ/fastmcp) middleware, [circuitbreaker](https://pypi.org/project/circuitbreaker/), and [tenacity](https://pypi.org/project/tenacity/). All settings are configurable via `HELM_MCP_*` environment variables with sensible defaults.
+
+### Environment Variables
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `HELM_MCP_RETRY_ENABLED` | bool | `true` | Enable proxy-level retry middleware |
+| `HELM_MCP_RETRY_MAX_RETRIES` | int | `2` | Maximum retry attempts |
+| `HELM_MCP_RETRY_BASE_DELAY` | float | `1.0` | Initial backoff delay (seconds) |
+| `HELM_MCP_RETRY_MAX_DELAY` | float | `30.0` | Maximum backoff delay (seconds) |
+| `HELM_MCP_RETRY_BACKOFF_MULTIPLIER` | float | `2.0` | Backoff multiplier |
+| `HELM_MCP_RATE_LIMIT_ENABLED` | bool | `false` | Enable token-bucket rate limiting |
+| `HELM_MCP_RATE_LIMIT_MAX_RPS` | float | `10.0` | Maximum requests per second |
+| `HELM_MCP_RATE_LIMIT_BURST` | int | `20` | Burst capacity |
+| `HELM_MCP_CACHE_ENABLED` | bool | `false` | Enable TTL-based response caching |
+| `HELM_MCP_CACHE_TOOL_TTL` | int | `300` | Tool call cache TTL (seconds) |
+| `HELM_MCP_CACHE_LIST_TTL` | int | `60` | Tool list cache TTL (seconds) |
+| `HELM_MCP_ERROR_HANDLING_ENABLED` | bool | `true` | Enable structured error responses |
+| `HELM_MCP_ERROR_INCLUDE_TRACEBACK` | bool | `false` | Include tracebacks in errors |
+| `HELM_MCP_TIMING_ENABLED` | bool | `true` | Enable request timing |
+| `HELM_MCP_TIMING_DETAILED` | bool | `false` | Use detailed timing middleware |
+| `HELM_MCP_CIRCUIT_BREAKER_ENABLED` | bool | `true` | Enable circuit breaker on tool calls |
+| `HELM_MCP_CIRCUIT_BREAKER_FAILURE_THRESHOLD` | int | `5` | Failures before circuit opens |
+| `HELM_MCP_CIRCUIT_BREAKER_RESET_TIMEOUT` | float | `30.0` | Seconds before half-open retry |
+| `HELM_MCP_TENACITY_ENABLED` | bool | `true` | Enable tenacity retry with jitter |
+| `HELM_MCP_TENACITY_MAX_ATTEMPTS` | int | `3` | Maximum retry attempts |
+| `HELM_MCP_TENACITY_MIN_WAIT` | float | `0.5` | Minimum wait between retries (seconds) |
+| `HELM_MCP_TENACITY_MAX_WAIT` | float | `10.0` | Maximum wait between retries (seconds) |
+| `HELM_MCP_TENACITY_MULTIPLIER` | float | `1.5` | Exponential backoff base |
+| `HELM_MCP_BULKHEAD_ENABLED` | bool | `true` | Enable concurrency limiter |
+| `HELM_MCP_BULKHEAD_MAX_CONCURRENT` | int | `10` | Maximum concurrent tool calls |
+| `HELM_MCP_OTEL_ENABLED` | bool | `false` | Enable OpenTelemetry tracing |
+| `HELM_MCP_OTEL_SERVICE_NAME` | str | `helm-mcp` | OTel service name |
+| `HELM_MCP_OTEL_EXPORTER` | str | `console` | OTel exporter (`console` or `otlp`) |
+
+### CLI Flags
+
+```bash
+helm-mcp-python --no-retry                   # Disable proxy retry middleware
+helm-mcp-python --rate-limit 50              # Enable rate limiting at 50 rps
+helm-mcp-python --cache                      # Enable response caching
+helm-mcp-python --no-circuit-breaker         # Disable circuit breaker
+helm-mcp-python --bulkhead-max 5             # Limit to 5 concurrent tool calls
+helm-mcp-python --otel                       # Enable OpenTelemetry tracing
+```
+
+### Programmatic Configuration
+
+```python
+from helm_mcp import create_server, HelmClient
+from helm_mcp.resilience import (
+    ResilienceConfig,
+    RateLimitConfig,
+    CircuitBreakerConfig,
+    BulkheadConfig,
+)
+
+# Server with custom resilience
+config = ResilienceConfig(
+    rate_limit=RateLimitConfig(enabled=True, max_requests_per_second=50),
+    circuit_breaker=CircuitBreakerConfig(failure_threshold=3),
+    bulkhead=BulkheadConfig(max_concurrent=20),
+)
+server = create_server(resilience=config)
+
+# Client with custom resilience
+async with HelmClient(resilience=config) as helm:
+    releases = await helm.list(namespace="default")
+```
+
+### OpenTelemetry
+
+FastMCP emits traces via the OpenTelemetry API. To receive actual trace data, install the SDK:
+
+```bash
+pip install helm-mcp[otel]
+```
+
+Then enable tracing:
+
+```bash
+export HELM_MCP_OTEL_ENABLED=true
+export HELM_MCP_OTEL_EXPORTER=otlp        # or "console"
+export HELM_MCP_OTEL_SERVICE_NAME=helm-mcp
+```
 
 ## Response Payload Management
 

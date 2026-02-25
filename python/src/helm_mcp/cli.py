@@ -111,6 +111,46 @@ def main() -> None:
         action="store_true",
         help="Enable verbose logging",
     )
+
+    # Resilience arguments
+    res_group = parser.add_argument_group(
+        "resilience", "Resilience pattern configuration (overrides HELM_MCP_* env vars)"
+    )
+    res_group.add_argument(
+        "--no-retry",
+        action="store_true",
+        help="Disable proxy-level retry middleware",
+    )
+    res_group.add_argument(
+        "--rate-limit",
+        type=float,
+        default=None,
+        metavar="RPS",
+        help="Enable rate limiting at RPS requests/second",
+    )
+    res_group.add_argument(
+        "--cache",
+        action="store_true",
+        help="Enable response caching",
+    )
+    res_group.add_argument(
+        "--no-circuit-breaker",
+        action="store_true",
+        help="Disable circuit breaker on tool calls",
+    )
+    res_group.add_argument(
+        "--bulkhead-max",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Max concurrent tool calls (bulkhead limit)",
+    )
+    res_group.add_argument(
+        "--otel",
+        action="store_true",
+        help="Enable OpenTelemetry tracing (requires pip install helm-mcp[otel])",
+    )
+
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -142,10 +182,28 @@ def main() -> None:
             sys.exit(1)
         return
 
+    # CLI overrides for resilience config
+    if args.no_retry:
+        os.environ["HELM_MCP_RETRY_ENABLED"] = "false"
+    if args.rate_limit is not None:
+        os.environ["HELM_MCP_RATE_LIMIT_ENABLED"] = "true"
+        os.environ["HELM_MCP_RATE_LIMIT_MAX_RPS"] = str(args.rate_limit)
+    if args.cache:
+        os.environ["HELM_MCP_CACHE_ENABLED"] = "true"
+    if args.no_circuit_breaker:
+        os.environ["HELM_MCP_CIRCUIT_BREAKER_ENABLED"] = "false"
+    if args.bulkhead_max is not None:
+        os.environ["HELM_MCP_BULKHEAD_MAX_CONCURRENT"] = str(args.bulkhead_max)
+    if args.otel:
+        os.environ["HELM_MCP_OTEL_ENABLED"] = "true"
+
+    from helm_mcp.resilience import ResilienceConfig
     from helm_mcp.server import create_server
 
+    resilience_config = ResilienceConfig()
+
     try:
-        server = create_server(binary_path=args.binary)
+        server = create_server(binary_path=args.binary, resilience=resilience_config)
     except FileNotFoundError as e:
         logger.error("binary not found: %s", e)
         print(f"Error: {e}", file=sys.stderr)

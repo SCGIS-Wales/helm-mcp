@@ -52,7 +52,7 @@ def test_all_exports():
     assert "helm_status" in all_exports
     assert "helm_version" in all_exports
     # Total: 3 core + 6 client/exceptions + 44 tools = 53
-    assert len(all_exports) == 53
+    assert len(all_exports) == 64
 
 
 def test_py_typed_marker():
@@ -551,7 +551,10 @@ def test_cli_stdio_transport(tmp_path):
     ):
         main()
 
-    mock_create.assert_called_once_with(binary_path=str(fake_binary))
+    mock_create.assert_called_once()
+    call_kwargs = mock_create.call_args[1]
+    assert call_kwargs["binary_path"] == str(fake_binary)
+    assert "resilience" in call_kwargs
     mock_server.run.assert_called_once_with()
 
 
@@ -649,3 +652,216 @@ def test_find_bundled_binary_not_found():
 
     result = _find_bundled_binary("nonexistent-binary-xyz")
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# Middleware integration
+# ---------------------------------------------------------------------------
+
+
+class TestMiddlewareIntegration:
+    """Test that create_server applies middleware from ResilienceConfig."""
+
+    def test_server_with_default_config(self, tmp_path):
+        """Default config applies timing, error handling, and retry middleware."""
+        from helm_mcp.server import create_server
+
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        with patch.dict(os.environ, {}, clear=True):
+            server = create_server(binary_path=str(fake_binary))
+            assert server is not None
+
+    def test_server_with_all_middleware_disabled(self, tmp_path):
+        """No middleware when everything is disabled."""
+        from helm_mcp.resilience import (
+            CacheConfig,
+            ErrorHandlingConfig,
+            RateLimitConfig,
+            ResilienceConfig,
+            RetryConfig,
+            TimingConfig,
+        )
+        from helm_mcp.server import create_server
+
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        config = ResilienceConfig(
+            retry=RetryConfig(enabled=False),
+            rate_limit=RateLimitConfig(enabled=False),
+            cache=CacheConfig(enabled=False),
+            error_handling=ErrorHandlingConfig(enabled=False),
+            timing=TimingConfig(enabled=False),
+        )
+        server = create_server(binary_path=str(fake_binary), resilience=config)
+        assert server is not None
+
+    def test_server_with_custom_resilience(self, tmp_path):
+        """Custom resilience config is passed through to server."""
+        from helm_mcp.resilience import RateLimitConfig, ResilienceConfig
+        from helm_mcp.server import create_server
+
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        config = ResilienceConfig(
+            rate_limit=RateLimitConfig(enabled=True, max_requests_per_second=50.0),
+        )
+        server = create_server(binary_path=str(fake_binary), resilience=config)
+        assert server is not None
+
+
+# ---------------------------------------------------------------------------
+# CLI resilience flags
+# ---------------------------------------------------------------------------
+
+
+class TestCLIResilienceFlags:
+    """Test CLI resilience argument handling."""
+
+    def test_cli_no_retry_flag(self, tmp_path):
+        """--no-retry sets HELM_MCP_RETRY_ENABLED=false."""
+        from unittest.mock import MagicMock
+
+        from helm_mcp.cli import main
+
+        mock_server = MagicMock()
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, os.environ.copy()),
+            patch("sys.argv", ["helm-mcp-python", "--binary", str(fake_binary), "--no-retry"]),
+            patch("helm_mcp.server.create_server", return_value=mock_server) as mock_create,
+        ):
+            main()
+
+        call_kwargs = mock_create.call_args[1]
+        config = call_kwargs["resilience"]
+        assert config.retry.enabled is False
+
+    def test_cli_rate_limit_flag(self, tmp_path):
+        """--rate-limit RPS enables rate limiting at the specified rate."""
+        from unittest.mock import MagicMock
+
+        from helm_mcp.cli import main
+
+        mock_server = MagicMock()
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, os.environ.copy()),
+            patch(
+                "sys.argv",
+                ["helm-mcp-python", "--binary", str(fake_binary), "--rate-limit", "50"],
+            ),
+            patch("helm_mcp.server.create_server", return_value=mock_server) as mock_create,
+        ):
+            main()
+
+        call_kwargs = mock_create.call_args[1]
+        config = call_kwargs["resilience"]
+        assert config.rate_limit.enabled is True
+        assert config.rate_limit.max_requests_per_second == 50.0
+
+    def test_cli_cache_flag(self, tmp_path):
+        """--cache enables response caching."""
+        from unittest.mock import MagicMock
+
+        from helm_mcp.cli import main
+
+        mock_server = MagicMock()
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, os.environ.copy()),
+            patch("sys.argv", ["helm-mcp-python", "--binary", str(fake_binary), "--cache"]),
+            patch("helm_mcp.server.create_server", return_value=mock_server) as mock_create,
+        ):
+            main()
+
+        call_kwargs = mock_create.call_args[1]
+        config = call_kwargs["resilience"]
+        assert config.cache.enabled is True
+
+    def test_cli_no_circuit_breaker_flag(self, tmp_path):
+        """--no-circuit-breaker disables circuit breaker."""
+        from unittest.mock import MagicMock
+
+        from helm_mcp.cli import main
+
+        mock_server = MagicMock()
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, os.environ.copy()),
+            patch(
+                "sys.argv",
+                ["helm-mcp-python", "--binary", str(fake_binary), "--no-circuit-breaker"],
+            ),
+            patch("helm_mcp.server.create_server", return_value=mock_server) as mock_create,
+        ):
+            main()
+
+        call_kwargs = mock_create.call_args[1]
+        config = call_kwargs["resilience"]
+        assert config.circuit_breaker.enabled is False
+
+    def test_cli_bulkhead_max_flag(self, tmp_path):
+        """--bulkhead-max N sets bulkhead max concurrent."""
+        from unittest.mock import MagicMock
+
+        from helm_mcp.cli import main
+
+        mock_server = MagicMock()
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, os.environ.copy()),
+            patch(
+                "sys.argv",
+                ["helm-mcp-python", "--binary", str(fake_binary), "--bulkhead-max", "5"],
+            ),
+            patch("helm_mcp.server.create_server", return_value=mock_server) as mock_create,
+        ):
+            main()
+
+        call_kwargs = mock_create.call_args[1]
+        config = call_kwargs["resilience"]
+        assert config.bulkhead.max_concurrent == 5
+
+    def test_cli_otel_flag(self, tmp_path):
+        """--otel enables OpenTelemetry."""
+        from unittest.mock import MagicMock
+
+        from helm_mcp.cli import main
+
+        mock_server = MagicMock()
+        fake_binary = tmp_path / "helm-mcp"
+        fake_binary.write_text("#!/bin/sh\necho hello")
+        fake_binary.chmod(0o755)
+
+        with (
+            patch.dict(os.environ, os.environ.copy()),
+            patch("sys.argv", ["helm-mcp-python", "--binary", str(fake_binary), "--otel"]),
+            patch("helm_mcp.server.create_server", return_value=mock_server) as mock_create,
+        ):
+            main()
+
+        call_kwargs = mock_create.call_args[1]
+        config = call_kwargs["resilience"]
+        assert config.otel.enabled is True

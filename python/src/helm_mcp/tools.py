@@ -40,9 +40,19 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from helm_mcp.resilience import ResilienceConfig
+
+from circuitbreaker import CircuitBreaker, CircuitBreakerError
 from fastmcp import Client
+from tenacity import (
+    AsyncRetrying,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_exponential_jitter,
+)
 
 from helm_mcp.client import create_client
 
@@ -79,12 +89,35 @@ class HelmToolError(HelmError):
         super().__init__(f"Tool {tool_name!r} returned error: {error_content}")
 
 
+class HelmCircuitOpenError(HelmConnectionError):
+    """Raised when the circuit breaker is in OPEN state.
+
+    Indicates too many consecutive failures have occurred and the circuit
+    breaker is preventing further calls to allow the backend to recover.
+    """
+
+
 # ---------------------------------------------------------------------------
 # Default configuration
 # ---------------------------------------------------------------------------
 
 DEFAULT_TIMEOUT: float = 300.0  # seconds
 DEFAULT_MAX_RECONNECTS: int = 3
+
+
+def _is_failure(exc_type: type[Exception], exc_value: Exception) -> bool:
+    """Determine if an exception counts as a circuit breaker failure.
+
+    The ``circuitbreaker`` library's ``expected_exception`` parameter accepts a
+    predicate function that is used internally as ``is_failure``:
+    - **True** → exception COUNTS as a failure toward the threshold.
+    - **False** → exception does NOT count; the circuit breaker resets.
+
+    Only connection-level errors (subprocess crash, broken pipe) are counted.
+    Tool-level errors (bad arguments, Helm failures) are *not* failures.
+    """
+    return issubclass(exc_type, (OSError, ConnectionError, BrokenPipeError))
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -170,14 +203,17 @@ def _extract_text(result: Any) -> Any:
 class HelmClient:
     """Resilient async client for helm-mcp tools.
 
-    Manages the lifecycle of the Go subprocess and transparently retries
-    on transient failures.
+    Manages the lifecycle of the Go subprocess with production-grade
+    resilience: circuit breaker, tenacity retry with jitter, bulkhead
+    concurrency limiting, per-call timeouts, and auto-reconnect.
 
     Args:
         binary_path: Explicit path to the helm-mcp Go binary.
         env: Extra environment variables passed to the subprocess.
         timeout: Default timeout (seconds) for every tool call.
         max_reconnects: Maximum reconnection attempts before giving up.
+        resilience: Resilience configuration.  If ``None``, reads from
+            ``HELM_MCP_*`` environment variables with sensible defaults.
     """
 
     def __init__(
@@ -186,13 +222,44 @@ class HelmClient:
         env: dict[str, str] | None = None,
         timeout: float = DEFAULT_TIMEOUT,
         max_reconnects: int = DEFAULT_MAX_RECONNECTS,
+        resilience: ResilienceConfig | None = None,
     ) -> None:
+        from helm_mcp.resilience import ResilienceConfig as _RC
+
         self._binary_path = binary_path
         self._env = env
         self.timeout = timeout
         self.max_reconnects = max_reconnects
         self._client: Client | None = None
         self._connected = False
+        self._config = resilience or _RC()
+
+        # Circuit breaker (protects against repeated Go subprocess failures)
+        if self._config.circuit_breaker.enabled:
+            self._breaker: CircuitBreaker | None = CircuitBreaker(
+                failure_threshold=self._config.circuit_breaker.failure_threshold,
+                recovery_timeout=self._config.circuit_breaker.reset_timeout,
+                expected_exception=_is_failure,
+            )
+            logger.info(
+                "circuit breaker enabled (threshold=%d, reset=%.0fs)",
+                self._config.circuit_breaker.failure_threshold,
+                self._config.circuit_breaker.reset_timeout,
+            )
+        else:
+            self._breaker = None
+
+        # Bulkhead semaphore (limits concurrent tool calls)
+        if self._config.bulkhead.enabled:
+            self._semaphore: asyncio.Semaphore | None = asyncio.Semaphore(
+                self._config.bulkhead.max_concurrent
+            )
+            logger.info(
+                "bulkhead enabled (max_concurrent=%d)",
+                self._config.bulkhead.max_concurrent,
+            )
+        else:
+            self._semaphore = None
 
     # -- lifecycle -----------------------------------------------------------
 
@@ -247,30 +314,69 @@ class HelmClient:
         await self.close()
         await self.connect()
 
-    # -- call dispatch -------------------------------------------------------
+    # -- call dispatch (layered resilience) ----------------------------------
 
-    async def call_tool(
+    async def _raw_call(
         self,
         tool_name: str,
         arguments: dict[str, Any],
-        timeout: float | None = None,
+        effective_timeout: float,
     ) -> Any:
-        """Call an MCP tool with resilience (timeout + auto-reconnect).
+        """Execute a single MCP tool call with timeout.  No retry logic."""
+        t0 = time.monotonic()
+        result = await asyncio.wait_for(
+            self._client.call_tool(tool_name, arguments),
+            timeout=effective_timeout,
+        )
+        elapsed = time.monotonic() - t0
+        logger.debug("%s completed in %.2fs", tool_name, elapsed)
 
-        Args:
-            tool_name: MCP tool name (e.g. ``"helm_list"``).
-            arguments: Tool arguments dict.
-            timeout: Per-call timeout override (seconds).
+        # Check for error content in MCP result.
+        # CallToolResult objects expose isError at the top level;
+        # older list-of-content-blocks may carry it per item.
+        if getattr(result, "isError", False):
+            raise HelmToolError(tool_name, _extract_text(result))
 
-        Returns:
-            Parsed tool result.
+        if isinstance(result, list):
+            for item in result:
+                is_error = getattr(item, "isError", False) or (
+                    isinstance(item, dict) and item.get("isError")
+                )
+                if is_error:
+                    raise HelmToolError(tool_name, _extract_text(result))
 
-        Raises:
-            HelmConnectionError: Subprocess unreachable after retries.
-            HelmTimeoutError: Call exceeded timeout.
-            HelmToolError: Tool returned an error result.
-        """
-        effective_timeout = timeout if timeout is not None else self.timeout
+        return _extract_text(result)
+
+    async def _execute_tool_call(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        effective_timeout: float,
+    ) -> Any:
+        """Execute a tool call with tenacity retry (exponential backoff + jitter)."""
+        tc = self._config.tenacity
+        if tc.enabled:
+            async for attempt in AsyncRetrying(
+                stop=stop_after_attempt(tc.max_attempts),
+                wait=wait_exponential_jitter(
+                    initial=tc.min_wait,
+                    max=tc.max_wait,
+                    exp_base=tc.multiplier,
+                ),
+                retry=retry_if_exception_type((OSError, ConnectionError, BrokenPipeError)),
+                reraise=True,
+            ):
+                with attempt:
+                    return await self._raw_call(tool_name, arguments, effective_timeout)
+        return await self._raw_call(tool_name, arguments, effective_timeout)
+
+    async def _call_tool_inner(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        effective_timeout: float,
+    ) -> Any:
+        """Reconnection loop with circuit breaker protection."""
         attempts = 0
         last_exc: Exception | None = None
 
@@ -285,34 +391,30 @@ class HelmClient:
                     )
                     continue
 
-            t0 = time.monotonic()
             try:
-                result = await asyncio.wait_for(
-                    self._client.call_tool(tool_name, arguments),
-                    timeout=effective_timeout,
-                )
-                elapsed = time.monotonic() - t0
-                logger.debug("%s completed in %.2fs", tool_name, elapsed)
+                # Circuit breaker wraps the call.
+                # Note: we must check ``self._breaker.opened`` explicitly
+                # because ``call_async()`` only uses a context manager for
+                # failure tracking — the ``opened`` guard is only applied
+                # by the *decorator* wrapper, not by ``call_async`` directly.
+                if self._breaker is not None:
+                    if self._breaker.opened:
+                        raise CircuitBreakerError(self._breaker)
+                    return await self._breaker.call_async(
+                        self._execute_tool_call,
+                        tool_name,
+                        arguments,
+                        effective_timeout,
+                    )
+                return await self._execute_tool_call(tool_name, arguments, effective_timeout)
 
-                # Check for error content in MCP result.
-                # CallToolResult objects expose isError at the top level;
-                # older list-of-content-blocks may carry it per item.
-                if getattr(result, "isError", False):
-                    raise HelmToolError(tool_name, _extract_text(result))
-
-                if isinstance(result, list):
-                    for item in result:
-                        is_error = getattr(item, "isError", False) or (
-                            isinstance(item, dict) and item.get("isError")
-                        )
-                        if is_error:
-                            raise HelmToolError(tool_name, _extract_text(result))
-
-                return _extract_text(result)
+            except CircuitBreakerError as exc:
+                raise HelmCircuitOpenError(
+                    f"Circuit breaker OPEN for {tool_name!r}: too many consecutive failures"
+                ) from exc
 
             except TimeoutError as exc:
-                elapsed = time.monotonic() - t0
-                logger.warning("%s timed out after %.2fs", tool_name, elapsed)
+                logger.warning("%s timed out after %.1fs", tool_name, effective_timeout)
                 raise HelmTimeoutError(
                     f"Tool {tool_name!r} timed out after {effective_timeout}s"
                 ) from exc
@@ -336,6 +438,44 @@ class HelmClient:
         raise HelmConnectionError(
             f"Failed to call {tool_name!r} after {self.max_reconnects} reconnect attempts"
         ) from last_exc
+
+    async def call_tool(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        timeout: float | None = None,
+    ) -> Any:
+        """Call an MCP tool with full resilience stack.
+
+        The resilience layers, from outermost to innermost:
+
+        1. **Bulkhead** — ``asyncio.Semaphore`` limits concurrent calls
+        2. **Reconnection loop** — auto-reconnects on subprocess crashes
+        3. **Circuit breaker** — ``circuitbreaker`` prevents cascading failures
+        4. **Tenacity retry** — exponential backoff + jitter for transient errors
+        5. **Timeout** — ``asyncio.wait_for`` enforces per-call deadline
+
+        Args:
+            tool_name: MCP tool name (e.g. ``"helm_list"``).
+            arguments: Tool arguments dict.
+            timeout: Per-call timeout override (seconds).
+
+        Returns:
+            Parsed tool result.
+
+        Raises:
+            HelmConnectionError: Subprocess unreachable after retries.
+            HelmCircuitOpenError: Circuit breaker is OPEN.
+            HelmTimeoutError: Call exceeded timeout.
+            HelmToolError: Tool returned an error result.
+        """
+        effective_timeout = timeout if timeout is not None else self.timeout
+
+        # Bulkhead: limit concurrent calls
+        if self._semaphore is not None:
+            async with self._semaphore:
+                return await self._call_tool_inner(tool_name, arguments, effective_timeout)
+        return await self._call_tool_inner(tool_name, arguments, effective_timeout)
 
     # -----------------------------------------------------------------------
     # Release management tools

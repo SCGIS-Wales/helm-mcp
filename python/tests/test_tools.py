@@ -1,14 +1,22 @@
 """Tests for helm_mcp.tools — resilient async tool wrappers."""
 
 import asyncio
+import os
 import types
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from helm_mcp.resilience import (
+    BulkheadConfig,
+    CircuitBreakerConfig,
+    ResilienceConfig,
+    TenacityConfig,
+)
 from helm_mcp.tools import (
     DEFAULT_MAX_RECONNECTS,
     DEFAULT_TIMEOUT,
+    HelmCircuitOpenError,
     HelmClient,
     HelmConnectionError,
     HelmError,
@@ -669,3 +677,354 @@ class TestConstants:
 
     def test_default_max_reconnects(self):
         assert DEFAULT_MAX_RECONNECTS == 3
+
+
+# ---------------------------------------------------------------------------
+# Circuit breaker
+# ---------------------------------------------------------------------------
+
+
+class TestCircuitBreaker:
+    """Test circuit breaker integration in HelmClient."""
+
+    def test_circuit_breaker_enabled_by_default(self):
+        """Circuit breaker is enabled with default ResilienceConfig."""
+        with patch.dict(os.environ, {}, clear=True):
+            client = HelmClient()
+            assert client._breaker is not None
+
+    def test_circuit_breaker_disabled(self):
+        """Circuit breaker can be disabled via config."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+        )
+        client = HelmClient(resilience=config)
+        assert client._breaker is None
+
+    def test_circuit_breaker_custom_threshold(self):
+        """Circuit breaker uses configured failure threshold."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(failure_threshold=3, reset_timeout=15.0),
+        )
+        client = HelmClient(resilience=config)
+        assert client._breaker is not None
+        assert client._breaker._failure_threshold == 3
+        assert client._breaker._recovery_timeout == 15.0
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_opens_after_failures(self):
+        """Circuit breaker opens after exceeding failure threshold."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(
+                enabled=True,
+                failure_threshold=2,
+                reset_timeout=60.0,
+            ),
+            tenacity=TenacityConfig(enabled=False),
+        )
+        helm = HelmClient(resilience=config, max_reconnects=0)
+
+        mock_client = AsyncMock()
+        mock_client.call_tool = AsyncMock(side_effect=OSError("connection lost"))
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+        helm._client = mock_client
+        helm._connected = True
+
+        # First call: should raise HelmConnectionError (exceeds max_reconnects)
+        with pytest.raises(HelmConnectionError):
+            await helm.call_tool("helm_list", {})
+
+        # Reset for second call
+        helm._connected = True
+
+        with pytest.raises(HelmConnectionError):
+            await helm.call_tool("helm_list", {})
+
+        # After threshold breaches, circuit should be OPEN → HelmCircuitOpenError
+        helm._connected = True
+        with pytest.raises(HelmCircuitOpenError, match="Circuit breaker OPEN"):
+            await helm.call_tool("helm_list", {})
+
+    @pytest.mark.asyncio
+    async def test_circuit_breaker_not_tripped_by_tool_errors(self):
+        """HelmToolError does not count toward circuit breaker failures."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(
+                enabled=True,
+                failure_threshold=2,
+                reset_timeout=60.0,
+            ),
+            tenacity=TenacityConfig(enabled=False),
+        )
+        helm = HelmClient(resilience=config)
+
+        mock_client = AsyncMock()
+        error_content = MagicMock(text="release not found", isError=True)
+        mock_client.call_tool = AsyncMock(return_value=[error_content])
+        helm._client = mock_client
+        helm._connected = True
+
+        # Multiple HelmToolErrors should NOT trip the circuit breaker
+        for _ in range(5):
+            with pytest.raises(HelmToolError):
+                await helm.call_tool("helm_status", {"release_name": "missing"})
+
+        # Circuit should still be closed — next tool call should work normally
+        mock_ok = MagicMock(text="deployed", isError=False)
+        mock_client.call_tool = AsyncMock(return_value=[mock_ok])
+        result = await helm.call_tool("helm_status", {"release_name": "ok"})
+        assert result == "deployed"
+
+    def test_helm_circuit_open_error_hierarchy(self):
+        """HelmCircuitOpenError is a subclass of HelmConnectionError."""
+        assert issubclass(HelmCircuitOpenError, HelmConnectionError)
+        assert issubclass(HelmCircuitOpenError, HelmError)
+
+
+# ---------------------------------------------------------------------------
+# Tenacity retry
+# ---------------------------------------------------------------------------
+
+
+class TestTenacityRetry:
+    """Test tenacity retry integration in HelmClient."""
+
+    @pytest.mark.asyncio
+    async def test_tenacity_retries_transient_error(self):
+        """Tenacity retries OSError and eventually succeeds."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(
+                enabled=True,
+                max_attempts=3,
+                min_wait=0.01,
+                max_wait=0.02,
+            ),
+        )
+        helm = HelmClient(resilience=config)
+
+        call_count = 0
+        mock_client = AsyncMock()
+
+        async def flaky_call(tool_name, args):
+            nonlocal call_count
+            call_count += 1
+            if call_count < 3:
+                raise OSError("transient failure")
+            return [MagicMock(text="success", isError=False)]
+
+        mock_client.call_tool = flaky_call
+        helm._client = mock_client
+        helm._connected = True
+
+        result = await helm.call_tool("helm_list", {})
+        assert result == "success"
+        assert call_count == 3
+
+    @pytest.mark.asyncio
+    async def test_tenacity_no_retry_on_tool_error(self):
+        """Tenacity does NOT retry HelmToolError (not transient)."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(
+                enabled=True,
+                max_attempts=3,
+                min_wait=0.01,
+                max_wait=0.02,
+            ),
+        )
+        helm = HelmClient(resilience=config)
+
+        mock_client = AsyncMock()
+        error_content = MagicMock(text="release not found", isError=True)
+        mock_client.call_tool = AsyncMock(return_value=[error_content])
+        helm._client = mock_client
+        helm._connected = True
+
+        with pytest.raises(HelmToolError):
+            await helm.call_tool("helm_status", {"release_name": "missing"})
+
+        # call_tool should only be called once — no retries
+        assert mock_client.call_tool.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_tenacity_disabled(self):
+        """When tenacity is disabled, no retry occurs on transient error."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(enabled=False),
+        )
+        helm = HelmClient(resilience=config, max_reconnects=0)
+
+        mock_client = AsyncMock()
+        mock_client.call_tool = AsyncMock(side_effect=OSError("fail"))
+        helm._client = mock_client
+        helm._connected = True
+
+        with pytest.raises(HelmConnectionError):
+            await helm.call_tool("helm_list", {})
+
+    @pytest.mark.asyncio
+    async def test_tenacity_respects_max_attempts(self):
+        """Tenacity stops after max_attempts and re-raises."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(
+                enabled=True,
+                max_attempts=2,
+                min_wait=0.01,
+                max_wait=0.02,
+            ),
+        )
+        helm = HelmClient(resilience=config, max_reconnects=0)
+
+        call_count = 0
+        mock_client = AsyncMock()
+
+        async def always_fail(tool_name, args):
+            nonlocal call_count
+            call_count += 1
+            raise OSError("persistent failure")
+
+        mock_client.call_tool = always_fail
+        helm._client = mock_client
+        helm._connected = True
+
+        with pytest.raises(HelmConnectionError):
+            await helm.call_tool("helm_list", {})
+        # tenacity tries max_attempts times (2), then it re-raises OSError
+        # which falls through to the reconnection loop
+        assert call_count == 2
+
+
+# ---------------------------------------------------------------------------
+# Bulkhead (concurrency limiter)
+# ---------------------------------------------------------------------------
+
+
+class TestBulkhead:
+    """Test bulkhead (asyncio.Semaphore) in HelmClient."""
+
+    def test_bulkhead_enabled_by_default(self):
+        """Bulkhead semaphore is created with default config."""
+        with patch.dict(os.environ, {}, clear=True):
+            client = HelmClient()
+            assert client._semaphore is not None
+
+    def test_bulkhead_disabled(self):
+        """Bulkhead can be disabled via config."""
+        config = ResilienceConfig(
+            bulkhead=BulkheadConfig(enabled=False),
+        )
+        client = HelmClient(resilience=config)
+        assert client._semaphore is None
+
+    @pytest.mark.asyncio
+    async def test_bulkhead_limits_concurrency(self):
+        """Semaphore limits concurrent in-flight calls."""
+        config = ResilienceConfig(
+            bulkhead=BulkheadConfig(enabled=True, max_concurrent=2),
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(enabled=False),
+        )
+        helm = HelmClient(resilience=config)
+
+        max_concurrent = 0
+        current_concurrent = 0
+
+        mock_client = AsyncMock()
+
+        async def tracked_call(tool_name, args):
+            nonlocal max_concurrent, current_concurrent
+            current_concurrent += 1
+            if current_concurrent > max_concurrent:
+                max_concurrent = current_concurrent
+            await asyncio.sleep(0.05)
+            current_concurrent -= 1
+            return [MagicMock(text="ok", isError=False)]
+
+        mock_client.call_tool = tracked_call
+        helm._client = mock_client
+        helm._connected = True
+
+        # Launch 5 concurrent calls with a bulkhead of 2
+        results = await asyncio.gather(
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+        )
+
+        assert len(results) == 5
+        assert max_concurrent <= 2  # bulkhead enforced
+
+    @pytest.mark.asyncio
+    async def test_bulkhead_disabled_allows_unlimited(self):
+        """Without bulkhead, all calls run concurrently."""
+        config = ResilienceConfig(
+            bulkhead=BulkheadConfig(enabled=False),
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(enabled=False),
+        )
+        helm = HelmClient(resilience=config)
+
+        max_concurrent = 0
+        current_concurrent = 0
+
+        mock_client = AsyncMock()
+
+        async def tracked_call(tool_name, args):
+            nonlocal max_concurrent, current_concurrent
+            current_concurrent += 1
+            if current_concurrent > max_concurrent:
+                max_concurrent = current_concurrent
+            await asyncio.sleep(0.05)
+            current_concurrent -= 1
+            return [MagicMock(text="ok", isError=False)]
+
+        mock_client.call_tool = tracked_call
+        helm._client = mock_client
+        helm._connected = True
+
+        results = await asyncio.gather(
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+            helm.call_tool("helm_list", {}),
+        )
+
+        assert len(results) == 5
+        assert max_concurrent > 2  # no bulkhead limiting
+
+
+# ---------------------------------------------------------------------------
+# HelmClient with custom resilience config
+# ---------------------------------------------------------------------------
+
+
+class TestHelmClientResilienceConfig:
+    """Test HelmClient accepts and applies ResilienceConfig."""
+
+    def test_default_resilience_config(self):
+        """HelmClient creates a default ResilienceConfig when none provided."""
+        with patch.dict(os.environ, {}, clear=True):
+            client = HelmClient()
+            assert client._config is not None
+            assert client._config.circuit_breaker.enabled is True
+            assert client._config.tenacity.enabled is True
+            assert client._config.bulkhead.enabled is True
+
+    def test_custom_resilience_config(self):
+        """HelmClient respects custom ResilienceConfig."""
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(enabled=False),
+            bulkhead=BulkheadConfig(enabled=False),
+        )
+        client = HelmClient(resilience=config)
+        assert client._breaker is None
+        assert client._semaphore is None
+        assert client._config.tenacity.enabled is False
