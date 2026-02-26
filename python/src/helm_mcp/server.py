@@ -6,6 +6,8 @@ proxy without any Python code changes. The MCP protocol handles tool
 discovery at runtime via the ``tools/list`` method.
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import platform

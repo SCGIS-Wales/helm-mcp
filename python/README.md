@@ -12,7 +12,7 @@ Uses [FastMCP](https://github.com/PrefectHQ/fastmcp) to create a transparent pro
 
 ## Requirements
 
-- Python 3.14+
+- Python 3.10+
 - The `helm-mcp` Go binary is **automatically downloaded** on first use (with SHA256 checksum verification)
 
 ## Installation
