@@ -38,7 +38,9 @@ Module-level convenience functions::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import sys
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +59,45 @@ from tenacity import (
 from helm_mcp.client import create_client
 
 logger = logging.getLogger("helm_mcp.tools")
+
+# ---------------------------------------------------------------------------
+# Python 3.10 compatibility shim
+# ---------------------------------------------------------------------------
+
+_NEEDS_WAIT_FOR_COMPAT = sys.version_info < (3, 11)
+
+
+async def _wait_for_compat(coro: Any, *, timeout: float) -> Any:
+    """``asyncio.wait_for`` that works correctly on Python 3.10.
+
+    Python 3.10's ``asyncio.wait_for`` has a known bug where it leaks
+    ``CancelledError`` instead of raising ``TimeoutError`` when the
+    deadline expires.  This shim uses ``asyncio.wait`` with an explicit
+    timeout to sidestep the issue.  On Python 3.11+ we delegate to the
+    stdlib implementation which is fixed.
+    """
+    if not _NEEDS_WAIT_FOR_COMPAT:
+        return await asyncio.wait_for(coro, timeout=timeout)
+
+    task = asyncio.ensure_future(coro)
+    try:
+        done, _ = await asyncio.wait({task}, timeout=timeout)
+    except asyncio.CancelledError:
+        # Outer code cancelled *us* — propagate after cleaning up.
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
+        raise
+
+    if task in done:
+        return task.result()
+
+    # Timeout expired — cancel the child and raise TimeoutError.
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError, Exception):
+        await task
+    raise TimeoutError
+
 
 # ---------------------------------------------------------------------------
 # Exception hierarchy
@@ -324,18 +365,10 @@ class HelmClient:
     ) -> Any:
         """Execute a single MCP tool call with timeout.  No retry logic."""
         t0 = time.monotonic()
-        try:
-            result = await asyncio.wait_for(
-                self._client.call_tool(tool_name, arguments),
-                timeout=effective_timeout,
-            )
-        except asyncio.CancelledError:
-            # Python <3.11: asyncio.wait_for can leak CancelledError on
-            # timeout instead of raising TimeoutError.  Re-raise as
-            # TimeoutError so the outer handler converts it properly.
-            if time.monotonic() - t0 >= effective_timeout * 0.9:
-                raise TimeoutError from None
-            raise
+        result = await _wait_for_compat(
+            self._client.call_tool(tool_name, arguments),
+            timeout=effective_timeout,
+        )
         elapsed = time.monotonic() - t0
         logger.debug("%s completed in %.2fs", tool_name, elapsed)
 
