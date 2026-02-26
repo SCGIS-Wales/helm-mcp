@@ -170,6 +170,65 @@ def test_find_binary_not_found():
         _find_binary()
 
 
+def test_is_python_script_detects_python_shebang(tmp_path):
+    """Test that _is_python_script returns True for pip console_script wrappers."""
+    from helm_mcp.server import _is_python_script
+
+    wrapper = tmp_path / "helm-mcp"
+    wrapper.write_text("#!/usr/bin/env python3\n# pip console_script wrapper\n")
+    assert _is_python_script(str(wrapper)) is True
+
+
+def test_is_python_script_false_for_shell_script(tmp_path):
+    """Test that _is_python_script returns False for shell scripts."""
+    from helm_mcp.server import _is_python_script
+
+    script = tmp_path / "helm-mcp"
+    script.write_text('#!/bin/sh\nexec helm-mcp-go "$@"\n')
+    assert _is_python_script(str(script)) is False
+
+
+def test_is_python_script_false_for_binary(tmp_path):
+    """Test that _is_python_script returns False for native binaries."""
+    from helm_mcp.server import _is_python_script
+
+    binary = tmp_path / "helm-mcp"
+    binary.write_bytes(b"\x7fELF\x02\x01\x01\x00")  # ELF header
+    assert _is_python_script(str(binary)) is False
+
+
+def test_is_python_script_false_for_missing_file():
+    """Test that _is_python_script returns False for nonexistent files."""
+    from helm_mcp.server import _is_python_script
+
+    assert _is_python_script("/nonexistent/path/helm-mcp") is False
+
+
+def test_find_binary_skips_python_wrapper_on_path(tmp_path):
+    """Test that _find_binary skips Python console_script wrappers on PATH.
+
+    When pip installs the universal wheel, it places a Python wrapper at
+    ``bin/helm-mcp``.  The PATH lookup must skip this to avoid an infinite
+    exec loop.
+    """
+    from helm_mcp.server import _find_binary
+
+    # Create a Python wrapper (mimics pip console_script)
+    wrapper = tmp_path / "helm-mcp"
+    wrapper.write_text("#!/usr/bin/env python3\nfrom helm_mcp.cli import helm_mcp_main\n")
+    wrapper.chmod(0o755)
+
+    env = {k: v for k, v in os.environ.items() if k != "HELM_MCP_BINARY"}
+    env["PATH"] = f"{tmp_path}:{env.get('PATH', '')}"
+
+    with (
+        patch.dict(os.environ, env, clear=True),
+        patch("helm_mcp.download.ensure_binary", return_value=None),
+        pytest.raises(FileNotFoundError, match="helm-mcp binary not found"),
+    ):
+        _find_binary()
+
+
 def test_find_binary_bundled(tmp_path):
     """Test binary discovery from bundled bin/ directory."""
     import helm_mcp.server as server_mod
@@ -624,6 +683,42 @@ def test_helm_mcp_main_not_found(capsys):
     ):
         helm_mcp_main()
     assert exc_info.value.code == 1
+
+
+def test_cli_is_python_script(tmp_path):
+    """Test that cli._is_python_script detects Python wrappers."""
+    from helm_mcp.cli import _is_python_script
+
+    wrapper = tmp_path / "helm-mcp"
+    wrapper.write_text("#!/usr/bin/python3\nimport sys\n")
+    assert _is_python_script(str(wrapper)) is True
+
+    shell = tmp_path / "helm-mcp-go"
+    shell.write_text("#!/bin/sh\nexec helm-mcp-go\n")
+    assert _is_python_script(str(shell)) is False
+
+
+def test_cli_find_binary_skips_python_wrapper(tmp_path):
+    """Test that cli._find_binary skips Python wrappers and tries auto-download."""
+    from helm_mcp.cli import _find_binary
+
+    wrapper = tmp_path / "helm-mcp"
+    wrapper.write_text("#!/usr/bin/env python3\nfrom helm_mcp.cli import main\n")
+    wrapper.chmod(0o755)
+
+    downloaded = tmp_path / "helm-mcp-downloaded"
+    downloaded.write_bytes(b"\x7fELF")
+    downloaded.chmod(0o755)
+
+    env = {k: v for k, v in os.environ.items() if k != "HELM_MCP_BINARY"}
+    env["PATH"] = f"{tmp_path}:{env.get('PATH', '')}"
+
+    with (
+        patch.dict(os.environ, env, clear=True),
+        patch("helm_mcp.download.ensure_binary", return_value=str(downloaded)),
+    ):
+        result = _find_binary("helm-mcp")
+        assert result == str(downloaded)
 
 
 def test_find_bundled_binary_found():

@@ -470,8 +470,12 @@ jobs:
             --binaries-dir release-assets/ \
             --output dist/
 
-      - name: Copy universal wheel to dist/
-        run: cp python/dist/*.whl dist/
+      # NOTE: The universal wheel (py3-none-any) is intentionally NOT
+      # copied to dist/.  Publishing it to PyPI causes pip to prefer it
+      # over the platform-specific wheels on some systems, resulting in
+      # a package without a bundled Go binary and a broken auto-download
+      # fallback (corporate proxies, etc.).  Only platform wheels + sdist
+      # are published.
 
       - name: List built wheels
         run: ls -la dist/

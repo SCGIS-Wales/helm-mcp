@@ -20,6 +20,23 @@ from helm_mcp.resilience import ResilienceConfig, build_middleware, setup_otel
 
 logger = logging.getLogger(__name__)
 
+
+def _is_python_script(path: str) -> bool:
+    """Check if *path* is a Python script (e.g. a pip console_script wrapper).
+
+    This prevents ``shutil.which("helm-mcp")`` from returning the
+    Python wrapper installed by pip, which would cause an infinite
+    loop when the Go binary is expected.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(128)
+        first_line = head.split(b"\n", 1)[0].lower()
+        return head[:2] == b"#!" and b"python" in first_line
+    except OSError:
+        return False
+
+
 # Environment variables forwarded to the Go subprocess.
 # Extend this list to pass additional variables — the proxy itself
 # never needs to know about individual Helm tools.
@@ -123,9 +140,10 @@ def _find_binary() -> str:
             logger.info("using bundled binary: %s", candidate)
             return str(candidate)
 
-    # 3. PATH lookup (preferred over download — works with platform-specific wheels)
+    # 3. PATH lookup (preferred over download — works with platform-specific wheels).
+    #    Skip Python console_script wrappers to avoid an infinite loop.
     found = shutil.which("helm-mcp")
-    if found:
+    if found and not _is_python_script(found):
         logger.info("using binary from PATH: %s", found)
         return found
 

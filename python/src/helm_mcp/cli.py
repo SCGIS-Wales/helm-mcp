@@ -36,8 +36,25 @@ def _find_bundled_binary(name: str) -> str | None:
     return str(bundled)
 
 
+def _is_python_script(path: str) -> bool:
+    """Check if *path* is a Python script (e.g. a pip console_script wrapper).
+
+    This prevents ``shutil.which("helm-mcp")`` from returning the
+    Python wrapper installed by pip, which would cause an infinite
+    ``exec`` loop when ``helm_mcp_main`` tries to replace itself with
+    the "real" binary.
+    """
+    try:
+        with open(path, "rb") as fh:
+            head = fh.read(128)
+        first_line = head.split(b"\n", 1)[0].lower()
+        return head[:2] == b"#!" and b"python" in first_line
+    except OSError:
+        return False
+
+
 def _find_binary(name: str) -> str:
-    """Find a binary by name: bundled in package, then PATH.
+    """Find the Go binary by name: bundled → PATH → auto-download.
 
     Raises:
         FileNotFoundError: If the binary cannot be located.
@@ -47,15 +64,28 @@ def _find_binary(name: str) -> str:
     if bundled:
         return bundled
 
-    # 2. Binary on PATH (e.g. installed via go install or Homebrew)
+    # 2. Binary on PATH (e.g. installed via go install or Homebrew).
+    #    Skip Python console_script wrappers to avoid an infinite exec loop.
     found = shutil.which(name)
-    if found:
+    if found and not _is_python_script(found):
         return found
+
+    # 3. Auto-download from GitHub Releases (fallback for universal wheel)
+    try:
+        from helm_mcp import __version__
+        from helm_mcp.download import ensure_binary
+
+        downloaded = ensure_binary(__version__)
+        if downloaded:
+            return downloaded
+    except Exception:
+        pass
 
     raise FileNotFoundError(
         f"{name} binary not found. Install helm-mcp via:\n"
-        "  go install github.com/SCGIS-Wales/helm-mcp/cmd/helm-mcp@latest\n"
-        "  or: pip install helm-mcp  (platform wheel bundles the binary)"
+        "  pip install helm-mcp  (platform wheel bundles the binary)\n"
+        "  or: go install github.com/SCGIS-Wales/helm-mcp/cmd/helm-mcp@latest\n"
+        "  or: set HELM_MCP_BINARY=/path/to/helm-mcp"
     )
 
 
