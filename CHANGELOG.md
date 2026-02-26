@@ -10,6 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.27] - 2026-02-26
+
+### Fixed
+- Python <3.11 `asyncio.wait_for` can leak `CancelledError` instead of raising `TimeoutError` on timeout ([#35](https://github.com/SCGIS-Wales/helm-mcp/pull/35))
+- The `CancelledError` propagates through tenacity retry and circuitbreaker layers, so it must be caught at the `_call_tool_inner` level alongside `TimeoutError` ([#35](https://github.com/SCGIS-Wales/helm-mcp/pull/35))
+- Removes the ineffective `_raw_call` try/except from #34 since the error propagates through middleware before reaching that handler ([#35](https://github.com/SCGIS-Wales/helm-mcp/pull/35))
+
 ## [0.1.26] - 2026-02-26
 
 ### Fixed
@@ -251,7 +259,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.26...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.27...HEAD
+[0.1.27]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.23...v0.1.24
