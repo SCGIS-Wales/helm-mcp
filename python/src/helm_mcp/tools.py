@@ -473,11 +473,21 @@ class HelmClient:
         """
         effective_timeout = timeout if timeout is not None else self.timeout
 
-        # Bulkhead: limit concurrent calls
-        if self._semaphore is not None:
-            async with self._semaphore:
-                return await self._call_tool_inner(tool_name, arguments, effective_timeout)
-        return await self._call_tool_inner(tool_name, arguments, effective_timeout)
+        try:
+            # Bulkhead: limit concurrent calls
+            if self._semaphore is not None:
+                async with self._semaphore:
+                    return await self._call_tool_inner(
+                        tool_name, arguments, effective_timeout
+                    )
+            return await self._call_tool_inner(tool_name, arguments, effective_timeout)
+        except asyncio.CancelledError:
+            # Python <3.11: asyncio.wait_for leaks CancelledError instead of
+            # TimeoutError.  Convert to HelmTimeoutError at the outermost level
+            # in case the exception escapes inner handlers via middleware.
+            raise HelmTimeoutError(
+                f"Tool {tool_name!r} timed out after {effective_timeout}s"
+            ) from None
 
     # -----------------------------------------------------------------------
     # Release management tools
