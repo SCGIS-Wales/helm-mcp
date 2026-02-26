@@ -5,6 +5,8 @@ Provides two commands:
   - ``helm-mcp-python``: Python MCP proxy server wrapping the Go binary via FastMCP.
 """
 
+from __future__ import annotations
+
 import argparse
 import logging
 import os

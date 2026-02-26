@@ -324,10 +324,18 @@ class HelmClient:
     ) -> Any:
         """Execute a single MCP tool call with timeout.  No retry logic."""
         t0 = time.monotonic()
-        result = await asyncio.wait_for(
-            self._client.call_tool(tool_name, arguments),
-            timeout=effective_timeout,
-        )
+        try:
+            result = await asyncio.wait_for(
+                self._client.call_tool(tool_name, arguments),
+                timeout=effective_timeout,
+            )
+        except asyncio.CancelledError:
+            # Python <3.11: asyncio.wait_for can leak CancelledError on
+            # timeout instead of raising TimeoutError.  Re-raise as
+            # TimeoutError so the outer handler converts it properly.
+            if time.monotonic() - t0 >= effective_timeout * 0.9:
+                raise TimeoutError from None
+            raise
         elapsed = time.monotonic() - t0
         logger.debug("%s completed in %.2fs", tool_name, elapsed)
 
