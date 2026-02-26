@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.26] - 2026-02-26
+
+### Fixed
+- Fixes an infinite exec loop where `shutil.which("helm-mcp")` finds the pip console_script wrapper, causing `os.execvp` to endlessly replace the process with itself ([#33](https://github.com/SCGIS-Wales/helm-mcp/pull/33))
+- Adds `_is_python_script()` guards in both `cli.py` and `server.py` to detect and skip Python wrapper scripts on PATH ([#33](https://github.com/SCGIS-Wales/helm-mcp/pull/33))
+- Adds auto-download fallback to `cli.py:_find_binary()` (was previously only in `server.py`) ([#33](https://github.com/SCGIS-Wales/helm-mcp/pull/33))
+- Stops publishing the universal wheel (py3-none-any) to PyPI so pip always selects platform-specific wheels with bundled Go binaries ([#33](https://github.com/SCGIS-Wales/helm-mcp/pull/33))
+
 ## [0.1.25] - 2026-02-25
 
 ### Added
@@ -242,7 +251,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.25...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.26...HEAD
+[0.1.26]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.24...v0.1.25
 [0.1.24]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.23...v0.1.24
 [0.1.23]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.22...v0.1.23
