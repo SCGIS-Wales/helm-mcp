@@ -38,7 +38,9 @@ Module-level convenience functions::
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import sys
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -57,6 +59,45 @@ from tenacity import (
 from helm_mcp.client import create_client
 
 logger = logging.getLogger("helm_mcp.tools")
+
+# ---------------------------------------------------------------------------
+# Python 3.10 compatibility shim
+# ---------------------------------------------------------------------------
+
+_NEEDS_WAIT_FOR_COMPAT = sys.version_info < (3, 11)
+
+
+async def _wait_for_compat(coro: Any, *, timeout: float) -> Any:
+    """``asyncio.wait_for`` that works correctly on Python 3.10.
+
+    Python 3.10's ``asyncio.wait_for`` has a known bug where it leaks
+    ``CancelledError`` instead of raising ``TimeoutError`` when the
+    deadline expires.  This shim uses ``asyncio.wait`` with an explicit
+    timeout to sidestep the issue.  On Python 3.11+ we delegate to the
+    stdlib implementation which is fixed.
+    """
+    if not _NEEDS_WAIT_FOR_COMPAT:
+        return await asyncio.wait_for(coro, timeout=timeout)
+
+    task = asyncio.ensure_future(coro)
+    try:
+        done, _ = await asyncio.wait({task}, timeout=timeout)
+    except asyncio.CancelledError:
+        # Outer code cancelled *us* — propagate after cleaning up.
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError, Exception):
+            await task
+        raise
+
+    if task in done:
+        return task.result()
+
+    # Timeout expired — cancel the child and raise TimeoutError.
+    task.cancel()
+    with contextlib.suppress(asyncio.CancelledError, Exception):
+        await task
+    raise TimeoutError
+
 
 # ---------------------------------------------------------------------------
 # Exception hierarchy
@@ -324,7 +365,7 @@ class HelmClient:
     ) -> Any:
         """Execute a single MCP tool call with timeout.  No retry logic."""
         t0 = time.monotonic()
-        result = await asyncio.wait_for(
+        result = await _wait_for_compat(
             self._client.call_tool(tool_name, arguments),
             timeout=effective_timeout,
         )
@@ -413,9 +454,7 @@ class HelmClient:
                     f"Circuit breaker OPEN for {tool_name!r}: too many consecutive failures"
                 ) from exc
 
-            except (TimeoutError, asyncio.CancelledError) as exc:
-                # Python <3.11: asyncio.wait_for can leak CancelledError
-                # instead of raising TimeoutError on timeout.
+            except TimeoutError as exc:
                 logger.warning("%s timed out after %.1fs", tool_name, effective_timeout)
                 raise HelmTimeoutError(
                     f"Tool {tool_name!r} timed out after {effective_timeout}s"
@@ -473,21 +512,11 @@ class HelmClient:
         """
         effective_timeout = timeout if timeout is not None else self.timeout
 
-        try:
-            # Bulkhead: limit concurrent calls
-            if self._semaphore is not None:
-                async with self._semaphore:
-                    return await self._call_tool_inner(
-                        tool_name, arguments, effective_timeout
-                    )
-            return await self._call_tool_inner(tool_name, arguments, effective_timeout)
-        except asyncio.CancelledError:
-            # Python <3.11: asyncio.wait_for leaks CancelledError instead of
-            # TimeoutError.  Convert to HelmTimeoutError at the outermost level
-            # in case the exception escapes inner handlers via middleware.
-            raise HelmTimeoutError(
-                f"Tool {tool_name!r} timed out after {effective_timeout}s"
-            ) from None
+        # Bulkhead: limit concurrent calls
+        if self._semaphore is not None:
+            async with self._semaphore:
+                return await self._call_tool_inner(tool_name, arguments, effective_timeout)
+        return await self._call_tool_inner(tool_name, arguments, effective_timeout)
 
     # -----------------------------------------------------------------------
     # Release management tools
