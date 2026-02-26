@@ -184,7 +184,7 @@ def test_is_python_script_false_for_shell_script(tmp_path):
     from helm_mcp.server import _is_python_script
 
     script = tmp_path / "helm-mcp"
-    script.write_text("#!/bin/sh\nexec helm-mcp-go \"$@\"\n")
+    script.write_text('#!/bin/sh\nexec helm-mcp-go "$@"\n')
     assert _is_python_script(str(script)) is False
 
 
