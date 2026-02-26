@@ -324,18 +324,10 @@ class HelmClient:
     ) -> Any:
         """Execute a single MCP tool call with timeout.  No retry logic."""
         t0 = time.monotonic()
-        try:
-            result = await asyncio.wait_for(
-                self._client.call_tool(tool_name, arguments),
-                timeout=effective_timeout,
-            )
-        except asyncio.CancelledError:
-            # Python <3.11: asyncio.wait_for can leak CancelledError on
-            # timeout instead of raising TimeoutError.  Re-raise as
-            # TimeoutError so the outer handler converts it properly.
-            if time.monotonic() - t0 >= effective_timeout * 0.9:
-                raise TimeoutError from None
-            raise
+        result = await asyncio.wait_for(
+            self._client.call_tool(tool_name, arguments),
+            timeout=effective_timeout,
+        )
         elapsed = time.monotonic() - t0
         logger.debug("%s completed in %.2fs", tool_name, elapsed)
 
@@ -421,7 +413,9 @@ class HelmClient:
                     f"Circuit breaker OPEN for {tool_name!r}: too many consecutive failures"
                 ) from exc
 
-            except TimeoutError as exc:
+            except (TimeoutError, asyncio.CancelledError) as exc:
+                # Python <3.11: asyncio.wait_for can leak CancelledError
+                # instead of raising TimeoutError on timeout.
                 logger.warning("%s timed out after %.1fs", tool_name, effective_timeout)
                 raise HelmTimeoutError(
                     f"Tool {tool_name!r} timed out after {effective_timeout}s"
