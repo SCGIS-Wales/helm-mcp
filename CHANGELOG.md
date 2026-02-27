@@ -12,6 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.29] - 2026-02-27
+
+### Changed
+- Adds **Python version matrix** (3.10, 3.12, 3.14) — now 9 combinations (3 runners × 3 Python versions) ([#37](https://github.com/SCGIS-Wales/helm-mcp/pull/37))
+- Captures installed versions into `GITHUB_OUTPUT` for downstream use ([#37](https://github.com/SCGIS-Wales/helm-mcp/pull/37))
+- Adds **GitHub Actions job summary** table showing runner, Python version, and package versions per run ([#37](https://github.com/SCGIS-Wales/helm-mcp/pull/37))
+- Summary renders directly in the Actions UI for quick at-a-glance visibility ([#37](https://github.com/SCGIS-Wales/helm-mcp/pull/37))
+
 ## [0.1.28] - 2026-02-27
 
 ### Changed
@@ -269,7 +278,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.28...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.29...HEAD
+[0.1.29]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.25...v0.1.26
