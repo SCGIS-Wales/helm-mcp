@@ -8,25 +8,31 @@ on:
 
 jobs:
   install-packages:
-    name: Install helm-mcp & dcert (${{ matrix.runner }})
+    name: "Install test: py${{ matrix.python-version }} / ${{ matrix.runner }}"
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
         runner: [ubuntu-latest, ubuntu-22.04, macos-latest]
+        python-version: ['3.10', '3.12', '3.14']
     steps:
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python-version }}
 
       - name: "Step 1: Install latest helm-mcp and dcert"
         run: pip install --upgrade helm-mcp dcert
 
       - name: "Step 1: Verify installed versions"
+        id: install_versions
         run: |
           echo "=== After initial install ==="
-          pip show helm-mcp | grep -E '^(Name|Version):'
-          pip show dcert | grep -E '^(Name|Version):'
+          HELM_MCP_VER=$(pip show helm-mcp | grep '^Version:' | awk '{print $2}')
+          DCERT_VER=$(pip show dcert | grep '^Version:' | awk '{print $2}')
+          echo "helm-mcp=${HELM_MCP_VER}"
+          echo "dcert=${DCERT_VER}"
+          echo "helm_mcp_version=${HELM_MCP_VER}" >> "$GITHUB_OUTPUT"
+          echo "dcert_version=${DCERT_VER}" >> "$GITHUB_OUTPUT"
 
       - name: "Step 2: Uninstall helm-mcp and dcert"
         run: pip uninstall -y helm-mcp dcert
@@ -43,5 +49,20 @@ jobs:
       - name: "Step 3: Verify reinstalled versions"
         run: |
           echo "=== After reinstall ==="
-          pip show helm-mcp | grep -E '^(Name|Version):'
-          pip show dcert | grep -E '^(Name|Version):'
+          HELM_MCP_VER=$(pip show helm-mcp | grep '^Version:' | awk '{print $2}')
+          DCERT_VER=$(pip show dcert | grep '^Version:' | awk '{print $2}')
+          echo "helm-mcp=${HELM_MCP_VER}"
+          echo "dcert=${DCERT_VER}"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## Package Install Test Results" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Detail | Value |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|--------|-------|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Runner | \`${{ matrix.runner }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Python | \`${{ matrix.python-version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| helm-mcp | \`${{ steps.install_versions.outputs.helm_mcp_version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| dcert | \`${{ steps.install_versions.outputs.dcert_version }}\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Status | ✅ install → uninstall → reinstall |" >> "$GITHUB_STEP_SUMMARY"
