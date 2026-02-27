@@ -1,0 +1,47 @@
+name: Scheduled Package Install
+
+on:
+  schedule:
+    # Run once every hour
+    - cron: '0 * * * *'
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  install-packages:
+    name: Install helm-mcp & dcert (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-22.04, macos-latest]
+    steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: "Step 1: Install latest helm-mcp and dcert"
+        run: pip install --upgrade helm-mcp dcert
+
+      - name: "Step 1: Verify installed versions"
+        run: |
+          echo "=== After initial install ==="
+          pip show helm-mcp | grep -E '^(Name|Version):'
+          pip show dcert | grep -E '^(Name|Version):'
+
+      - name: "Step 2: Uninstall helm-mcp and dcert"
+        run: pip uninstall -y helm-mcp dcert
+
+      - name: "Step 2: Verify uninstall"
+        run: |
+          echo "=== After uninstall ==="
+          pip show helm-mcp && exit 1 || echo "helm-mcp successfully uninstalled"
+          pip show dcert && exit 1 || echo "dcert successfully uninstalled"
+
+      - name: "Step 3: Reinstall latest helm-mcp and dcert"
+        run: pip install --upgrade helm-mcp dcert
+
+      - name: "Step 3: Verify reinstalled versions"
+        run: |
+          echo "=== After reinstall ==="
+          pip show helm-mcp | grep -E '^(Name|Version):'
+          pip show dcert | grep -E '^(Name|Version):'
