@@ -11,6 +11,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.28] - 2026-02-27
+
+### Changed
+- Adds a new GitHub Actions workflow (`scheduled-install.yml`) that runs **every hour** on a cron schedule ([#36](https://github.com/SCGIS-Wales/helm-mcp/pull/36))
+- Performs **install → uninstall → reinstall** of `helm-mcp` and `dcert` from PyPI in a single run ([#36](https://github.com/SCGIS-Wales/helm-mcp/pull/36))
+- Runs across **multiple runners** (`ubuntu-latest`, `ubuntu-22.04`, `macos-latest`) with `fail-fast: false` ([#36](https://github.com/SCGIS-Wales/helm-mcp/pull/36))
+- Includes verification steps after each phase to confirm packages are installed/removed correctly ([#36](https://github.com/SCGIS-Wales/helm-mcp/pull/36))
+- Also supports `workflow_dispatch` for manual triggers ([#36](https://github.com/SCGIS-Wales/helm-mcp/pull/36))
+
 ## [0.1.27] - 2026-02-26
 
 ### Fixed
@@ -259,7 +269,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.27...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.28...HEAD
+[0.1.28]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.26...v0.1.27
 [0.1.26]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.25...v0.1.26
 [0.1.25]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.24...v0.1.25
