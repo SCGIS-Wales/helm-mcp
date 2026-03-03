@@ -1,15 +1,24 @@
-# helm-mcp
+<p align="center">
+  <img src="assets/helm-mcp-logo.svg" width="500" alt="Helm MCP">
+</p>
 
-[![CI/CD Pipeline](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml)
-[![Go Report Card](https://img.shields.io/badge/go%20report-A+-brightgreen.svg)](https://goreportcard.com/report/github.com/SCGIS-Wales/helm-mcp)
-[![PyPI version](https://img.shields.io/pypi/v/helm-mcp)](https://pypi.org/project/helm-mcp/)
-[![Python versions](https://img.shields.io/pypi/pyversions/helm-mcp)](https://pypi.org/project/helm-mcp/)
-[![Downloads](https://img.shields.io/pypi/dm/helm-mcp)](https://pypistats.org/packages/helm-mcp)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<p align="center">
+  <a href="https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml"><img src="https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI/CD Pipeline"></a>
+  <a href="https://goreportcard.com/report/github.com/SCGIS-Wales/helm-mcp"><img src="https://img.shields.io/badge/go%20report-A+-brightgreen.svg" alt="Go Report Card"></a>
+  <a href="https://pypi.org/project/helm-mcp/"><img src="https://img.shields.io/pypi/v/helm-mcp" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/helm-mcp/"><img src="https://img.shields.io/pypi/pyversions/helm-mcp" alt="Python versions"></a>
+  <a href="https://pypistats.org/packages/helm-mcp"><img src="https://img.shields.io/pypi/dm/helm-mcp" alt="Downloads"></a>
+  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+</p>
 
-An open-source MCP (Model Context Protocol) server that gives AI assistants **full access to Helm** — the Kubernetes package manager. Built with the native Helm Go SDK, supporting both Helm 3.x and 4.x in a single binary.
+<p align="center">
+  An open-source MCP (Model Context Protocol) server that gives AI assistants <strong>full access to Helm</strong> — the Kubernetes package manager. Built with the native Helm Go SDK, supporting both Helm 3.x and 4.x in a single binary.
+</p>
 
-> **Use natural language to manage your Kubernetes deployments.** Connect helm-mcp to Claude, Cursor, VS Code, or any MCP-compatible client to install charts, manage releases, search repositories, and more — all through conversation.
+<p align="center">
+  <em>Use natural language to manage your Kubernetes deployments.</em><br>
+  Connect helm-mcp to Claude, Cursor, VS Code, or any MCP-compatible client to install charts, manage releases, search repositories, and more — all through conversation.
+</p>
 
 ---
 
