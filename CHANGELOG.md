@@ -13,6 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.30] - 2026-03-03
+
+### Changed
+- Add the Helm MCP logo (`assets/helm-mcp-logo.svg`) as a centered hero image at the top of the README ([#38](https://github.com/SCGIS-Wales/helm-mcp/pull/38))
+- Center-align badges and description text below the logo for a polished open-source presentation ([#38](https://github.com/SCGIS-Wales/helm-mcp/pull/38))
+- SVG includes web-safe font fallbacks for cross-platform rendering ([#38](https://github.com/SCGIS-Wales/helm-mcp/pull/38))
+
 ## [0.1.29] - 2026-02-27
 
 ### Changed
@@ -278,7 +286,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.29...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.30...HEAD
+[0.1.30]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.27...v0.1.28
 [0.1.27]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.26...v0.1.27
