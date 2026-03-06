@@ -37,6 +37,8 @@
 - [Response Payload Management](#response-payload-management)
 - [Known Limitations](#known-limitations)
 - [Security](#security)
+  - [Authentication (OIDC/OAuth2)](#authentication-oidcoauth2)
+  - [On-Behalf-Of (OBO) Token Exchange](#on-behalf-of-obo-token-exchange)
 - [Development](#development)
 - [Architecture](#architecture)
 - [Contributing](#contributing)
@@ -716,6 +718,149 @@ When running in HTTP or SSE mode:
 - `IdleTimeout: 120s` — reclaims idle connections
 - `MaxHeaderBytes: 1MB` — prevents header-based DoS
 - Graceful shutdown with 5-second timeout
+
+### Authentication (OIDC/OAuth2)
+
+When running in HTTP or SSE mode, helm-mcp supports OAuth2/OIDC authentication with JWT validation, claims-based authorization, and structured audit logging. This aligns with the [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-03-26/basic/security).
+
+**Authentication is fully opt-in.** When no OIDC or token environment variables are set, the server runs without authentication (same as previous versions). Stdio mode is never affected by authentication configuration.
+
+#### Quick Start — Entra ID (Azure AD / ADFS)
+
+```bash
+# Required: issuer and audience
+export HELM_MCP_OIDC_ISSUER="https://login.microsoftonline.com/{tenant-id}/v2.0"
+export HELM_MCP_OIDC_AUDIENCE="api://helm-mcp-server"
+
+# Optional: restrict access by scopes, roles, or client app IDs
+export HELM_MCP_REQUIRED_SCOPES="helm.read,helm.write"
+export HELM_MCP_REQUIRED_ROLES="HelmOperator"
+export HELM_MCP_ALLOWED_CLIENTS="client-app-id-1,client-app-id-2"
+
+# Optional: explicit JWKS URL (auto-discovered from issuer if omitted)
+export HELM_MCP_OIDC_JWKS_URL="https://login.microsoftonline.com/{tenant-id}/discovery/v2.0/keys"
+
+helm-mcp --mode http --addr :8080
+```
+
+#### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `HELM_MCP_OIDC_ISSUER` | Yes (for OIDC) | OIDC issuer URL. Token `iss` claim must match. |
+| `HELM_MCP_OIDC_AUDIENCE` | Yes (for OIDC) | Expected `aud` claim. Tokens issued for other resources are rejected. |
+| `HELM_MCP_OIDC_JWKS_URL` | No | JWKS endpoint for signature verification. Auto-discovered from issuer if omitted. |
+| `HELM_MCP_REQUIRED_SCOPES` | No | Comma-separated OAuth2 scopes required in the `scp` claim. |
+| `HELM_MCP_REQUIRED_ROLES` | No | Comma-separated app roles required in the `roles` claim. |
+| `HELM_MCP_ALLOWED_CLIENTS` | No | Comma-separated client app IDs allowed in `azp`/`appid` claim. |
+| `HELM_MCP_SESSION_TTL` | No | Session cache inactivity TTL (Go duration, e.g., `5m`, `15m`). Default: `5m`. |
+| `HELM_MCP_AUTH_TOKEN` | No | Static bearer token (legacy). Lower priority than OIDC. |
+
+#### Authentication Priority
+
+1. **OIDC/OAuth2** — if `HELM_MCP_OIDC_ISSUER` is set, JWT validation with JWKS is enabled.
+2. **Static bearer token** — if only `HELM_MCP_AUTH_TOKEN` is set, constant-time comparison is used.
+3. **No auth** — if neither is set, the server accepts all requests (suitable for local stdio usage).
+
+#### Token Validation
+
+Every incoming JWT is validated for:
+
+| Check | Description |
+|-------|-------------|
+| **Signature** | RSA signature verified against JWKS public keys (RS256/384/512). Keys are cached for 1 hour with automatic refresh on `kid` miss (key rotation). |
+| **Issuer (`iss`)** | Must exactly match `HELM_MCP_OIDC_ISSUER`. |
+| **Audience (`aud`)** | Must match `HELM_MCP_OIDC_AUDIENCE`. Tokens issued for other APIs are rejected — this is the core defense against token passthrough. |
+| **Expiry (`exp`)** | Required. Expired tokens are rejected. |
+| **Authorized Party (`azp`/`appid`)** | Checked against `HELM_MCP_ALLOWED_CLIENTS` if configured. Supports both OIDC `azp` and Entra ID v1 `appid` claims. |
+| **Scopes (`scp`)** | Space-separated scopes checked against `HELM_MCP_REQUIRED_SCOPES`. |
+| **Roles (`roles`)** | Array of app roles checked against `HELM_MCP_REQUIRED_ROLES`. |
+
+#### Session Cache
+
+Validated tokens are cached in-memory to avoid redundant JWKS lookups:
+
+- **Inactivity TTL**: 5 minutes by default (configurable via `HELM_MCP_SESSION_TTL`, e.g., `5m`, `10m`, `1h`)
+- **Token expiry**: Cached tokens are never used beyond their `exp` claim
+- **Cache key pattern**: `<principal_id>:<session_id>` (binds sessions to identity)
+- **Sliding window**: Each access resets the inactivity timer
+- **Maximum entries**: 10,000 (oldest evicted on overflow)
+
+#### Audit Logging
+
+When OIDC authentication is enabled, structured audit events are emitted via `slog` for every authentication attempt:
+
+```
+level=INFO msg=security_audit audit.event_type=auth_success audit.principal_id=oid-123 audit.principal_name=user@example.com audit.tenant_id=tenant-abc audit.client_app_id=client-1 audit.scopes="helm.read helm.write" audit.token_id=uti-xyz audit.remote_addr=10.0.0.1:54321
+```
+
+Audit events include: principal ID/name, tenant ID, client app ID, scopes, roles, token ID, session ID, action, resource, result, duration, and remote address. Enable `--debug` for full audit visibility, or configure your log aggregator to capture `security_audit` messages.
+
+### On-Behalf-Of (OBO) Token Exchange
+
+When helm-mcp needs to call a downstream API (such as the Kubernetes API) on behalf of the authenticated user, it exchanges the incoming token for a new one scoped to that downstream service. This avoids forwarding the original token, which could be misused if the downstream service is compromised or if the token's audience doesn't match.
+
+#### How It Works
+
+```
+User        MCP Client        helm-mcp (MCP Server)      Kubernetes API
+ │              │                      │                        │
+ ├─(SSO)──────▶│ gets token            │                        │
+ │              │ aud=helm-mcp          │                        │
+ │              ├─(Bearer token)──────▶│                        │
+ │              │                      ├─OBO exchange──────────▶│
+ │              │                      │ grant_type=jwt-bearer   │
+ │              │                      │ assertion=user token    │
+ │              │                      │ scope=K8s API scopes    │
+ │              │                      │◀─new token──────────────│
+ │              │                      │  aud=Kubernetes API     │
+ │              │                      ├─(K8s API call)────────▶│
+ │              │                      │  with OBO token         │
+```
+
+Each hop in the chain:
+1. Validates the incoming token's audience (must match this server)
+2. Exchanges it via OBO for a new token targeted at the next service
+3. Preserves the original user's identity in the new token's claims
+4. Triggers a fresh Conditional Access evaluation (if configured in Entra ID)
+
+#### OBO Configuration
+
+```bash
+# OBO token exchange (for downstream API calls with user context)
+export HELM_MCP_OBO_TOKEN_URL="https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
+export HELM_MCP_OBO_CLIENT_ID="helm-mcp-app-id"
+export HELM_MCP_OBO_CLIENT_SECRET="helm-mcp-client-secret"
+```
+
+#### Why Not Forward the Token?
+
+Forwarding a user's token to downstream services is tempting but problematic. The [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-03-26/basic/security) explicitly discourages it. With OBO, each service gets a token minted for its own audience, scoped to only the permissions it needs. If a token is intercepted, the blast radius is limited to a single service rather than the entire chain.
+
+### AWS EKS and OBO Support
+
+#### AWS EKS 1.34+ with OIDC
+
+AWS EKS supports OIDC identity providers for cluster authentication starting from EKS 1.21, with significant improvements in 1.34+. However, **EKS does not natively support the Entra ID OBO flow for Kubernetes API authentication**. The authentication patterns differ:
+
+| Pattern | Supported | Details |
+|---------|-----------|---------|
+| **EKS OIDC Identity Provider** | Yes | Configure Entra ID as an OIDC provider in EKS. Users authenticate directly with Entra ID tokens where `aud` = EKS cluster. No OBO needed — the token is issued directly for the cluster. |
+| **IRSA (IAM Roles for Service Accounts)** | Yes | Pod-level identity via projected service account tokens. This is M2M (client credentials), not user-delegated. |
+| **EKS Pod Identity** | Yes (EKS 1.34+) | Simplified pod identity using EKS Pod Identity Agent. Also M2M, not user-delegated. |
+| **OBO → Kubernetes API** | Partial | Entra ID OBO can issue tokens for any registered resource. If EKS is configured with Entra ID as an OIDC provider and the Kubernetes API is registered as an app in Entra ID, OBO-issued tokens can authenticate to EKS. Requires custom `--oidc-issuer-url`, `--oidc-client-id`, and `--oidc-username-claim` configuration on the EKS OIDC provider. |
+
+**Recommended pattern for EKS**: Configure Entra ID as the EKS OIDC identity provider. The MCP client authenticates the user and obtains a token with `aud` = helm-mcp. helm-mcp validates this token, then performs an OBO exchange to get a new token with `aud` = EKS cluster OIDC client ID. This OBO-issued token is used for Kubernetes API calls, preserving user identity and enabling per-user RBAC.
+
+#### AWS Labs MCP and OBO
+
+AWS Labs MCP servers (e.g., `awslabs/mcp`) and Amazon Bedrock AgentCore **do not implement OAuth2 OBO or RFC 8693 Token Exchange**. AgentCore uses a different model:
+
+- **User identity propagation**: Via an opaque `X-Amzn-Bedrock-AgentCore-Runtime-User-Id` HTTP header — **not** a cryptographically signed token
+- **Outbound authentication**: OAuth Authorization Code (3Lo) or Client Credentials (2Lo), but these are separate auth events, not delegated identity propagation
+- **Token Vault**: Stores refresh tokens for third-party services, but this is agent-scoped, not user-delegated
+
+This means AWS Labs MCP servers cannot participate in an Entra ID OBO chain natively. If your architecture requires user-delegated identity propagation through AWS-hosted MCP servers, you must implement OBO exchange as a custom middleware layer, or use helm-mcp's built-in OBO support as a reference implementation.
 
 ### Forward Proxy Support
 
