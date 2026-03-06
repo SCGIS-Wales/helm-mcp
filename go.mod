@@ -3,6 +3,7 @@ module github.com/ssddgreg/helm-mcp
 go 1.25.0
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/modelcontextprotocol/go-sdk v1.3.1
 	helm.sh/helm/v3 v3.20.0
 	helm.sh/helm/v4 v4.1.1

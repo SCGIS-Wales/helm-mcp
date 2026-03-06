@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/subtle"
 	"flag"
 	"fmt"
 	"io"
@@ -11,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -91,11 +91,17 @@ func main() {
 		cancel()
 	}()
 
-	// Read optional bearer token from env for HTTP/SSE authentication.
-	authToken := os.Getenv("HELM_MCP_AUTH_TOKEN")
+	// Build the authentication middleware from environment variables.
+	// Priority: OIDC > static bearer token > none.
+	// Stdio mode is unaffected — auth middleware only applies to HTTP/SSE.
+	authMiddleware, sessionCache := buildAuthMiddleware(logger)
+	if sessionCache != nil {
+		defer sessionCache.Stop()
+	}
 
 	switch *mode {
 	case "stdio":
+		// Stdio mode: no HTTP auth, no breaking changes.
 		s := server.NewServer(version)
 		slog.Debug("starting stdio server")
 		if err := s.Run(ctx, &mcp.StdioTransport{}); err != nil {
@@ -110,14 +116,9 @@ func main() {
 			func(r *http.Request) *mcp.Server { return server.NewServer(version) },
 			nil,
 		)
-		httpServer := newHTTPServer(*addr, withAuth(handler, authToken))
-		fmt.Fprintf(os.Stderr, "helm-mcp HTTP server listening on %s\n", *addr)
-		if authToken != "" {
-			fmt.Fprintf(os.Stderr, "  authentication: bearer token (HELM_MCP_AUTH_TOKEN)\n")
-		} else {
-			fmt.Fprintf(os.Stderr, "  authentication: NONE (set HELM_MCP_AUTH_TOKEN to enable)\n")
-		}
-		slog.Info("starting HTTP server", "addr", *addr, "auth", authToken != "") //nolint:gosec // addr comes from a trusted CLI flag, not user input
+		httpServer := newHTTPServer(*addr, authMiddleware(handler))
+		printAuthStatus(*addr, "HTTP")
+		slog.Info("starting HTTP server", "addr", *addr) //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
@@ -130,14 +131,9 @@ func main() {
 			func(r *http.Request) *mcp.Server { return server.NewServer(version) },
 			nil,
 		)
-		httpServer := newHTTPServer(*addr, withAuth(handler, authToken))
-		fmt.Fprintf(os.Stderr, "helm-mcp SSE server listening on %s\n", *addr)
-		if authToken != "" {
-			fmt.Fprintf(os.Stderr, "  authentication: bearer token (HELM_MCP_AUTH_TOKEN)\n")
-		} else {
-			fmt.Fprintf(os.Stderr, "  authentication: NONE (set HELM_MCP_AUTH_TOKEN to enable)\n")
-		}
-		slog.Info("starting SSE server", "addr", *addr, "auth", authToken != "") //nolint:gosec // addr comes from a trusted CLI flag, not user input
+		httpServer := newHTTPServer(*addr, authMiddleware(handler))
+		printAuthStatus(*addr, "SSE")
+		slog.Info("starting SSE server", "addr", *addr) //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(os.Stderr, "SSE server error: %v\n", err)
@@ -150,21 +146,99 @@ func main() {
 	}
 }
 
-// withAuth wraps a handler with bearer token authentication when token is
-// non-empty. When no token is configured the handler is returned as-is.
-func withAuth(next http.Handler, token string) http.Handler {
-	if token == "" {
-		return next
+// buildAuthMiddleware constructs the auth middleware from environment variables.
+// Returns the middleware function and an optional session cache (caller must Stop() on shutdown).
+//
+// Environment variables:
+//
+//	HELM_MCP_OIDC_ISSUER     - OIDC issuer URL (enables OIDC/OAuth2 mode)
+//	HELM_MCP_OIDC_AUDIENCE   - Expected audience claim (required with OIDC)
+//	HELM_MCP_OIDC_JWKS_URL   - JWKS URL (optional, auto-discovered from issuer)
+//	HELM_MCP_REQUIRED_SCOPES - Comma-separated required OAuth2 scopes
+//	HELM_MCP_REQUIRED_ROLES  - Comma-separated required app roles
+//	HELM_MCP_ALLOWED_CLIENTS - Comma-separated allowed client app IDs (azp)
+//	HELM_MCP_AUTH_TOKEN       - Static bearer token (legacy, lower priority than OIDC)
+func buildAuthMiddleware(logger *slog.Logger) (func(http.Handler) http.Handler, *security.SessionCache) {
+	config := security.AuthMiddlewareConfig{
+		AuditLogger: security.NewAuditLogger(logger),
 	}
-	expected := []byte("Bearer " + token)
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		auth := []byte(r.Header.Get("Authorization"))
-		if subtle.ConstantTimeCompare(auth, expected) != 1 {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
+
+	// Check for OIDC configuration.
+	oidcIssuer := os.Getenv("HELM_MCP_OIDC_ISSUER")
+	oidcAudience := os.Getenv("HELM_MCP_OIDC_AUDIENCE")
+
+	if oidcIssuer != "" && oidcAudience != "" {
+		oidcConfig := security.OIDCConfig{
+			IssuerURL: oidcIssuer,
+			Audience:  oidcAudience,
+			JWKSURL:   os.Getenv("HELM_MCP_OIDC_JWKS_URL"),
 		}
-		next.ServeHTTP(w, r)
-	})
+
+		if scopes := os.Getenv("HELM_MCP_REQUIRED_SCOPES"); scopes != "" {
+			oidcConfig.RequiredScopes = splitCSV(scopes)
+		}
+		if roles := os.Getenv("HELM_MCP_REQUIRED_ROLES"); roles != "" {
+			oidcConfig.RequiredRoles = splitCSV(roles)
+		}
+		if clients := os.Getenv("HELM_MCP_ALLOWED_CLIENTS"); clients != "" {
+			oidcConfig.AllowedClientIDs = splitCSV(clients)
+		}
+
+		validator, err := security.NewOIDCValidator(oidcConfig)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "fatal: invalid OIDC configuration: %v\n", err)
+			os.Exit(1)
+		}
+
+		config.OIDCValidator = validator
+
+		// Enable session cache for OIDC mode.
+		sessionCfg := security.DefaultSessionConfig()
+		if ttlStr := os.Getenv("HELM_MCP_SESSION_TTL"); ttlStr != "" {
+			if d, err := time.ParseDuration(ttlStr); err == nil && d > 0 {
+				sessionCfg.InactivityTTL = d
+			}
+		}
+		sessionCache := security.NewSessionCache(sessionCfg)
+		config.SessionCache = sessionCache
+
+		return security.NewAuthMiddleware(config), sessionCache
+	}
+
+	// Fall back to static bearer token (legacy HELM_MCP_AUTH_TOKEN).
+	if token := os.Getenv("HELM_MCP_AUTH_TOKEN"); token != "" {
+		config.StaticToken = token
+		return security.NewAuthMiddleware(config), nil
+	}
+
+	// No auth configured.
+	return security.NewAuthMiddleware(config), nil
+}
+
+// printAuthStatus logs the authentication mode to stderr.
+func printAuthStatus(addr, transport string) {
+	fmt.Fprintf(os.Stderr, "helm-mcp %s server listening on %s\n", transport, addr)
+
+	if os.Getenv("HELM_MCP_OIDC_ISSUER") != "" {
+		fmt.Fprintf(os.Stderr, "  authentication: OIDC/OAuth2 (issuer=%s)\n", os.Getenv("HELM_MCP_OIDC_ISSUER"))
+	} else if os.Getenv("HELM_MCP_AUTH_TOKEN") != "" {
+		fmt.Fprintf(os.Stderr, "  authentication: bearer token (HELM_MCP_AUTH_TOKEN)\n")
+	} else {
+		fmt.Fprintf(os.Stderr, "  authentication: NONE (set HELM_MCP_OIDC_ISSUER or HELM_MCP_AUTH_TOKEN to enable)\n")
+	}
+}
+
+// splitCSV splits a comma-separated string and trims whitespace from each element.
+func splitCSV(s string) []string {
+	parts := strings.Split(s, ",")
+	result := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p != "" {
+			result = append(result, p)
+		}
+	}
+	return result
 }
 
 // gracefulShutdown starts a goroutine that waits for ctx cancellation

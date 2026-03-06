@@ -29,7 +29,25 @@ You should receive a response within 48 hours. If the issue is confirmed, a patc
 
 ## Security Measures
 
-helm-mcp implements several layers of security:
+helm-mcp implements multiple security layers, following the [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-03-26/basic/security).
+
+### Authentication
+
+When serving over HTTP or SSE, helm-mcp can optionally require OIDC/OAuth2 authentication. Incoming JWTs are verified against the identity provider's JWKS endpoint, checking the signature, issuer, audience, expiry, and authorized party. Both Microsoft Entra ID v1 and v2 token formats are supported. The JWKS keys are cached locally and automatically refreshed when a previously unseen key ID appears (to handle key rotation).
+
+Authorization decisions can additionally require specific OAuth2 scopes or app roles to be present in the token.
+
+### Downstream Token Exchange (OBO)
+
+When helm-mcp needs to call a downstream API on behalf of the calling user, it uses the On-Behalf-Of (OBO) flow rather than forwarding the original token. This means each hop in the call chain receives a token scoped specifically to that service's audience, preventing confused-deputy attacks. If Conditional Access policies block the exchange, the `interaction_required` error is surfaced to the caller for re-authentication.
+
+### Session Cache
+
+Validated tokens are held in a bounded in-memory cache keyed by `<principal_id>:<session_id>`. Each access resets a sliding inactivity timer (configurable via `HELM_MCP_SESSION_TTL`, default 5 minutes), and tokens are never served past their `exp` claim. The cache is capped at 10,000 entries with oldest-first eviction.
+
+### Audit Logging
+
+Every authentication and authorization decision produces a structured `slog` event (`security_audit`), capturing the principal, tenant, client app, scopes/roles, action, outcome, and latency. These records are designed for ingestion into centralized log platforms.
 
 ### Process Hardening (Linux)
 
