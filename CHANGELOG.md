@@ -14,6 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.31] - 2026-03-06
+
+### Added
+- Add OAuth2/OIDC authentication for HTTP/SSE transport modes ([#40](https://github.com/SCGIS-Wales/helm-mcp/pull/40))
+- Implement On-Behalf-Of (OBO) token exchange for downstream API calls (no token passthrough) ([#40](https://github.com/SCGIS-Wales/helm-mcp/pull/40))
+- Add claims-based authorization, session caching, and structured audit logging ([#40](https://github.com/SCGIS-Wales/helm-mcp/pull/40))
+- Classified OBO error handling with actionable guidance for common Entra ID issues ([#40](https://github.com/SCGIS-Wales/helm-mcp/pull/40))
+- Document AWS EKS OBO patterns and AWS Labs MCP OBO support status ([#40](https://github.com/SCGIS-Wales/helm-mcp/pull/40))
+- **No breaking changes**: stdio mode and existing `HELM_MCP_AUTH_TOKEN` fully preserved ([#40](https://github.com/SCGIS-Wales/helm-mcp/pull/40))
+
 ## [0.1.30] - 2026-03-03
 
 ### Changed
@@ -286,7 +297,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.30...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.31...HEAD
+[0.1.31]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.28...v0.1.29
 [0.1.28]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.27...v0.1.28
