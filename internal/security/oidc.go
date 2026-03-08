@@ -385,7 +385,7 @@ func (c *jwksCache) RefreshKeys(ctx context.Context, jwksURL string, httpCli *ht
 	c.url = jwksURL
 	c.fetched = time.Now()
 
-	slog.Debug("JWKS keys refreshed", "url", jwksURL, "keys", len(keys))
+	slog.Debug("JWKS keys refreshed", "url", jwksURL, "keys", len(keys)) //nolint:gosec // G706: jwksURL is from trusted OIDC configuration, not user input
 	return keys, nil
 }
 
