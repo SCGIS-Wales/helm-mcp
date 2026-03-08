@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -271,6 +272,12 @@ func TestAuthMiddleware_OIDC_InvalidToken(t *testing.T) {
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("status = %d, want 401", rec.Code)
 	}
+
+	// Verify error response does not leak internal details.
+	body := strings.TrimSpace(rec.Body.String())
+	if body != "Unauthorized" {
+		t.Errorf("response body = %q, want generic 'Unauthorized' (no error details)", body)
+	}
 }
 
 func TestAuthMiddleware_OIDC_WithSessionCache(t *testing.T) {
@@ -334,6 +341,24 @@ func TestAuthMiddleware_OIDC_WithSessionCache(t *testing.T) {
 	// Verify session cache has an entry.
 	if sessionCache.Size() != 1 {
 		t.Errorf("expected 1 cache entry, got %d", sessionCache.Size())
+	}
+
+	// Second request with the same token — should hit cache (no additional JWKS call).
+	jwksCallsBefore := callCount
+	req2 := httptest.NewRequest(http.MethodGet, "/", nil)
+	req2.Header.Set("Authorization", "Bearer "+tokenString)
+	rec2 := httptest.NewRecorder()
+	handler.ServeHTTP(rec2, req2)
+	if rec2.Code != http.StatusOK {
+		t.Errorf("second request: status = %d, want 200", rec2.Code)
+	}
+	if callCount != jwksCallsBefore {
+		t.Errorf("expected cache hit (no new JWKS calls), but JWKS was called %d more times", callCount-jwksCallsBefore)
+	}
+
+	// Cache should still have exactly 1 entry.
+	if sessionCache.Size() != 1 {
+		t.Errorf("expected 1 cache entry after cache hit, got %d", sessionCache.Size())
 	}
 }
 

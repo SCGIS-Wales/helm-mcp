@@ -11,7 +11,7 @@ import (
 // Design notes:
 //   - Tokens are never used beyond their exp
 //   - Preferred store: in-memory
-//   - Cache keys include MCP session ID + principal ID (pattern: <principal_id>:<session_id>)
+//   - Cache keys are SHA-256 hashes of the raw bearer token
 type SessionConfig struct {
 	// InactivityTTL is the maximum time a cached entry survives without access.
 	// Default: 5 minutes. Configurable via HELM_MCP_SESSION_TTL environment variable.
@@ -41,13 +41,14 @@ type SessionEntry struct {
 }
 
 // SessionCache provides an in-memory cache for validated OIDC tokens.
-// Cache keys follow the pattern: <principal_id>:<session_id>
-// which aligns with MCP guidance on binding sessions to identity.
+// Cache keys are SHA-256 hashes of the raw bearer token, which ensures
+// consistent lookup/store and avoids holding raw tokens in memory.
 type SessionCache struct {
-	mu      sync.RWMutex
-	entries map[string]*SessionEntry
-	config  SessionConfig
-	stopCh  chan struct{}
+	mu       sync.Mutex
+	entries  map[string]*SessionEntry
+	config   SessionConfig
+	stopCh   chan struct{}
+	stopOnce sync.Once
 }
 
 // NewSessionCache creates a new session cache with background cleanup.
@@ -74,7 +75,8 @@ func NewSessionCache(config SessionConfig) *SessionCache {
 }
 
 // CacheKey generates a cache key from principal ID and session ID.
-// Pattern: <principal_id>:<session_id>
+// Deprecated: The middleware now uses SHA-256 hashes of the raw token as cache keys.
+// This function is retained for backward compatibility but is no longer used by the middleware.
 func CacheKey(principalID, sessionID string) string {
 	return principalID + ":" + sessionID
 }
@@ -83,10 +85,10 @@ func CacheKey(principalID, sessionID string) string {
 // inactivity, and the token has not passed its expiration time.
 // Returns nil if the entry is not found or has expired.
 func (c *SessionCache) Get(key string) *TokenClaims {
-	c.mu.RLock()
-	entry, ok := c.entries[key]
-	c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 
+	entry, ok := c.entries[key]
 	if !ok {
 		return nil
 	}
@@ -95,22 +97,18 @@ func (c *SessionCache) Get(key string) *TokenClaims {
 
 	// Never use tokens beyond their exp (hard requirement).
 	if now.After(entry.Claims.ExpiresAt) {
-		c.Delete(key)
+		delete(c.entries, key)
 		return nil
 	}
 
 	// Check inactivity TTL.
 	if now.Sub(entry.LastAccess) > c.config.InactivityTTL {
-		c.Delete(key)
+		delete(c.entries, key)
 		return nil
 	}
 
 	// Update last access time (sliding window).
-	c.mu.Lock()
-	if e, ok := c.entries[key]; ok {
-		e.LastAccess = now
-	}
-	c.mu.Unlock()
+	entry.LastAccess = now
 
 	return entry.Claims
 }
@@ -142,14 +140,14 @@ func (c *SessionCache) Delete(key string) {
 
 // Size returns the number of entries in the cache.
 func (c *SessionCache) Size() int {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	return len(c.entries)
 }
 
-// Stop terminates the background cleanup goroutine.
+// Stop terminates the background cleanup goroutine. Safe to call multiple times.
 func (c *SessionCache) Stop() {
-	close(c.stopCh)
+	c.stopOnce.Do(func() { close(c.stopCh) })
 }
 
 // cleanupLoop periodically removes expired entries.

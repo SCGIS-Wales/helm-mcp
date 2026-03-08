@@ -782,7 +782,7 @@ Validated tokens are cached in-memory to avoid redundant JWKS lookups:
 
 - **Inactivity TTL**: 5 minutes by default (configurable via `HELM_MCP_SESSION_TTL`, e.g., `5m`, `10m`, `1h`)
 - **Token expiry**: Cached tokens are never used beyond their `exp` claim
-- **Cache key pattern**: `<principal_id>:<session_id>` (binds sessions to identity)
+- **Cache key**: SHA-256 hash of the raw bearer token (prevents raw token storage in memory)
 - **Sliding window**: Each access resets the inactivity timer
 - **Maximum entries**: 10,000 (oldest evicted on overflow)
 

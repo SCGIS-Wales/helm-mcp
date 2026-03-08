@@ -2,7 +2,9 @@ package security
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/subtle"
+	"encoding/hex"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -72,12 +74,10 @@ func NewAuthMiddleware(config AuthMiddlewareConfig) func(http.Handler) http.Hand
 					return
 				}
 
-				// Check session cache first.
+				// Check session cache first using a stable hash of the raw token.
 				var claims *TokenClaims
-				cacheKey := ""
+				cacheKey := hashToken(token)
 				if config.SessionCache != nil {
-					// Use a hash of the token as a temporary cache key until we have claims.
-					cacheKey = token // Will be replaced with proper key after validation.
 					claims = config.SessionCache.Get(cacheKey)
 				}
 
@@ -89,16 +89,14 @@ func NewAuthMiddleware(config AuthMiddlewareConfig) func(http.Handler) http.Hand
 						if config.AuditLogger != nil {
 							config.AuditLogger.LogAuthFailure(err.Error(), r.RemoteAddr)
 						}
-						errMsg := err.Error()
-						slog.Warn("OIDC token validation failed", "error", errMsg, "remote_addr", r.RemoteAddr) //nolint:gosec // G706: error from JWT library validation
-						http.Error(w, "Unauthorized: "+errMsg, http.StatusUnauthorized)
+						slog.Warn("OIDC token validation failed", "error", err.Error(), "remote_addr", r.RemoteAddr) //nolint:gosec // G706: error from JWT library validation
+						http.Error(w, "Unauthorized", http.StatusUnauthorized)
 						return
 					}
 
-					// Cache the validated claims with proper key.
+					// Cache the validated claims keyed by token hash.
 					if config.SessionCache != nil {
-						properKey := CacheKey(claims.ObjectID, claims.Subject)
-						config.SessionCache.Put(properKey, claims)
+						config.SessionCache.Put(cacheKey, claims)
 					}
 				}
 
@@ -137,4 +135,11 @@ func extractBearerToken(authHeader string) string {
 		return ""
 	}
 	return strings.TrimSpace(parts[1])
+}
+
+// hashToken returns a SHA-256 hex digest of a token string for use as a cache key.
+// This avoids storing raw tokens in the cache map keys.
+func hashToken(token string) string {
+	h := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(h[:])
 }

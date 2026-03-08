@@ -366,9 +366,15 @@ func (c *jwksCache) GetKeys(ctx context.Context, jwksURL string, httpCli *http.C
 }
 
 // RefreshKeys forces a fetch of JWKS keys and updates the cache.
+// Uses double-check locking to avoid thundering herd on concurrent cache misses.
 func (c *jwksCache) RefreshKeys(ctx context.Context, jwksURL string, httpCli *http.Client) (map[string]*rsa.PublicKey, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	// Double-check: another goroutine may have already refreshed while we waited for the lock.
+	if c.url == jwksURL && time.Since(c.fetched) < c.ttl && len(c.keys) > 0 {
+		return c.keys, nil
+	}
 
 	keys, err := fetchJWKS(ctx, jwksURL, httpCli)
 	if err != nil {

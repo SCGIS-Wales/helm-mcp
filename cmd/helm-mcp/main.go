@@ -167,6 +167,12 @@ func buildAuthMiddleware(logger *slog.Logger) (func(http.Handler) http.Handler, 
 	oidcIssuer := os.Getenv("HELM_MCP_OIDC_ISSUER")
 	oidcAudience := os.Getenv("HELM_MCP_OIDC_AUDIENCE")
 
+	// Fail fast if OIDC is partially configured — silent auth bypass is a security risk.
+	if (oidcIssuer != "") != (oidcAudience != "") {
+		fmt.Fprintf(os.Stderr, "fatal: HELM_MCP_OIDC_ISSUER and HELM_MCP_OIDC_AUDIENCE must both be set (or both unset)\n")
+		os.Exit(1)
+	}
+
 	if oidcIssuer != "" && oidcAudience != "" {
 		oidcConfig := security.OIDCConfig{
 			IssuerURL: oidcIssuer,
