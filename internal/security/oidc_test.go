@@ -795,12 +795,25 @@ func TestJWKSCache_RefreshKeys(t *testing.T) {
 		t.Fatalf("expected 1 call, got %d", callCount)
 	}
 
-	// Force refresh.
+	// RefreshKeys with a fresh cache should be a no-op (double-check locking).
 	_, err := cache.RefreshKeys(ctx, server.URL, http.DefaultClient)
 	if err != nil {
 		t.Fatalf("RefreshKeys error: %v", err)
 	}
+	if callCount != 1 {
+		t.Errorf("expected 1 call (double-check should skip re-fetch), got %d", callCount)
+	}
+
+	// Expire the cache and verify RefreshKeys actually fetches.
+	cache.mu.Lock()
+	cache.fetched = time.Now().Add(-2 * time.Hour)
+	cache.mu.Unlock()
+
+	_, err = cache.RefreshKeys(ctx, server.URL, http.DefaultClient)
+	if err != nil {
+		t.Fatalf("RefreshKeys after expiry error: %v", err)
+	}
 	if callCount != 2 {
-		t.Errorf("expected 2 calls after refresh, got %d", callCount)
+		t.Errorf("expected 2 calls after cache expiry, got %d", callCount)
 	}
 }

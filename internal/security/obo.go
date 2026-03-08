@@ -204,7 +204,7 @@ func classifyOBOError(status int, errCode, description string) error {
 	case "invalid_client":
 		// Client authentication failed (wrong client_id or client_secret).
 		return &OBOError{Code: errCode, Description: description, Retryable: false,
-			Guidance: "verify HELM_MCP_OBO_CLIENT_ID and HELM_MCP_OBO_CLIENT_SECRET are correct"}
+			Guidance: "verify the OBO client credentials are correct"}
 	case "temporarily_unavailable":
 		// Entra ID is experiencing transient issues.
 		return &OBOError{Code: errCode, Description: description, Retryable: true,

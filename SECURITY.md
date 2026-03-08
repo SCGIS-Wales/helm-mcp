@@ -43,7 +43,7 @@ When helm-mcp needs to call a downstream API on behalf of the calling user, it u
 
 ### Session Cache
 
-Validated tokens are held in a bounded in-memory cache keyed by `<principal_id>:<session_id>`. Each access resets a sliding inactivity timer (configurable via `HELM_MCP_SESSION_TTL`, default 5 minutes), and tokens are never served past their `exp` claim. The cache is capped at 10,000 entries with oldest-first eviction.
+Validated tokens are held in a bounded in-memory cache keyed by the SHA-256 hash of the raw bearer token (raw tokens are not stored as map keys). Each access resets a sliding inactivity timer (configurable via `HELM_MCP_SESSION_TTL`, default 5 minutes), and tokens are never served past their `exp` claim. The cache is capped at 10,000 entries with oldest-first eviction.
 
 ### Audit Logging
 
