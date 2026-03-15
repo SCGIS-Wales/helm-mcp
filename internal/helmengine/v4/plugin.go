@@ -28,7 +28,8 @@ func (e *V4Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginIns
 	defer cancel()
 
 	cmd := exec.CommandContext(execCtx, "helm", args...)
-	var stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
@@ -80,7 +81,8 @@ func (e *V4Engine) PluginUninstall(ctx context.Context, opts *helmengine.PluginU
 	defer cancel()
 
 	cmd := exec.CommandContext(execCtx, "helm", "plugin", "uninstall", "--", opts.Name)
-	var stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {
@@ -95,7 +97,8 @@ func (e *V4Engine) PluginUpdate(ctx context.Context, opts *helmengine.PluginUpda
 	defer cancel()
 
 	cmd := exec.CommandContext(execCtx, "helm", "plugin", "update", "--", opts.Name)
-	var stderr bytes.Buffer
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 
 	if err := cmd.Run(); err != nil {

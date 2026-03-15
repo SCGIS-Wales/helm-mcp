@@ -5,11 +5,9 @@ import (
 	"time"
 )
 
-func TestCacheKey(t *testing.T) {
-	key := CacheKey("principal-123", "session-abc")
-	if key != "principal-123:session-abc" {
-		t.Errorf("CacheKey = %q, want %q", key, "principal-123:session-abc")
-	}
+// testCacheKey generates a cache key for tests (replaces removed CacheKey function).
+func testCacheKey(principalID, sessionID string) string {
+	return principalID + ":" + sessionID
 }
 
 func TestSessionCache_PutAndGet(t *testing.T) {
@@ -26,7 +24,7 @@ func TestSessionCache_PutAndGet(t *testing.T) {
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 
-	key := CacheKey("oid-456", "session-1")
+	key := testCacheKey("oid-456", "session-1")
 	cache.Put(key, claims)
 
 	got := cache.Get(key)
@@ -63,7 +61,7 @@ func TestSessionCache_ExpiredToken(t *testing.T) {
 		ExpiresAt: time.Now().Add(-1 * time.Second),
 	}
 
-	key := CacheKey("oid-456", "session-1")
+	key := testCacheKey("oid-456", "session-1")
 	cache.Put(key, claims)
 
 	got := cache.Get(key)
@@ -90,7 +88,7 @@ func TestSessionCache_InactivityTTL(t *testing.T) {
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 
-	key := CacheKey("user-123", "session-1")
+	key := testCacheKey("user-123", "session-1")
 	cache.Put(key, claims)
 
 	// Should be present immediately.
@@ -120,7 +118,7 @@ func TestSessionCache_SlidingWindow(t *testing.T) {
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 
-	key := CacheKey("user-123", "session-1")
+	key := testCacheKey("user-123", "session-1")
 	cache.Put(key, claims)
 
 	// Access before TTL expires should reset the window.
@@ -147,7 +145,7 @@ func TestSessionCache_Delete(t *testing.T) {
 		ExpiresAt: time.Now().Add(1 * time.Hour),
 	}
 
-	key := CacheKey("user-123", "session-1")
+	key := testCacheKey("user-123", "session-1")
 	cache.Put(key, claims)
 	cache.Delete(key)
 
@@ -169,7 +167,7 @@ func TestSessionCache_MaxEntries(t *testing.T) {
 			Subject:   "user",
 			ExpiresAt: time.Now().Add(1 * time.Hour),
 		}
-		cache.Put(CacheKey("user", string(rune('a'+i))), claims)
+		cache.Put(testCacheKey("user", string(rune('a'+i))), claims)
 	}
 
 	if size := cache.Size(); size > 3 {

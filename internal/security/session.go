@@ -74,13 +74,6 @@ func NewSessionCache(config SessionConfig) *SessionCache {
 	return c
 }
 
-// CacheKey generates a cache key from principal ID and session ID.
-// Deprecated: The middleware now uses SHA-256 hashes of the raw token as cache keys.
-// This function is retained for backward compatibility but is no longer used by the middleware.
-func CacheKey(principalID, sessionID string) string {
-	return principalID + ":" + sessionID
-}
-
 // Get retrieves a cached session entry if it exists, is not expired by
 // inactivity, and the token has not passed its expiration time.
 // Returns nil if the entry is not found or has expired.
@@ -186,6 +179,10 @@ func (c *SessionCache) cleanup() {
 
 // evictOldest removes the entry with the oldest last access time.
 // Must be called with mu held.
+//
+// This is O(n) over all entries. With the default MaxEntries=10000 cap this is
+// acceptable; a heap-based approach would give O(log n) but adds complexity
+// for a path that is rarely hit (only when the cache is full).
 func (c *SessionCache) evictOldest() {
 	var oldestKey string
 	var oldestTime time.Time

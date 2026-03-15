@@ -764,12 +764,11 @@ class TestPluginTools:
         """Pre-install the helm-diff plugin if not present."""
         import subprocess as sp
 
-        r = sp.run("helm plugin list", shell=True, capture_output=True, text=True)
+        r = sp.run(["helm", "plugin", "list"], capture_output=True, text=True)
         if "diff" in r.stdout.lower():
             return
         sp.run(
-            "helm plugin install https://github.com/databus23/helm-diff --verify=false",
-            shell=True,
+            ["helm", "plugin", "install", "https://github.com/databus23/helm-diff", "--verify=false"],
             capture_output=True,
         )
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -59,7 +59,7 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	// The base URL is hardcoded (not from user input), so this is safe from SSRF.
 	reqURL := artifactHubAPIBase + "?" + params.Encode()
 
-	log.Printf("searching Artifact Hub for %q", opts.Keyword)
+	slog.Debug("searching Artifact Hub", "keyword", opts.Keyword)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
 	if err != nil {
@@ -74,7 +74,7 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20)) // 1MB limit
 		return nil, fmt.Errorf("artifact Hub returned status %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -101,7 +101,7 @@ func SearchArtifactHub(ctx context.Context, opts *SearchHubOptions) ([]*SearchRe
 		results = append(results, sr)
 	}
 
-	log.Printf("Artifact Hub returned %d results for %q", len(results), opts.Keyword)
+	slog.Debug("Artifact Hub search complete", "results", len(results), "keyword", opts.Keyword)
 
 	return results, nil
 }

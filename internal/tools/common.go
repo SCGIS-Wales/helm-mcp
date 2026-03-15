@@ -106,7 +106,7 @@ func ValidateRequired(fieldName, value string) *mcp.CallToolResult {
 	return nil
 }
 
-// ValidateGlobalInput validates the shared GlobalInput fields (namespace, kubeconfig path).
+// ValidateGlobalInput validates the shared GlobalInput fields (namespace, kubeconfig path, API server URL).
 func ValidateGlobalInput(g *GlobalInput) error {
 	if err := security.ValidateNamespace(g.Namespace); err != nil {
 		return err
@@ -116,6 +116,11 @@ func ValidateGlobalInput(g *GlobalInput) error {
 	}
 	if err := validateNotSensitivePath(g.KubeConfig); err != nil {
 		return err
+	}
+	if g.KubeAPIServer != "" {
+		if err := security.ValidateURL(g.KubeAPIServer); err != nil {
+			return fmt.Errorf("invalid kube_apiserver: %w", err)
+		}
 	}
 	return nil
 }
