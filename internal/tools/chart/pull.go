@@ -2,8 +2,10 @@ package chart
 
 import (
 	"context"
+	"strings"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
+	"github.com/ssddgreg/helm-mcp/internal/security"
 	"github.com/ssddgreg/helm-mcp/internal/tools"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -31,6 +33,18 @@ var PullTool = &mcp.Tool{
 func HandlePull(ctx context.Context, req *mcp.CallToolRequest, input PullInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
+	}
+
+	// Validate URL-like chart references and repo URLs for SSRF protection.
+	if input.Repo != "" {
+		if err := security.ValidateURL(input.Repo); err != nil {
+			return tools.ErrorResult(err), nil, nil
+		}
+	}
+	if strings.Contains(input.Chart, "://") {
+		if err := security.ValidateURL(input.Chart); err != nil {
+			return tools.ErrorResult(err), nil, nil
+		}
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)

@@ -432,7 +432,11 @@ func fetchJWKS(ctx context.Context, jwksURL string, httpCli *http.Client) (map[s
 
 	keys := make(map[string]*rsa.PublicKey)
 	for _, k := range jwks.Keys {
-		if k.Kty != "RSA" || k.Use != "sig" {
+		if k.Use != "sig" {
+			continue
+		}
+		if k.Kty != "RSA" {
+			slog.Warn("skipping non-RSA signing key in JWKS (only RSA is supported)", "kid", k.Kid, "kty", k.Kty)
 			continue
 		}
 		pubKey, err := parseRSAPublicKey(k)
@@ -455,6 +459,10 @@ func parseRSAPublicKey(k jwkKey) (*rsa.PublicKey, error) {
 	nBytes, err := base64.RawURLEncoding.DecodeString(k.N)
 	if err != nil {
 		return nil, fmt.Errorf("decoding modulus: %w", err)
+	}
+	// Enforce minimum 2048-bit RSA key size (256 bytes) per CA/B Forum requirements.
+	if len(nBytes) < 256 {
+		return nil, fmt.Errorf("RSA key too small: %d bits (minimum 2048)", len(nBytes)*8)
 	}
 	eBytes, err := base64.RawURLEncoding.DecodeString(k.E)
 	if err != nil {

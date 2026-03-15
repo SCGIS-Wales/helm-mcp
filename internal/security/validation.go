@@ -4,6 +4,7 @@ package security
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -99,6 +100,13 @@ func ValidateNamespace(ns string) error {
 // ValidateKubeConfig validates a kubeconfig file path.
 // It checks that the path exists and is a regular file (not a directory,
 // symlink to /etc/shadow, etc.).
+//
+// NOTE: There is an inherent TOCTOU (time-of-check-time-of-use) race between
+// the Lstat check here and the actual file open by the Helm SDK. An attacker
+// with local filesystem access could replace the file with a symlink between
+// the two operations. Mitigating this fully would require opening the file
+// descriptor here with O_NOFOLLOW and passing it through. The risk is limited
+// to local privilege escalation scenarios.
 func ValidateKubeConfig(path string) error {
 	if path == "" {
 		return nil // empty means use default
@@ -192,10 +200,16 @@ func ValidateURL(u string, ctx ...context.Context) error {
 	}
 
 	// Resolve hostname and check all returned IPs.
-	// On DNS failure we pass through — let the Helm SDK handle the actual connection error.
+	// Permanent DNS failures ("no such host") are safe — the domain doesn't
+	// exist so it can't be used for SSRF. Temporary/timeout failures are
+	// blocked because they could mask a private-IP resolution (DNS rebinding).
 	addrs, err := net.DefaultResolver.LookupHost(dnsCtx, hostname)
 	if err != nil {
-		return nil // DNS failure is not an SSRF concern; let Helm handle it
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) && dnsErr.IsNotFound {
+			return nil // permanent failure — domain doesn't exist, not an SSRF risk
+		}
+		return fmt.Errorf("DNS resolution failed for %q: %w", hostname, err)
 	}
 	for _, addr := range addrs {
 		ip := net.ParseIP(addr)
@@ -209,6 +223,8 @@ func ValidateURL(u string, ctx ...context.Context) error {
 
 // ValidatePath checks that a file path does not contain path traversal
 // sequences and is not a symlink (which could point to sensitive files).
+//
+// NOTE: Same TOCTOU caveat as ValidateKubeConfig — see its documentation.
 func ValidatePath(path string) error {
 	if path == "" {
 		return nil

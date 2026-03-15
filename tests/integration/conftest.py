@@ -24,16 +24,18 @@ TEST_NAMESPACE = "helm-mcp-integ"
 TEST_RELEASE = "integ-nginx"
 
 
-def _run(cmd: str, **kwargs) -> subprocess.CompletedProcess:
-    """Run a shell command, raising on failure."""
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True, check=True, **kwargs)
+def _run(cmd: str | list[str], **kwargs) -> subprocess.CompletedProcess:
+    """Run a command, raising on failure. Prefers list-form (shell=False) for safety."""
+    if isinstance(cmd, str):
+        cmd = cmd.split()
+    return subprocess.run(cmd, capture_output=True, text=True, check=True, **kwargs)
 
 
 @pytest.fixture(scope="session", autouse=True)
 def ensure_binary():
     """Ensure the helm-mcp binary exists."""
     if not BINARY.exists():
-        _run(f"cd {REPO_ROOT} && go build -o helm-mcp ./cmd/helm-mcp/")
+        _run(["go", "build", "-o", "helm-mcp", "./cmd/helm-mcp/"], cwd=str(REPO_ROOT))
     assert BINARY.exists(), f"Binary not found at {BINARY}"
 
 
@@ -41,8 +43,7 @@ def ensure_binary():
 def ensure_cluster():
     """Ensure a Kubernetes cluster is accessible."""
     result = subprocess.run(
-        "kubectl cluster-info",
-        shell=True,
+        ["kubectl", "cluster-info"],
         capture_output=True,
         text=True,
     )
@@ -53,15 +54,22 @@ def ensure_cluster():
 @pytest.fixture(scope="session", autouse=True)
 def setup_namespace():
     """Create and tear down the test namespace."""
-    subprocess.run(
-        f"kubectl create namespace {TEST_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -",
-        shell=True,
+    # Create namespace: use two-step process to avoid shell=True piping
+    create = subprocess.run(
+        ["kubectl", "create", "namespace", TEST_NAMESPACE, "--dry-run=client", "-o", "yaml"],
         capture_output=True,
+        text=True,
     )
+    if create.returncode == 0:
+        subprocess.run(
+            ["kubectl", "apply", "-f", "-"],
+            input=create.stdout,
+            capture_output=True,
+            text=True,
+        )
     yield
     subprocess.run(
-        f"kubectl delete namespace {TEST_NAMESPACE} --ignore-not-found --wait=false",
-        shell=True,
+        ["kubectl", "delete", "namespace", TEST_NAMESPACE, "--ignore-not-found", "--wait=false"],
         capture_output=True,
     )
 
@@ -70,8 +78,11 @@ def setup_namespace():
 def bitnami_repo():
     """Ensure bitnami repo is added (HTTPS, non-OCI)."""
     subprocess.run(
-        "helm repo add bitnami https://charts.bitnami.com/bitnami 2>/dev/null; helm repo update",
-        shell=True,
+        ["helm", "repo", "add", "bitnami", "https://charts.bitnami.com/bitnami"],
+        capture_output=True,
+    )
+    subprocess.run(
+        ["helm", "repo", "update"],
         capture_output=True,
     )
 

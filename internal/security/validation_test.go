@@ -127,11 +127,12 @@ func TestValidateURL_WithContext(t *testing.T) {
 		t.Errorf("ValidateURL with context unexpected error: %v", err)
 	}
 
-	// Cancelled context should still work (DNS failure is not an SSRF concern).
+	// Cancelled context should return a DNS resolution error (DNS failure is
+	// no longer silently passed through to prevent SSRF bypass).
 	cancelled, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := ValidateURL("https://charts.example.com", cancelled); err != nil {
-		t.Errorf("ValidateURL with cancelled context unexpected error: %v", err)
+	if err := ValidateURL("https://charts.example.com", cancelled); err == nil {
+		t.Error("ValidateURL with cancelled context should return DNS resolution error")
 	}
 }
 
