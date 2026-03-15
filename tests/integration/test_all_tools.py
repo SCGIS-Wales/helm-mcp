@@ -340,7 +340,9 @@ class TestChartInspectionOCI:
         result = await call_tool(
             mcp_client,
             "helm_show_chart",
-            {"chart": "oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack"},
+            {
+                "chart": "oci://ghcr.io/prometheus-community/charts/kube-prometheus-stack"
+            },
         )
         text = extract_text(result)
         assert not result.is_error, f"show_chart GHCR OCI failed: {text}"
@@ -437,7 +439,9 @@ class TestChartManagement:
                 "helm_dependency_list",
                 {"chart_path": chart_path},
             )
-            assert not result.is_error, f"dependency_list failed: {extract_text(result)}"
+            assert not result.is_error, (
+                f"dependency_list failed: {extract_text(result)}"
+            )
 
     async def test_dependency_update(self, mcp_client):
         """helm_dependency_update updates chart dependencies."""
@@ -448,7 +452,9 @@ class TestChartManagement:
                 "helm_dependency_update",
                 {"chart_path": chart_path},
             )
-            assert not result.is_error, f"dependency_update failed: {extract_text(result)}"
+            assert not result.is_error, (
+                f"dependency_update failed: {extract_text(result)}"
+            )
 
     async def test_dependency_build(self, mcp_client):
         """helm_dependency_build builds dependencies from Chart.lock."""
@@ -768,7 +774,13 @@ class TestPluginTools:
         if "diff" in r.stdout.lower():
             return
         sp.run(
-            ["helm", "plugin", "install", "https://github.com/databus23/helm-diff", "--verify=false"],
+            [
+                "helm",
+                "plugin",
+                "install",
+                "https://github.com/databus23/helm-diff",
+                "--verify=false",
+            ],
             capture_output=True,
         )
 

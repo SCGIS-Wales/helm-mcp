@@ -6,7 +6,6 @@ These tests require:
   - Python packages: fastmcp, pytest, pytest-asyncio, pytest-timeout
 """
 
-import os
 import subprocess
 from pathlib import Path
 
@@ -56,7 +55,15 @@ def setup_namespace():
     """Create and tear down the test namespace."""
     # Create namespace: use two-step process to avoid shell=True piping
     create = subprocess.run(
-        ["kubectl", "create", "namespace", TEST_NAMESPACE, "--dry-run=client", "-o", "yaml"],
+        [
+            "kubectl",
+            "create",
+            "namespace",
+            TEST_NAMESPACE,
+            "--dry-run=client",
+            "-o",
+            "yaml",
+        ],
         capture_output=True,
         text=True,
     )
@@ -69,7 +76,14 @@ def setup_namespace():
         )
     yield
     subprocess.run(
-        ["kubectl", "delete", "namespace", TEST_NAMESPACE, "--ignore-not-found", "--wait=false"],
+        [
+            "kubectl",
+            "delete",
+            "namespace",
+            TEST_NAMESPACE,
+            "--ignore-not-found",
+            "--wait=false",
+        ],
         capture_output=True,
     )
 
