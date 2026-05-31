@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.35] - 2026-05-31
+
+### Changed
+- Brings every moving part of helm-mcp to its latest stable version, confirms conformance with the latest MCP spec (2025-11-25 via go-sdk 1.4.1), and standardizes linting/formatting/typing across both languages. Dual Helm v3+v4 support is preserved. ([#44](https://github.com/SCGIS-Wales/helm-mcp/pull/44))
+- **Deps**: Helm v3 `3.20.0→3.21.0`, Helm v4 `4.1.1→4.2.0`, MCP go-sdk `1.3.1→1.4.1`, `go` directive `1.25→1.26` (all non-breaking; build + tests green with no code changes). ([#44](https://github.com/SCGIS-Wales/helm-mcp/pull/44))
+- **Security**: bumped `golang.org/x/net→v0.55.0` to resolve 2 reachable `govulncheck` CVEs → now **0 vulnerabilities**. ([#44](https://github.com/SCGIS-Wales/helm-mcp/pull/44))
+- **Lint**: expanded `.golangci.yml` (errorlint, gocritic, revive, misspell, unconvert, prealloc, nilerr, copyloopvar), added a `gofmt` formatter, applied repo-wide `gofmt`, and fixed every production finding (unused params → `_`, if-else→switch, two justified `//nolint`s). Test files get relaxed style rules. ([#44](https://github.com/SCGIS-Wales/helm-mcp/pull/44))
+- Floor raised to `>=3.12`; removed the Python-3.10 `asyncio.wait_for` compat shim in favour of `asyncio.timeout`; `fastmcp>=3.3.1`. ([#44](https://github.com/SCGIS-Wales/helm-mcp/pull/44))
+- Added **strict mypy** + expanded ruff (`C4`/`PTH`/`RET`/`TC`/`ASYNC`/`PIE`); fixed all findings. 184 unit tests pass. ([#44](https://github.com/SCGIS-Wales/helm-mcp/pull/44))
+- golangci-lint pin `→v2.12.2`, Go matrix `→1.26`, Python matrix `→3.12/3.13/3.14`, added a mypy step, bumped hardcoded `3.10`s; READMEs updated to Python 3.12+. ([#44](https://github.com/SCGIS-Wales/helm-mcp/pull/44))
+
 ## [0.1.31] - 2026-03-06
 
 ### Added
@@ -297,7 +309,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.31...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.35...HEAD
+[0.1.35]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.31...v0.1.35
 [0.1.31]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.29...v0.1.30
 [0.1.29]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.28...v0.1.29
