@@ -14,11 +14,15 @@ import platform
 import shutil
 import stat
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from fastmcp.client.transports import StdioTransport
 from fastmcp.server import create_proxy
 
 from helm_mcp.resilience import ResilienceConfig, build_middleware, setup_otel
+
+if TYPE_CHECKING:
+    from fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +35,7 @@ def _is_python_script(path: str) -> bool:
     loop when the Go binary is expected.
     """
     try:
-        with open(path, "rb") as fh:
+        with Path(path).open("rb") as fh:
             head = fh.read(128)
         first_line = head.split(b"\n", 1)[0].lower()
         return head[:2] == b"#!" and b"python" in first_line
@@ -201,7 +205,7 @@ def create_server(
     name: str = "helm-mcp",
     env: dict[str, str] | None = None,
     resilience: ResilienceConfig | None = None,
-):
+) -> FastMCP:
     """Create a FastMCP proxy server wrapping the helm-mcp Go binary.
 
     The proxy transparently forwards all MCP requests to the Go binary,

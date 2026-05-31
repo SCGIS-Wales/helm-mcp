@@ -95,8 +95,7 @@ func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 		return nil, fmt.Errorf("selector is only supported in Helm v4; set helm_version to v4 or remove this field")
 	}
 
-	switch strings.ToLower(opts.SortBy) {
-	case "date":
+	if strings.ToLower(opts.SortBy) == "date" {
 		client.ByDate = true
 	}
 

@@ -19,7 +19,7 @@ var LogoutTool = &mcp.Tool{
 	Description: "Logout from an OCI registry.",
 }
 
-func HandleLogout(ctx context.Context, req *mcp.CallToolRequest, input LogoutInput) (*mcp.CallToolResult, any, error) {
+func HandleLogout(ctx context.Context, _ *mcp.CallToolRequest, input LogoutInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

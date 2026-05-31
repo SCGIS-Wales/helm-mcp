@@ -30,7 +30,7 @@ var RollbackTool = &mcp.Tool{
 	Description: "Rollback a Helm release to a previous revision.",
 }
 
-func HandleRollback(ctx context.Context, req *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
+func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

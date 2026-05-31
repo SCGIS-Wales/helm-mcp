@@ -9,7 +9,7 @@ Resilience features
 - **Auto-reconnect**: If the Go subprocess crashes, the client transparently
   reconnects (up to ``max_reconnects`` times) before raising.
 - **Timeouts**: Every tool call respects a configurable ``timeout`` (default
-  300 s) via ``asyncio.wait_for``.
+  300 s) via ``asyncio.timeout``.
 - **Structured errors**: Custom exception hierarchy —
   ``HelmError`` > ``HelmTimeoutError`` / ``HelmConnectionError`` / ``HelmToolError``.
 - **Graceful shutdown**: ``HelmClient`` is an async context manager that
@@ -38,17 +38,18 @@ Module-level convenience functions::
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import logging
-import sys
 import time
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from fastmcp import Client
+
     from helm_mcp.resilience import ResilienceConfig
 
 from circuitbreaker import CircuitBreaker, CircuitBreakerError
-from fastmcp import Client
 from tenacity import (
     AsyncRetrying,
     retry_if_exception_type,
@@ -59,44 +60,6 @@ from tenacity import (
 from helm_mcp.client import create_client
 
 logger = logging.getLogger("helm_mcp.tools")
-
-# ---------------------------------------------------------------------------
-# Python 3.10 compatibility shim
-# ---------------------------------------------------------------------------
-
-_NEEDS_WAIT_FOR_COMPAT = sys.version_info < (3, 11)
-
-
-async def _wait_for_compat(coro: Any, *, timeout: float) -> Any:
-    """``asyncio.wait_for`` that works correctly on Python 3.10.
-
-    Python 3.10's ``asyncio.wait_for`` has a known bug where it leaks
-    ``CancelledError`` instead of raising ``TimeoutError`` when the
-    deadline expires.  This shim uses ``asyncio.wait`` with an explicit
-    timeout to sidestep the issue.  On Python 3.11+ we delegate to the
-    stdlib implementation which is fixed.
-    """
-    if not _NEEDS_WAIT_FOR_COMPAT:
-        return await asyncio.wait_for(coro, timeout=timeout)
-
-    task = asyncio.ensure_future(coro)
-    try:
-        done, _ = await asyncio.wait({task}, timeout=timeout)
-    except asyncio.CancelledError:
-        # Outer code cancelled *us* — propagate after cleaning up.
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await task
-        raise
-
-    if task in done:
-        return task.result()
-
-    # Timeout expired — cancel the child and raise TimeoutError.
-    task.cancel()
-    with contextlib.suppress(asyncio.CancelledError, Exception):
-        await task
-    raise TimeoutError
 
 
 # ---------------------------------------------------------------------------
@@ -271,7 +234,7 @@ class HelmClient:
         self._env = env
         self.timeout = timeout
         self.max_reconnects = max_reconnects
-        self._client: Client | None = None
+        self._client: Client[Any] | None = None
         self._connected = False
         self._config = resilience or _RC()
 
@@ -318,7 +281,7 @@ class HelmClient:
                 binary_path=self._binary_path,
                 env=self._env,
             )
-            await self._client.__aenter__()
+            await self._client.__aenter__()  # type: ignore[no-untyped-call]  # fastmcp Client dunders are untyped
             self._connected = True
             logger.debug("connected to helm-mcp subprocess")
         except Exception as exc:
@@ -329,7 +292,7 @@ class HelmClient:
         """Cleanly shut down the subprocess."""
         if self._client is not None:
             try:
-                await self._client.__aexit__(None, None, None)
+                await self._client.__aexit__(None, None, None)  # type: ignore[no-untyped-call]  # fastmcp Client dunders are untyped
                 logger.debug("disconnected from helm-mcp subprocess")
             except Exception:
                 logger.warning("error during helm-mcp disconnect", exc_info=True)
@@ -364,11 +327,11 @@ class HelmClient:
         effective_timeout: float,
     ) -> Any:
         """Execute a single MCP tool call with timeout.  No retry logic."""
+        if self._client is None:
+            raise HelmConnectionError("client is not connected")
         t0 = time.monotonic()
-        result = await _wait_for_compat(
-            self._client.call_tool(tool_name, arguments),
-            timeout=effective_timeout,
-        )
+        async with asyncio.timeout(effective_timeout):
+            result = await self._client.call_tool(tool_name, arguments)
         elapsed = time.monotonic() - t0
         logger.debug("%s completed in %.2fs", tool_name, elapsed)
 
@@ -494,7 +457,7 @@ class HelmClient:
         2. **Reconnection loop** — auto-reconnects on subprocess crashes
         3. **Circuit breaker** — ``circuitbreaker`` prevents cascading failures
         4. **Tenacity retry** — exponential backoff + jitter for transient errors
-        5. **Timeout** — ``asyncio.wait_for`` enforces per-call deadline
+        5. **Timeout** — ``asyncio.timeout`` enforces per-call deadline
 
         Args:
             tool_name: MCP tool name (e.g. ``"helm_list"``).
@@ -896,7 +859,7 @@ class HelmClient:
 
     async def repo_remove(
         self,
-        names: list[str],
+        names: Sequence[str],
         *,
         timeout: float | None = None,
         **kwargs: Any,
@@ -1260,7 +1223,7 @@ async def helm_repo_update(**kwargs: Any) -> Any:
     return await client.repo_update(**kwargs)
 
 
-async def helm_repo_remove(names: list[str], **kwargs: Any) -> Any:
+async def helm_repo_remove(names: Sequence[str], **kwargs: Any) -> Any:
     """Remove chart repositories."""
     client = await _get_default_client()
     return await client.repo_remove(names, **kwargs)

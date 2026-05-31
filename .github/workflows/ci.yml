@@ -28,7 +28,7 @@ jobs:
         run: go vet ./...
 
       - name: Install golangci-lint
-        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.10.1
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.12.2
 
       - name: Run golangci-lint
         run: golangci-lint run --timeout=5m
@@ -38,7 +38,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.25', '1.26']
+        go-version: ['1.26']
     steps:
       - uses: actions/checkout@v4
 
@@ -52,6 +52,7 @@ jobs:
 
       - name: Upload coverage
         if: matrix.go-version == '1.26'
+        # NOTE: keep this guard in sync with the go-version matrix above.
         uses: codecov/codecov-action@v4
         with:
           files: coverage.out
@@ -97,7 +98,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.x'
+          go-version: '1.26.x'
           cache: true
 
       - name: Run govulncheck
@@ -140,12 +141,18 @@ jobs:
       - name: Run ruff format check
         run: ruff format --check src/ tests/
 
+      - name: Install package with dev dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Run mypy
+        run: mypy src/
+
   python-test:
     name: Python Test
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.10', '3.12', '3.14']
+        python-version: ['3.12', '3.13', '3.14']
     defaults:
       run:
         working-directory: python
@@ -235,7 +242,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Install test dependencies
         run: pip install pytest build
@@ -258,7 +265,7 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python-version: '3.12'
 
       - name: Build helm-mcp binary
         run: go build -o helm-mcp ./cmd/helm-mcp/

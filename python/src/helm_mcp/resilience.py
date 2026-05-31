@@ -28,6 +28,7 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -279,7 +280,7 @@ class ResilienceConfig:
 # ---------------------------------------------------------------------------
 
 
-def build_middleware(config: ResilienceConfig) -> list:
+def build_middleware(config: ResilienceConfig) -> list[Any]:
     """Build a list of FastMCP middleware instances from the resilience config.
 
     Middleware is added in a deliberate order::
@@ -293,7 +294,7 @@ def build_middleware(config: ResilienceConfig) -> list:
     Returns:
         List of Middleware instances to pass to the FastMCP server.
     """
-    middlewares: list = []
+    middlewares: list[Any] = []
 
     if config.timing.enabled:
         if config.timing.detailed:

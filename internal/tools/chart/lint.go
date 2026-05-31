@@ -24,7 +24,7 @@ var LintTool = &mcp.Tool{
 	Description: "Lint a Helm chart for possible issues and best practices.",
 }
 
-func HandleLint(ctx context.Context, req *mcp.CallToolRequest, input LintInput) (*mcp.CallToolResult, any, error) {
+func HandleLint(ctx context.Context, _ *mcp.CallToolRequest, input LintInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

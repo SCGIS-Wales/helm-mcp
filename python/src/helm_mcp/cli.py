@@ -47,7 +47,7 @@ def _is_python_script(path: str) -> bool:
     the "real" binary.
     """
     try:
-        with open(path, "rb") as fh:
+        with Path(path).open("rb") as fh:
             head = fh.read(128)
         first_line = head.split(b"\n", 1)[0].lower()
         return head[:2] == b"#!" and b"python" in first_line

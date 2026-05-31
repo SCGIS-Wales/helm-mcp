@@ -18,7 +18,7 @@ var VersionTool = &mcp.Tool{
 	Description: "Print the Helm SDK version information.",
 }
 
-func HandleVersion(ctx context.Context, req *mcp.CallToolRequest, input VersionInput) (*mcp.CallToolResult, any, error) {
+func HandleVersion(ctx context.Context, _ *mcp.CallToolRequest, input VersionInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

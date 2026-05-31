@@ -143,7 +143,6 @@ def test_find_binary_path_before_download(tmp_path):
     def mock_ensure_binary(version):
         nonlocal download_called
         download_called = True
-        return None
 
     with (
         patch.dict(os.environ, env, clear=True),

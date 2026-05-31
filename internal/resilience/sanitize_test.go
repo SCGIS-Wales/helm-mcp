@@ -173,7 +173,7 @@ func TestSanitizeJSON_StripsManagedFields(t *testing.T) {
 			},
 			"annotations": map[string]interface{}{
 				"kubectl.kubernetes.io/last-applied-configuration": `{"apiVersion":"v1"}`,
-				"app.kubernetes.io/name":                          "myapp",
+				"app.kubernetes.io/name":                           "myapp",
 			},
 		},
 		"data": map[string]interface{}{
@@ -225,7 +225,7 @@ func TestSanitizeJSON_RecursiveStripping(t *testing.T) {
 				"metadata": map[string]interface{}{
 					"annotations": map[string]interface{}{
 						"kubectl.kubernetes.io/last-applied-configuration": "big",
-						"prometheus.io/scrape":                            "true",
+						"prometheus.io/scrape":                             "true",
 					},
 				},
 			},

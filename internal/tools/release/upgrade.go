@@ -43,7 +43,7 @@ var UpgradeTool = &mcp.Tool{
 	Description: "Upgrade a Helm release to a new chart version or with new values.",
 }
 
-func HandleUpgrade(ctx context.Context, req *mcp.CallToolRequest, input UpgradeInput) (*mcp.CallToolResult, any, error) {
+func HandleUpgrade(ctx context.Context, _ *mcp.CallToolRequest, input UpgradeInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

@@ -82,12 +82,12 @@ func dropCapabilities(result *HardenResult, debug bool) {
 	dropped := 0
 	skipped := 0
 
-	for cap := uintptr(0); cap <= lastCap; cap++ {
+	for capID := uintptr(0); capID <= lastCap; capID++ {
 		// Check if capability is in the bounding set.
 		ret, _, errno := syscall.RawSyscall(
 			syscall.SYS_PRCTL,
 			prCapBsetRead,
-			cap, 0,
+			capID, 0,
 		)
 		if errno != 0 {
 			// Capability number may not exist on this kernel; skip.
@@ -103,10 +103,10 @@ func dropCapabilities(result *HardenResult, debug bool) {
 		_, _, errno = syscall.RawSyscall(
 			syscall.SYS_PRCTL,
 			prCapBsetDrop,
-			cap, 0,
+			capID, 0,
 		)
 		if errno != 0 {
-			errMsg := fmt.Sprintf("failed to drop capability %d: %v", cap, errno)
+			errMsg := fmt.Sprintf("failed to drop capability %d: %v", capID, errno)
 			result.Errors = append(result.Errors, errMsg)
 			secLog(debug, "%s", errMsg)
 		} else {

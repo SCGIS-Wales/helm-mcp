@@ -11,8 +11,8 @@ import (
 	"helm.sh/helm/v4/pkg/chart/common"
 	"helm.sh/helm/v4/pkg/chart/loader"
 	chartv2 "helm.sh/helm/v4/pkg/chart/v2"
-	chartv2util "helm.sh/helm/v4/pkg/chart/v2/util"
 	"helm.sh/helm/v4/pkg/chart/v2/lint/support"
+	chartv2util "helm.sh/helm/v4/pkg/chart/v2/util"
 	"helm.sh/helm/v4/pkg/cli/values"
 	"helm.sh/helm/v4/pkg/downloader"
 	"helm.sh/helm/v4/pkg/getter"
@@ -203,7 +203,7 @@ func (e *V4Engine) Pull(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	return output, nil
 }
 
-func (e *V4Engine) Push(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.PushOptions) (string, error) {
+func (e *V4Engine) Push(_ context.Context, _ *helmengine.GlobalConfig, opts *helmengine.PushOptions) (string, error) {
 	pushOpts := []action.PushOpt{
 		action.WithPushConfig(action.NewConfiguration()),
 		action.WithInsecureSkipTLSVerify(opts.InsecureSkipTLSVerify),

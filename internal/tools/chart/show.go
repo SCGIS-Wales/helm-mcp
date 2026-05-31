@@ -23,7 +23,7 @@ var ShowAllTool = &mcp.Tool{
 	Description: "Show all information for a chart (Chart.yaml, values, README, CRDs).",
 }
 
-func HandleShowAll(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+func HandleShowAll(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -43,7 +43,7 @@ var ShowChartTool = &mcp.Tool{
 	Description: "Show the Chart.yaml of a chart.",
 }
 
-func HandleShowChart(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+func HandleShowChart(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -63,7 +63,7 @@ var ShowCRDsTool = &mcp.Tool{
 	Description: "Show the CRDs of a chart.",
 }
 
-func HandleShowCRDs(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+func HandleShowCRDs(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -83,7 +83,7 @@ var ShowReadmeTool = &mcp.Tool{
 	Description: "Show the README of a chart.",
 }
 
-func HandleShowReadme(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+func HandleShowReadme(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -103,7 +103,7 @@ var ShowValuesTool = &mcp.Tool{
 	Description: "Show the default values of a chart.",
 }
 
-func HandleShowValues(ctx context.Context, req *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
+func HandleShowValues(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

@@ -387,4 +387,3 @@ func TestClassifyOBOError_UnknownCode(t *testing.T) {
 		t.Error("unknown errors should not be *OBOError")
 	}
 }
-

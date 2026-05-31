@@ -23,7 +23,7 @@ var LoginTool = &mcp.Tool{
 	Description: "Login to an OCI registry for chart storage.",
 }
 
-func HandleLogin(ctx context.Context, req *mcp.CallToolRequest, input LoginInput) (*mcp.CallToolResult, any, error) {
+func HandleLogin(ctx context.Context, _ *mcp.CallToolRequest, input LoginInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

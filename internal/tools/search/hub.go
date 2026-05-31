@@ -21,7 +21,7 @@ var HubTool = &mcp.Tool{
 	Description: "Search Artifact Hub for Helm charts.",
 }
 
-func HandleHub(ctx context.Context, req *mcp.CallToolRequest, input HubInput) (*mcp.CallToolResult, any, error) {
+func HandleHub(ctx context.Context, _ *mcp.CallToolRequest, input HubInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

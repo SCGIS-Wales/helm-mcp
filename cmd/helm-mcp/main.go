@@ -106,14 +106,14 @@ func main() {
 		slog.Debug("starting stdio server")
 		if err := s.Run(ctx, &mcp.StdioTransport{}); err != nil {
 			fmt.Fprintf(os.Stderr, "server error: %v\n", err)
-			os.Exit(1)
+			os.Exit(1) //nolint:gocritic // fatal startup error; the process is terminating, so the deferred session-cache Stop() is moot
 		}
 
 	case "http":
 		// Each HTTP request gets its own mcp.Server to avoid shared-state
 		// concurrency issues across concurrent sessions.
 		handler := mcp.NewStreamableHTTPHandler(
-			func(r *http.Request) *mcp.Server { return server.NewServer(version) },
+			func(_ *http.Request) *mcp.Server { return server.NewServer(version) },
 			nil,
 		)
 		httpServer := newHTTPServer(*addr, authMiddleware(handler))
@@ -128,7 +128,7 @@ func main() {
 	case "sse":
 		// Each SSE session gets its own mcp.Server.
 		handler := mcp.NewSSEHandler(
-			func(r *http.Request) *mcp.Server { return server.NewServer(version) },
+			func(_ *http.Request) *mcp.Server { return server.NewServer(version) },
 			nil,
 		)
 		httpServer := newHTTPServer(*addr, authMiddleware(handler))
@@ -225,11 +225,12 @@ func buildAuthMiddleware(logger *slog.Logger) (func(http.Handler) http.Handler, 
 func printAuthStatus(addr, transport string) {
 	fmt.Fprintf(os.Stderr, "helm-mcp %s server listening on %s\n", transport, addr)
 
-	if os.Getenv("HELM_MCP_OIDC_ISSUER") != "" {
+	switch {
+	case os.Getenv("HELM_MCP_OIDC_ISSUER") != "":
 		fmt.Fprintf(os.Stderr, "  authentication: OIDC/OAuth2 (issuer=%s)\n", os.Getenv("HELM_MCP_OIDC_ISSUER"))
-	} else if os.Getenv("HELM_MCP_AUTH_TOKEN") != "" {
+	case os.Getenv("HELM_MCP_AUTH_TOKEN") != "":
 		fmt.Fprintf(os.Stderr, "  authentication: bearer token (HELM_MCP_AUTH_TOKEN)\n")
-	} else {
+	default:
 		fmt.Fprintf(os.Stderr, "  authentication: NONE (set HELM_MCP_OIDC_ISSUER or HELM_MCP_AUTH_TOKEN to enable)\n")
 	}
 }
@@ -250,7 +251,7 @@ func splitCSV(s string) []string {
 // gracefulShutdown starts a goroutine that waits for ctx cancellation
 // and then shuts down the HTTP server with a 5-second deadline.
 func gracefulShutdown(ctx context.Context, srv *http.Server) {
-	go func() {
+	go func() { //nolint:gosec // ctx is already cancelled here (it is the shutdown trigger); a fresh deadline context is required for the drain
 		<-ctx.Done()
 		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer shutdownCancel()

@@ -67,7 +67,7 @@ func releaserToInfo(rel release.Releaser) *helmengine.ReleaseInfo {
 // parseDuration delegates to the shared helmengine.ParseDuration.
 var parseDuration = helmengine.ParseDuration
 
-func (e *V4Engine) List(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ListOptions) ([]*helmengine.ReleaseInfo, error) {
+func (e *V4Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.ListOptions) ([]*helmengine.ReleaseInfo, error) {
 	actionConfig, settings, err := newActionConfig(cfg)
 	if err != nil {
 		return nil, err

@@ -361,13 +361,13 @@ func TestScrubError_CloudTokens(t *testing.T) {
 
 func TestScrubCredentials_CloudProviderKeys(t *testing.T) {
 	input := map[string]string{
-		"AWS_ACCESS_KEY_ID":     "AKIAIOSFODNN7EXAMPLE",
-		"AWS_SECRET_ACCESS_KEY": "test-secret-value-not-real", //nolint:gosec
-		"AZURE_CLIENT_SECRET":   "azure-secret-value",
+		"AWS_ACCESS_KEY_ID":              "AKIAIOSFODNN7EXAMPLE",
+		"AWS_SECRET_ACCESS_KEY":          "test-secret-value-not-real", //nolint:gosec
+		"AZURE_CLIENT_SECRET":            "azure-secret-value",
 		"GOOGLE_APPLICATION_CREDENTIALS": "/path/to/creds.json",
-		"HELM_REGISTRY_PASSWORD": "registry-pass",
-		"KUBECONFIG":            "/home/user/.kube/config",
-		"HELM_NAMESPACE":        "production",
+		"HELM_REGISTRY_PASSWORD":         "registry-pass",
+		"KUBECONFIG":                     "/home/user/.kube/config",
+		"HELM_NAMESPACE":                 "production",
 	}
 
 	scrubbed := ScrubCredentials(input)

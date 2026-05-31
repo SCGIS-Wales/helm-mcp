@@ -7,6 +7,8 @@ so new tools added to the binary are automatically available.
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
@@ -16,7 +18,7 @@ from helm_mcp.server import _build_subprocess_env, _find_binary
 def create_client(
     binary_path: str | None = None,
     env: dict[str, str] | None = None,
-) -> Client:
+) -> Client[Any]:
     """Create a FastMCP client connected to the helm-mcp Go binary via stdio.
 
     Args:
