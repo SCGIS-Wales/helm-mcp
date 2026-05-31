@@ -43,7 +43,7 @@ var InstallTool = &mcp.Tool{
 	Description: "Install a Helm chart as a new release. Supports both local charts and repository charts.",
 }
 
-func HandleInstall(ctx context.Context, req *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
+func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

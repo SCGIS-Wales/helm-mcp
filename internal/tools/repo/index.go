@@ -21,7 +21,7 @@ var IndexTool = &mcp.Tool{
 	Description: "Generate an index file for a directory of chart archives.",
 }
 
-func HandleIndex(ctx context.Context, req *mcp.CallToolRequest, input IndexInput) (*mcp.CallToolResult, any, error) {
+func HandleIndex(ctx context.Context, _ *mcp.CallToolRequest, input IndexInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

@@ -31,8 +31,6 @@ def test_load_checksums_exists(tmp_path):
     with patch("helm_mcp.download.Path") as mock_path_cls:
         # Make Path(__file__).parent return tmp_path
         mock_path_cls.return_value.parent = tmp_path
-        # But we need the actual Path for file operations, so patch differently
-        pass
 
     # Just verify it returns a dict (depends on whether checksums.json exists)
     result = _load_checksums()

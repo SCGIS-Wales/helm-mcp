@@ -273,18 +273,18 @@ type PackageOptions struct {
 
 // PullOptions contains options for helm pull.
 type PullOptions struct {
-	Chart                string `json:"chart"`
-	Version              string `json:"version,omitempty"`
-	Repo                 string `json:"repo,omitempty"`
-	Destination          string `json:"destination,omitempty"`
-	Untar                bool   `json:"untar,omitempty"`
-	UntarDir             string `json:"untar_dir,omitempty"`
-	Verify               bool   `json:"verify,omitempty"`
-	Keyring              string `json:"keyring,omitempty"`
-	Username             string `json:"username,omitempty"`
-	Password             string `json:"password,omitempty"`
-	PlainHTTP            bool   `json:"plain_http,omitempty"`
-	InsecureSkipTLSVerify bool  `json:"insecure_skip_tls_verify,omitempty"`
+	Chart                 string `json:"chart"`
+	Version               string `json:"version,omitempty"`
+	Repo                  string `json:"repo,omitempty"`
+	Destination           string `json:"destination,omitempty"`
+	Untar                 bool   `json:"untar,omitempty"`
+	UntarDir              string `json:"untar_dir,omitempty"`
+	Verify                bool   `json:"verify,omitempty"`
+	Keyring               string `json:"keyring,omitempty"`
+	Username              string `json:"username,omitempty"`
+	Password              string `json:"password,omitempty"`
+	PlainHTTP             bool   `json:"plain_http,omitempty"`
+	InsecureSkipTLSVerify bool   `json:"insecure_skip_tls_verify,omitempty"`
 }
 
 // PushOptions contains options for helm push.
@@ -357,14 +357,14 @@ type RepoIndexOptions struct {
 
 // RegistryLoginOptions contains options for helm registry login.
 type RegistryLoginOptions struct {
-	Hostname              string `json:"hostname"`
-	Username              string `json:"username,omitempty"`
-	Password              string `json:"password,omitempty"`
-	Insecure              bool   `json:"insecure,omitempty"`
-	PlainHTTP             bool   `json:"plain_http,omitempty"`
-	CAFile                string `json:"ca_file,omitempty"`
-	CertFile              string `json:"cert_file,omitempty"`
-	KeyFile               string `json:"key_file,omitempty"`
+	Hostname  string `json:"hostname"`
+	Username  string `json:"username,omitempty"`
+	Password  string `json:"password,omitempty"`
+	Insecure  bool   `json:"insecure,omitempty"`
+	PlainHTTP bool   `json:"plain_http,omitempty"`
+	CAFile    string `json:"ca_file,omitempty"`
+	CertFile  string `json:"cert_file,omitempty"`
+	KeyFile   string `json:"key_file,omitempty"`
 }
 
 // RegistryLogoutOptions contains options for helm registry logout.
@@ -374,9 +374,9 @@ type RegistryLogoutOptions struct {
 
 // SearchHubOptions contains options for helm search hub.
 type SearchHubOptions struct {
-	Keyword      string `json:"keyword"`
-	MaxColWidth  int    `json:"max_col_width,omitempty"`
-	ListRepoURL  bool   `json:"list_repo_url,omitempty"`
+	Keyword     string `json:"keyword"`
+	MaxColWidth int    `json:"max_col_width,omitempty"`
+	ListRepoURL bool   `json:"list_repo_url,omitempty"`
 }
 
 // SearchRepoOptions contains options for helm search repo.

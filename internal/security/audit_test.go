@@ -56,7 +56,7 @@ func TestAuditLogger_LogAuthSuccess(t *testing.T) {
 
 	claims := &TokenClaims{
 		ObjectID:          "oid-123",
-		PreferredUsername:  "user@example.com",
+		PreferredUsername: "user@example.com",
 		TenantID:          "tenant-1",
 		AuthorizedParty:   "client-app-1",
 		Scopes:            []string{"helm.read", "helm.write"},
@@ -101,11 +101,11 @@ func TestAuditLogger_LogAuthzDenied(t *testing.T) {
 	al := newTestAuditLogger(&buf)
 
 	claims := &TokenClaims{
-		ObjectID:         "oid-123",
+		ObjectID:          "oid-123",
 		PreferredUsername: "user@example.com",
-		TenantID:         "tenant-1",
-		AuthorizedParty:  "client-1",
-		Scopes:           []string{"helm.read"},
+		TenantID:          "tenant-1",
+		AuthorizedParty:   "client-1",
+		Scopes:            []string{"helm.read"},
 	}
 
 	al.LogAuthzDenied(claims, "helm_install", "missing required scope: helm.write")
@@ -124,10 +124,10 @@ func TestAuditLogger_LogOBOExchange_Success(t *testing.T) {
 	al := newTestAuditLogger(&buf)
 
 	claims := &TokenClaims{
-		ObjectID:         "oid-123",
+		ObjectID:          "oid-123",
 		PreferredUsername: "user@example.com",
-		TenantID:         "tenant-1",
-		AuthorizedParty:  "client-1",
+		TenantID:          "tenant-1",
+		AuthorizedParty:   "client-1",
 	}
 
 	al.LogOBOExchange(claims, "api://downstream", "provider", 150, nil)

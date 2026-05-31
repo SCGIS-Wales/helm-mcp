@@ -26,7 +26,7 @@ var PackageTool = &mcp.Tool{
 	Description: "Package a chart directory into a versioned chart archive (.tgz).",
 }
 
-func HandlePackage(ctx context.Context, req *mcp.CallToolRequest, input PackageInput) (*mcp.CallToolResult, any, error) {
+func HandlePackage(ctx context.Context, _ *mcp.CallToolRequest, input PackageInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

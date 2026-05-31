@@ -19,7 +19,7 @@ var RemoveTool = &mcp.Tool{
 	Description: "Remove chart repositories.",
 }
 
-func HandleRemove(ctx context.Context, req *mcp.CallToolRequest, input RemoveInput) (*mcp.CallToolResult, any, error) {
+func HandleRemove(ctx context.Context, _ *mcp.CallToolRequest, input RemoveInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

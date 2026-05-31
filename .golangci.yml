@@ -14,6 +14,14 @@ linters:
     - bodyclose
     - noctx
     - ineffassign
+    - errorlint
+    - gocritic
+    - misspell
+    - revive
+    - unconvert
+    - prealloc
+    - nilerr
+    - copyloopvar
   settings:
     gosec:
       excludes:
@@ -21,6 +29,53 @@ linters:
         - G104 # unhandled errors on deferred Close()
         - G117 # Password fields are required for Helm repo/registry auth inputs
         - G204 # Plugin management requires subprocess execution with user args
+    revive:
+      # Specifying rules overrides revive's defaults, so enumerate the
+      # recommended set explicitly. The documentation-completeness rules
+      # (exported, package-comments) are intentionally omitted — they add
+      # noise on internal/mock/test helpers without improving correctness.
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: dot-imports
+        - name: empty-block
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: errorf
+        - name: increment-decrement
+        - name: indent-error-flow
+        - name: range
+        - name: receiver-naming
+        - name: redefines-builtin-id
+        - name: superfluous-else
+        - name: time-naming
+        - name: unexported-return
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: var-declaration
+        - name: var-naming
   exclusions:
     paths:
       - vendor
+    rules:
+      # Tests favour readability over production-grade style: relax the
+      # style/perf linters there while keeping correctness checks (govet,
+      # staticcheck, gosec, errcheck, bodyclose) active everywhere.
+      - path: _test\.go
+        linters:
+          - errorlint
+          - noctx
+          - prealloc
+          - revive
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  # Report every finding rather than capping per-linter / per-message, so CI
+  # surfaces the full picture instead of a truncated sample.
+  max-issues-per-linter: 0
+  max-same-issues: 0

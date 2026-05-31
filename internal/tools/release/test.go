@@ -21,7 +21,7 @@ var TestTool = &mcp.Tool{
 	Description: "Run the test suite for a Helm release.",
 }
 
-func HandleTest(ctx context.Context, req *mcp.CallToolRequest, input TestInput) (*mcp.CallToolResult, any, error) {
+func HandleTest(ctx context.Context, _ *mcp.CallToolRequest, input TestInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

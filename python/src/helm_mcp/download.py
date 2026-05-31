@@ -25,6 +25,7 @@ import sysconfig
 import tempfile
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,7 @@ GITHUB_RELEASE_URL = (
 )
 
 
-def _load_checksums() -> dict:
+def _load_checksums() -> dict[str, Any]:
     """Load embedded checksums from package data.
 
     Returns:
@@ -42,8 +43,9 @@ def _load_checksums() -> dict:
     checksums_path = Path(__file__).parent / "checksums.json"
     if not checksums_path.exists():
         return {}
-    with open(checksums_path) as f:
-        return json.load(f)
+    with checksums_path.open() as f:
+        data: dict[str, Any] = json.load(f)
+    return data
 
 
 def _get_binary_name() -> str:
@@ -97,7 +99,7 @@ def _verify_checksum(file_path: Path, expected_sha256: str) -> bool:
         True if checksum matches, False otherwise.
     """
     sha256 = hashlib.sha256()
-    with open(file_path, "rb") as f:
+    with file_path.open("rb") as f:
         for chunk in iter(lambda: f.read(8192), b""):
             sha256.update(chunk)
     return sha256.hexdigest() == expected_sha256
@@ -147,12 +149,13 @@ def ensure_binary(version: str) -> str | None:
     )
 
     # Download to temp file, verify checksum, then atomic rename
-    fd, tmp_path = tempfile.mkstemp(dir=str(install_dir), prefix=".helm-mcp-")
+    fd, tmp_name = tempfile.mkstemp(dir=str(install_dir), prefix=".helm-mcp-")
+    tmp_path = Path(tmp_name)
     try:
         os.close(fd)
-        urllib.request.urlretrieve(url, tmp_path)  # noqa: S310 — URL is hardcoded HTTPS
+        urllib.request.urlretrieve(url, tmp_name)  # noqa: S310 — URL is hardcoded HTTPS
 
-        if not _verify_checksum(Path(tmp_path), expected):
+        if not _verify_checksum(tmp_path, expected):
             raise RuntimeError(
                 f"Checksum mismatch for {binary_name}. "
                 "The downloaded binary does not match the expected hash. "
@@ -160,14 +163,14 @@ def ensure_binary(version: str) -> str | None:
             )
 
         # Make executable and atomically move into place
-        os.chmod(tmp_path, os.stat(tmp_path).st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-        os.replace(tmp_path, str(target))
+        tmp_path.chmod(tmp_path.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+        tmp_path.replace(target)
 
         print(f"Installed helm-mcp to {target}", file=sys.stderr)
         logger.info("Installed helm-mcp to %s", target)
         return str(target)
     except Exception:
         # Clean up temp file on any failure
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+        if tmp_path.exists():
+            tmp_path.unlink()
         raise

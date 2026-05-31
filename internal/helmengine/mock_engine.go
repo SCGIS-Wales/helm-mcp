@@ -9,66 +9,66 @@ import (
 // control the mock behavior. If a method field is nil, the mock returns
 // sensible defaults.
 type MockEngine struct {
-	InstallFn           func(ctx context.Context, cfg *GlobalConfig, opts *InstallOptions) (*ReleaseInfo, error)
-	UpgradeFn           func(ctx context.Context, cfg *GlobalConfig, opts *UpgradeOptions) (*ReleaseInfo, error)
-	UninstallFn         func(ctx context.Context, cfg *GlobalConfig, opts *UninstallOptions) (*UninstallResult, error)
-	RollbackFn          func(ctx context.Context, cfg *GlobalConfig, opts *RollbackOptions) error
-	ListFn              func(ctx context.Context, cfg *GlobalConfig, opts *ListOptions) ([]*ReleaseInfo, error)
-	StatusFn            func(ctx context.Context, cfg *GlobalConfig, opts *StatusOptions) (*ReleaseInfo, error)
-	HistoryFn           func(ctx context.Context, cfg *GlobalConfig, opts *HistoryOptions) ([]*ReleaseInfo, error)
-	TestFn              func(ctx context.Context, cfg *GlobalConfig, opts *TestOptions) (*ReleaseInfo, error)
-	GetAllFn            func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (*ReleaseDetail, error)
-	GetValuesFn         func(ctx context.Context, cfg *GlobalConfig, opts *GetValuesOptions) (map[string]interface{}, error)
-	GetMetadataFn       func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (*MetadataInfo, error)
-	GetManifestFn       func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error)
-	GetHooksFn          func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error)
-	GetNotesFn          func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error)
-	CreateFn            func(ctx context.Context, opts *CreateOptions) (string, error)
-	LintFn              func(ctx context.Context, opts *LintOptions) (*LintResult, error)
-	TemplateFn          func(ctx context.Context, cfg *GlobalConfig, opts *TemplateOptions) (string, error)
-	PackageFn           func(ctx context.Context, opts *PackageOptions) (string, error)
-	PullFn              func(ctx context.Context, cfg *GlobalConfig, opts *PullOptions) (string, error)
-	PushFn              func(ctx context.Context, cfg *GlobalConfig, opts *PushOptions) (string, error)
-	VerifyFn            func(ctx context.Context, opts *VerifyOptions) (string, error)
-	ShowAllFn           func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
-	ShowChartFn         func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
-	ShowValuesFn        func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
-	ShowReadmeFn        func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
-	ShowCRDsFn          func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
-	DependencyBuildFn   func(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) error
-	DependencyListFn    func(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) (string, error)
-	DependencyUpdateFn  func(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) error
-	RepoAddFn           func(ctx context.Context, opts *RepoAddOptions) error
-	RepoListFn          func(ctx context.Context, opts *RepoListOptions) ([]*RepoEntry, error)
-	RepoUpdateFn        func(ctx context.Context, opts *RepoUpdateOptions) (string, error)
-	RepoRemoveFn        func(ctx context.Context, opts *RepoRemoveOptions) error
-	RepoIndexFn         func(ctx context.Context, opts *RepoIndexOptions) error
-	RegistryLoginFn     func(ctx context.Context, opts *RegistryLoginOptions) error
-	RegistryLogoutFn    func(ctx context.Context, opts *RegistryLogoutOptions) error
-	SearchHubFn         func(ctx context.Context, opts *SearchHubOptions) ([]*SearchResult, error)
-	SearchRepoFn        func(ctx context.Context, opts *SearchRepoOptions) ([]*SearchResult, error)
-	PluginInstallFn     func(ctx context.Context, opts *PluginInstallOptions) error
-	PluginListFn        func(ctx context.Context) ([]*PluginInfo, error)
-	PluginUninstallFn   func(ctx context.Context, opts *PluginUninstallOptions) error
-	PluginUpdateFn      func(ctx context.Context, opts *PluginUpdateOptions) error
-	EnvFn               func(ctx context.Context) (map[string]string, error)
-	VersionFn           func(ctx context.Context) (*VersionInfo, error)
+	InstallFn          func(ctx context.Context, cfg *GlobalConfig, opts *InstallOptions) (*ReleaseInfo, error)
+	UpgradeFn          func(ctx context.Context, cfg *GlobalConfig, opts *UpgradeOptions) (*ReleaseInfo, error)
+	UninstallFn        func(ctx context.Context, cfg *GlobalConfig, opts *UninstallOptions) (*UninstallResult, error)
+	RollbackFn         func(ctx context.Context, cfg *GlobalConfig, opts *RollbackOptions) error
+	ListFn             func(ctx context.Context, cfg *GlobalConfig, opts *ListOptions) ([]*ReleaseInfo, error)
+	StatusFn           func(ctx context.Context, cfg *GlobalConfig, opts *StatusOptions) (*ReleaseInfo, error)
+	HistoryFn          func(ctx context.Context, cfg *GlobalConfig, opts *HistoryOptions) ([]*ReleaseInfo, error)
+	TestFn             func(ctx context.Context, cfg *GlobalConfig, opts *TestOptions) (*ReleaseInfo, error)
+	GetAllFn           func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (*ReleaseDetail, error)
+	GetValuesFn        func(ctx context.Context, cfg *GlobalConfig, opts *GetValuesOptions) (map[string]interface{}, error)
+	GetMetadataFn      func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (*MetadataInfo, error)
+	GetManifestFn      func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error)
+	GetHooksFn         func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error)
+	GetNotesFn         func(ctx context.Context, cfg *GlobalConfig, opts *GetOptions) (string, error)
+	CreateFn           func(ctx context.Context, opts *CreateOptions) (string, error)
+	LintFn             func(ctx context.Context, opts *LintOptions) (*LintResult, error)
+	TemplateFn         func(ctx context.Context, cfg *GlobalConfig, opts *TemplateOptions) (string, error)
+	PackageFn          func(ctx context.Context, opts *PackageOptions) (string, error)
+	PullFn             func(ctx context.Context, cfg *GlobalConfig, opts *PullOptions) (string, error)
+	PushFn             func(ctx context.Context, cfg *GlobalConfig, opts *PushOptions) (string, error)
+	VerifyFn           func(ctx context.Context, opts *VerifyOptions) (string, error)
+	ShowAllFn          func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
+	ShowChartFn        func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
+	ShowValuesFn       func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
+	ShowReadmeFn       func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
+	ShowCRDsFn         func(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error)
+	DependencyBuildFn  func(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) error
+	DependencyListFn   func(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) (string, error)
+	DependencyUpdateFn func(ctx context.Context, cfg *GlobalConfig, opts *DependencyOptions) error
+	RepoAddFn          func(ctx context.Context, opts *RepoAddOptions) error
+	RepoListFn         func(ctx context.Context, opts *RepoListOptions) ([]*RepoEntry, error)
+	RepoUpdateFn       func(ctx context.Context, opts *RepoUpdateOptions) (string, error)
+	RepoRemoveFn       func(ctx context.Context, opts *RepoRemoveOptions) error
+	RepoIndexFn        func(ctx context.Context, opts *RepoIndexOptions) error
+	RegistryLoginFn    func(ctx context.Context, opts *RegistryLoginOptions) error
+	RegistryLogoutFn   func(ctx context.Context, opts *RegistryLogoutOptions) error
+	SearchHubFn        func(ctx context.Context, opts *SearchHubOptions) ([]*SearchResult, error)
+	SearchRepoFn       func(ctx context.Context, opts *SearchRepoOptions) ([]*SearchResult, error)
+	PluginInstallFn    func(ctx context.Context, opts *PluginInstallOptions) error
+	PluginListFn       func(ctx context.Context) ([]*PluginInfo, error)
+	PluginUninstallFn  func(ctx context.Context, opts *PluginUninstallOptions) error
+	PluginUpdateFn     func(ctx context.Context, opts *PluginUpdateOptions) error
+	EnvFn              func(ctx context.Context) (map[string]string, error)
+	VersionFn          func(ctx context.Context) (*VersionInfo, error)
 
 	// Call tracking
-	LastInstallOpts     *InstallOptions
-	LastUpgradeOpts     *UpgradeOptions
-	LastUninstallOpts   *UninstallOptions
-	LastRollbackOpts    *RollbackOptions
-	LastListOpts        *ListOptions
-	LastStatusOpts      *StatusOptions
-	LastHistoryOpts     *HistoryOptions
-	LastTestOpts        *TestOptions
-	LastGetOpts         *GetOptions
-	LastGetValuesOpts       *GetValuesOptions
-	LastConfig              *GlobalConfig
-	LastRepoAddOpts         *RepoAddOptions
-	LastRegistryLoginOpts   *RegistryLoginOptions
-	LastPullOpts            *PullOptions
+	LastInstallOpts       *InstallOptions
+	LastUpgradeOpts       *UpgradeOptions
+	LastUninstallOpts     *UninstallOptions
+	LastRollbackOpts      *RollbackOptions
+	LastListOpts          *ListOptions
+	LastStatusOpts        *StatusOptions
+	LastHistoryOpts       *HistoryOptions
+	LastTestOpts          *TestOptions
+	LastGetOpts           *GetOptions
+	LastGetValuesOpts     *GetValuesOptions
+	LastConfig            *GlobalConfig
+	LastRepoAddOpts       *RepoAddOptions
+	LastRegistryLoginOpts *RegistryLoginOptions
+	LastPullOpts          *PullOptions
 }
 
 // copyConfig creates a shallow copy of a GlobalConfig so that

@@ -23,7 +23,7 @@ var GetAllTool = &mcp.Tool{
 	Description: "Get all information (values, manifest, hooks, notes) for a release.",
 }
 
-func HandleGetAll(ctx context.Context, req *mcp.CallToolRequest, input GetAllInput) (*mcp.CallToolResult, any, error) {
+func HandleGetAll(ctx context.Context, _ *mcp.CallToolRequest, input GetAllInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -66,7 +66,7 @@ var GetHooksTool = &mcp.Tool{
 	Description: "Get all hooks for a release.",
 }
 
-func HandleGetHooks(ctx context.Context, req *mcp.CallToolRequest, input GetHooksInput) (*mcp.CallToolResult, any, error) {
+func HandleGetHooks(ctx context.Context, _ *mcp.CallToolRequest, input GetHooksInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -102,7 +102,7 @@ var GetManifestTool = &mcp.Tool{
 	Description: "Get the Kubernetes manifest for a release.",
 }
 
-func HandleGetManifest(ctx context.Context, req *mcp.CallToolRequest, input GetManifestInput) (*mcp.CallToolResult, any, error) {
+func HandleGetManifest(ctx context.Context, _ *mcp.CallToolRequest, input GetManifestInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -140,7 +140,7 @@ var GetMetadataTool = &mcp.Tool{
 	Description: "Get metadata for a release.",
 }
 
-func HandleGetMetadata(ctx context.Context, req *mcp.CallToolRequest, input GetMetadataInput) (*mcp.CallToolResult, any, error) {
+func HandleGetMetadata(ctx context.Context, _ *mcp.CallToolRequest, input GetMetadataInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -176,7 +176,7 @@ var GetNotesTool = &mcp.Tool{
 	Description: "Get the notes for a release.",
 }
 
-func HandleGetNotes(ctx context.Context, req *mcp.CallToolRequest, input GetNotesInput) (*mcp.CallToolResult, any, error) {
+func HandleGetNotes(ctx context.Context, _ *mcp.CallToolRequest, input GetNotesInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -213,7 +213,7 @@ var GetValuesTool = &mcp.Tool{
 	Description: "Get the values for a release. Use all=true to include computed values.",
 }
 
-func HandleGetValues(ctx context.Context, req *mcp.CallToolRequest, input GetValuesInput) (*mcp.CallToolResult, any, error) {
+func HandleGetValues(ctx context.Context, _ *mcp.CallToolRequest, input GetValuesInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

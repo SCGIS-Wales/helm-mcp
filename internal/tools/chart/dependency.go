@@ -22,7 +22,7 @@ var DependencyBuildTool = &mcp.Tool{
 	Description: "Build out the charts/ directory from Chart.lock.",
 }
 
-func HandleDependencyBuild(ctx context.Context, req *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
+func HandleDependencyBuild(ctx context.Context, _ *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -49,7 +49,7 @@ type DependencyListInput struct {
 	ChartPath string `json:"chart_path" jsonschema:"required" jsonschema_description:"Path to the chart directory"`
 }
 
-func HandleDependencyList(ctx context.Context, req *mcp.CallToolRequest, input DependencyListInput) (*mcp.CallToolResult, any, error) {
+func HandleDependencyList(ctx context.Context, _ *mcp.CallToolRequest, input DependencyListInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -73,7 +73,7 @@ var DependencyUpdateTool = &mcp.Tool{
 	Description: "Update charts/ based on Chart.yaml contents.",
 }
 
-func HandleDependencyUpdate(ctx context.Context, req *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
+func HandleDependencyUpdate(ctx context.Context, _ *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

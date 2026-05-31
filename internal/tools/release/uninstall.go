@@ -25,7 +25,7 @@ var UninstallTool = &mcp.Tool{
 	Description: "Uninstall a Helm release and remove all associated Kubernetes resources.",
 }
 
-func HandleUninstall(ctx context.Context, req *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {
+func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

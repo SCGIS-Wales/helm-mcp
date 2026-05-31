@@ -142,14 +142,14 @@ func TestHandleList_V3Selection(t *testing.T) {
 func TestHandleInstall_Success(t *testing.T) {
 	mock := setup(t)
 	input := InstallInput{
-		ReleaseName: "my-release",
-		Chart:       "nginx",
-		Version:     "1.0.0",
-		Values:      map[string]interface{}{"replicaCount": 3},
+		ReleaseName:     "my-release",
+		Chart:           "nginx",
+		Version:         "1.0.0",
+		Values:          map[string]interface{}{"replicaCount": 3},
 		CreateNamespace: true,
-		Wait:         true,
-		Timeout:      "5m",
-		DryRun:       "client",
+		Wait:            true,
+		Timeout:         "5m",
+		DryRun:          "client",
 	}
 	result, _, err := HandleInstall(context.Background(), nil, input)
 	if err != nil {
@@ -246,14 +246,14 @@ func TestHandleInstall_ValuesFiles(t *testing.T) {
 func TestHandleUpgrade_Success(t *testing.T) {
 	mock := setup(t)
 	input := UpgradeInput{
-		ReleaseName:  "my-release",
-		Chart:        "nginx",
-		Version:      "2.0.0",
-		Install:      true,
-		Force:        true,
-		ResetValues:  true,
+		ReleaseName:   "my-release",
+		Chart:         "nginx",
+		Version:       "2.0.0",
+		Install:       true,
+		Force:         true,
+		ResetValues:   true,
 		CleanupOnFail: true,
-		MaxHistory:   10,
+		MaxHistory:    10,
 	}
 	result, _, err := HandleUpgrade(context.Background(), nil, input)
 	if err != nil {

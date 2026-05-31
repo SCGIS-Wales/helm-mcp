@@ -38,7 +38,7 @@ func (e *V3Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginIns
 	return nil
 }
 
-func (e *V3Engine) PluginList(ctx context.Context) ([]*helmengine.PluginInfo, error) {
+func (e *V3Engine) PluginList(_ context.Context) ([]*helmengine.PluginInfo, error) {
 	settings := cli.New()
 	plugins, err := plugin.FindPlugins(settings.PluginsDirectory)
 	if err != nil {

@@ -32,7 +32,7 @@ var TemplateTool = &mcp.Tool{
 	Description: "Render chart templates locally without installing. Useful for previewing manifests.",
 }
 
-func HandleTemplate(ctx context.Context, req *mcp.CallToolRequest, input TemplateInput) (*mcp.CallToolResult, any, error) {
+func HandleTemplate(ctx context.Context, _ *mcp.CallToolRequest, input TemplateInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

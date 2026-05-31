@@ -66,7 +66,7 @@ func newActionConfig(cfg *helmengine.GlobalConfig) (*action.Configuration, *cli.
 			slog.Debug(fmt.Sprintf(format, v...))
 		}
 	} else {
-		logFunc = func(format string, v ...interface{}) { /* debug disabled */ }
+		logFunc = func(_ string, _ ...interface{}) { /* debug disabled */ }
 	}
 
 	if err := actionConfig.Init(
@@ -110,7 +110,7 @@ func newActionConfigNoCluster(cfg *helmengine.GlobalConfig) (*action.Configurati
 	}
 
 	actionConfig := new(action.Configuration)
-	actionConfig.Log = func(format string, v ...interface{}) { /* no-cluster: logging disabled */ }
+	actionConfig.Log = func(_ string, _ ...interface{}) { /* no-cluster: logging disabled */ }
 
 	// Initialise the OCI registry client so oci:// chart refs work.
 	if registryClient, err := registry.NewClient(

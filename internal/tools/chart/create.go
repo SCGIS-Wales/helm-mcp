@@ -20,7 +20,7 @@ var CreateTool = &mcp.Tool{
 	Description: "Create a new Helm chart with the given name in the current directory.",
 }
 
-func HandleCreate(ctx context.Context, req *mcp.CallToolRequest, input CreateInput) (*mcp.CallToolResult, any, error) {
+func HandleCreate(ctx context.Context, _ *mcp.CallToolRequest, input CreateInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

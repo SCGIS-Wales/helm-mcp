@@ -21,7 +21,7 @@ var StatusTool = &mcp.Tool{
 	Description: "Display the status of a Helm release including its revision, chart, and values.",
 }
 
-func HandleStatus(ctx context.Context, req *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, any, error) {
+func HandleStatus(ctx context.Context, _ *mcp.CallToolRequest, input StatusInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

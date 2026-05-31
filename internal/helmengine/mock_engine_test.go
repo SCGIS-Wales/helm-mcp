@@ -75,8 +75,9 @@ func TestDefaultReleaseAppVersion(t *testing.T) {
 // helpers
 // ---------------------------------------------------------------------------
 
-func cfg() *GlobalConfig          { return &GlobalConfig{Namespace: "ns"} }
-func bg() context.Context         { return context.Background() }
+func cfg() *GlobalConfig  { return &GlobalConfig{Namespace: "ns"} }
+func bg() context.Context { return context.Background() }
+
 var errMock = errors.New("mock-err")
 
 // ---------------------------------------------------------------------------

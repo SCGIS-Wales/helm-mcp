@@ -20,7 +20,7 @@ var HistoryTool = &mcp.Tool{
 	Description: "Show the revision history of a Helm release.",
 }
 
-func HandleHistory(ctx context.Context, req *mcp.CallToolRequest, input HistoryInput) (*mcp.CallToolResult, any, error) {
+func HandleHistory(ctx context.Context, _ *mcp.CallToolRequest, input HistoryInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
