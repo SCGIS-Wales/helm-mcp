@@ -16,6 +16,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.36] - 2026-06-01
+
+### Fixed
+- Follow-up to #44, resolving the **fixable** Snyk advisories it surfaced (Snyk's first run on this repo). ([#45](https://github.com/SCGIS-Wales/helm-mcp/pull/45))
+- Both are **transitive and unreachable** from our code paths (so `govulncheck` was — and remains — clean), but they are the highest-severity items with upstream fixes available, and bumping clears Snyk's fixable advisories. The remaining Snyk entries are marked "no supported fix" upstream (containerd, circl, observe-sdk, etc.) and can't be resolved by a dependency bump. ([#45](https://github.com/SCGIS-Wales/helm-mcp/pull/45))
+
 ## [0.1.35] - 2026-05-31
 
 ### Changed
@@ -309,7 +316,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.35...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.36...HEAD
+[0.1.36]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.35...v0.1.36
 [0.1.35]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.31...v0.1.35
 [0.1.31]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.30...v0.1.31
 [0.1.30]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.29...v0.1.30
