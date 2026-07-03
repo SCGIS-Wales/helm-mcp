@@ -116,7 +116,11 @@ func main() {
 			func(_ *http.Request) *mcp.Server { return server.NewServer(version) },
 			nil,
 		)
-		httpServer := newHTTPServer(*addr, authMiddleware(handler))
+		// go-sdk >= v1.6.0 no longer applies cross-origin protection by
+		// default; wrap the handler explicitly so browser-initiated
+		// cross-origin requests stay rejected. Non-browser MCP clients
+		// (no Origin / Sec-Fetch-Site headers) are unaffected.
+		httpServer := newHTTPServer(*addr, crossOriginProtected(authMiddleware(handler)))
 		printAuthStatus(*addr, "HTTP")
 		slog.Info("starting HTTP server", "addr", *addr) //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
@@ -131,7 +135,7 @@ func main() {
 			func(_ *http.Request) *mcp.Server { return server.NewServer(version) },
 			nil,
 		)
-		httpServer := newHTTPServer(*addr, authMiddleware(handler))
+		httpServer := newHTTPServer(*addr, crossOriginProtected(authMiddleware(handler)))
 		printAuthStatus(*addr, "SSE")
 		slog.Info("starting SSE server", "addr", *addr) //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
@@ -259,6 +263,14 @@ func gracefulShutdown(ctx context.Context, srv *http.Server) {
 			slog.Error("HTTP server shutdown error", "error", err)
 		}
 	}()
+}
+
+// crossOriginProtected wraps a handler with the standard library's
+// cross-origin protection, rejecting unsafe browser cross-origin requests
+// (CSRF). Requests without browser fetch metadata pass through untouched.
+func crossOriginProtected(h http.Handler) http.Handler {
+	protection := http.NewCrossOriginProtection()
+	return protection.Handler(h)
 }
 
 func newHTTPServer(addr string, handler http.Handler) *http.Server {
