@@ -721,7 +721,7 @@ When running in HTTP or SSE mode:
 
 ### Authentication (OIDC/OAuth2)
 
-When running in HTTP or SSE mode, helm-mcp supports OAuth2/OIDC authentication with JWT validation, claims-based authorization, and structured audit logging. This aligns with the [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-03-26/basic/security).
+When running in HTTP or SSE mode, helm-mcp supports OAuth2/OIDC authentication with JWT validation, claims-based authorization, and structured audit logging. This aligns with the [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices).
 
 **Authentication is fully opt-in.** When no OIDC or token environment variables are set, the server runs without authentication (same as previous versions). Stdio mode is never affected by authentication configuration.
 
@@ -835,7 +835,7 @@ export HELM_MCP_OBO_CLIENT_SECRET="helm-mcp-client-secret"
 
 #### Why Not Forward the Token?
 
-Forwarding a user's token to downstream services is tempting but problematic. The [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-03-26/basic/security) explicitly discourages it. With OBO, each service gets a token minted for its own audience, scoped to only the permissions it needs. If a token is intercepted, the blast radius is limited to a single service rather than the entire chain.
+Forwarding a user's token to downstream services is tempting but problematic. The [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices) explicitly discourages it. With OBO, each service gets a token minted for its own audience, scoped to only the permissions it needs. If a token is intercepted, the blast radius is limited to a single service rather than the entire chain.
 
 ### AWS EKS and OBO Support
 
