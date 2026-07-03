@@ -18,6 +18,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.38] - 2026-07-03
+
+### Fixed
+- Fixed the ~24-minute `Publish Container Image` job (observed on run [28652280431](https://github.com/SCGIS-Wales/helm-mcp/actions/runs/28652280431/job/84973492045)): the Dockerfile compiled the Go binary inside the target-platform container, so the `linux/arm64` half ran the full Helm/Kubernetes dependency compile through QEMU emulation on the amd64 runner — 10–20× slower than native, and worst right after `go.mod` changes invalidate the layer cache ([#47](https://github.com/SCGIS-Wales/helm-mcp/pull/47))
+- Pinned the builder stage to `--platform=$BUILDPLATFORM` and switched to Go cross-compilation via `GOOS`/`GOARCH` build args (`CGO_ENABLED=0` already, so cross-compiling is safe); both target platforms now compile natively in a few minutes ([#47](https://github.com/SCGIS-Wales/helm-mcp/pull/47))
+- Added `timeout-minutes: 30` to the `publish-container` job so any future regression fails fast instead of running toward the 6-hour default ([#47](https://github.com/SCGIS-Wales/helm-mcp/pull/47))
+
 ## [0.1.37] - 2026-07-03
 
 ### Fixed
@@ -327,7 +335,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.37...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.38...HEAD
+[0.1.38]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.37...v0.1.38
 [0.1.37]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.36...v0.1.37
 [0.1.36]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.35...v0.1.36
 [0.1.35]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.31...v0.1.35
