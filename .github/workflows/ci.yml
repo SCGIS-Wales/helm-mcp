@@ -645,6 +645,9 @@ jobs:
     if: needs.auto-tag.outputs.created == 'true'
     needs: [auto-tag]
     runs-on: ubuntu-latest
+    # The multi-arch build cross-compiles natively and completes in a few
+    # minutes; fail fast rather than emulating for hours if that regresses.
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write

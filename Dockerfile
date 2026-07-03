@@ -1,7 +1,11 @@
-# Build stage
-FROM golang:1-alpine AS builder
+# Build stage — pinned to the build host's platform so the compiler always
+# runs natively; the target platform is reached via Go cross-compilation
+# (CGO is disabled) instead of QEMU-emulating the whole toolchain.
+FROM --platform=$BUILDPLATFORM golang:1-alpine AS builder
 
 ARG VERSION=dev
+ARG TARGETOS
+ARG TARGETARCH
 
 RUN apk add --no-cache git ca-certificates
 
@@ -10,7 +14,7 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-RUN CGO_ENABLED=0 go build -trimpath \
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
     -ldflags="-s -w -X main.version=${VERSION}" \
     -o /helm-mcp ./cmd/helm-mcp/
 
