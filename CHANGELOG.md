@@ -17,6 +17,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.1.37] - 2026-07-03
+
+### Fixed
+- Bumped Helm SDK to the latest patch releases: `helm.sh/helm/v4` 4.2.0 → **4.2.2** and `helm.sh/helm/v3` 3.21.0 → **3.21.2** (aligns `k8s.io/*` client libraries to v0.36.2) ([#46](https://github.com/SCGIS-Wales/helm-mcp/pull/46))
+- Bumped the official MCP Go SDK `modelcontextprotocol/go-sdk` 1.4.1 → **1.6.1**, the latest stable release implementing the latest final MCP specification (**2025-11-25**) ([#46](https://github.com/SCGIS-Wales/helm-mcp/pull/46))
+- Bumped indirect `containerd` 1.7.30 → **1.7.33**, fixing 3 govulncheck findings (GO-2026-5758, GO-2026-5475, GO-2026-5378) ([#46](https://github.com/SCGIS-Wales/helm-mcp/pull/46))
+- Restored cross-origin protection for HTTP/SSE transports: go-sdk ≥ 1.6.0 disables it by default when options are nil, so handlers are now wrapped with the stdlib `http.NewCrossOriginProtection` middleware (non-browser MCP clients unaffected; verified 200 for MCP initialize, 403 for cross-site browser POST) ([#46](https://github.com/SCGIS-Wales/helm-mcp/pull/46))
+- Raised the Python `fastmcp` dependency floor to **≥ 3.4.2** (latest) ([#46](https://github.com/SCGIS-Wales/helm-mcp/pull/46))
+- Updated README MCP security links to the 2025-11-25 specification ([#46](https://github.com/SCGIS-Wales/helm-mcp/pull/46))
+
 ## [0.1.36] - 2026-06-01
 
 ### Fixed
@@ -316,7 +327,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.36...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.37...HEAD
+[0.1.37]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.36...v0.1.37
 [0.1.36]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.35...v0.1.36
 [0.1.35]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.31...v0.1.35
 [0.1.31]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.30...v0.1.31
