@@ -32,17 +32,17 @@ var sensitivePrefixes = []string{
 
 // GlobalInput is embedded in every tool input struct to provide shared fields.
 type GlobalInput struct {
-	HelmVersion       string  `json:"helm_version,omitempty" jsonschema_description:"Helm SDK version: v3 or v4 (default: v4)"`
-	Namespace         string  `json:"namespace,omitempty" jsonschema_description:"Kubernetes namespace"`
-	KubeContext       string  `json:"kube_context,omitempty" jsonschema_description:"Kubernetes context name from kubeconfig"`
-	KubeConfig        string  `json:"kubeconfig,omitempty" jsonschema_description:"Path to kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)"`
-	KubeAPIServer     string  `json:"kube_apiserver,omitempty" jsonschema_description:"Kubernetes API server URL (overrides kubeconfig)"`
-	KubeBearerToken   string  `json:"kube_token,omitempty" jsonschema_description:"Bearer token for Kubernetes API authentication"`
-	KubeTLSServerName string  `json:"kube_tls_server_name,omitempty" jsonschema_description:"Server name for TLS certificate validation"`
-	KubeInsecureTLS   bool    `json:"kube_insecure_tls,omitempty" jsonschema_description:"Skip TLS certificate verification (insecure)"`
-	Debug             bool    `json:"debug,omitempty" jsonschema_description:"Enable debug output"`
-	BurstLimit        int     `json:"burst_limit,omitempty" jsonschema_description:"Client-side default throttling limit"`
-	QPS               float32 `json:"qps,omitempty" jsonschema_description:"Client-side QPS rate limit"`
+	HelmVersion       string  `json:"helm_version,omitempty" jsonschema:"Helm SDK version: v3 or v4 (default: v4)"`
+	Namespace         string  `json:"namespace,omitempty" jsonschema:"Kubernetes namespace"`
+	KubeContext       string  `json:"kube_context,omitempty" jsonschema:"Kubernetes context name from kubeconfig"`
+	KubeConfig        string  `json:"kubeconfig,omitempty" jsonschema:"Path to kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)"`
+	KubeAPIServer     string  `json:"kube_apiserver,omitempty" jsonschema:"Kubernetes API server URL (overrides kubeconfig)"`
+	KubeBearerToken   string  `json:"kube_token,omitempty" jsonschema:"Bearer token for Kubernetes API authentication"`
+	KubeTLSServerName string  `json:"kube_tls_server_name,omitempty" jsonschema:"Server name for TLS certificate validation"`
+	KubeInsecureTLS   bool    `json:"kube_insecure_tls,omitempty" jsonschema:"Skip TLS certificate verification (insecure)"`
+	Debug             bool    `json:"debug,omitempty" jsonschema:"Enable debug output"`
+	BurstLimit        int     `json:"burst_limit,omitempty" jsonschema:"Client-side default throttling limit"`
+	QPS               float32 `json:"qps,omitempty" jsonschema:"Client-side QPS rate limit"`
 }
 
 // ZeroBearerToken zeroes the bearer token field in the input after use.

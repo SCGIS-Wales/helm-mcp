@@ -11,11 +11,11 @@ import (
 
 type ShowInput struct {
 	tools.GlobalInput
-	Chart    string `json:"chart" jsonschema:"required" jsonschema_description:"Chart reference"`
-	Version  string `json:"version,omitempty" jsonschema_description:"Chart version"`
-	Repo     string `json:"repo,omitempty" jsonschema_description:"Repository URL"`
-	Devel    bool   `json:"devel,omitempty" jsonschema_description:"Include development versions"`
-	JSONPath string `json:"jsonpath,omitempty" jsonschema_description:"JSONPath template for values (v4 only)"`
+	Chart    string `json:"chart" jsonschema:"Chart reference"`
+	Version  string `json:"version,omitempty" jsonschema:"Chart version"`
+	Repo     string `json:"repo,omitempty" jsonschema:"Repository URL"`
+	Devel    bool   `json:"devel,omitempty" jsonschema:"Include development versions"`
+	JSONPath string `json:"jsonpath,omitempty" jsonschema:"JSONPath template for values (v4 only)"`
 }
 
 var ShowAllTool = &mcp.Tool{

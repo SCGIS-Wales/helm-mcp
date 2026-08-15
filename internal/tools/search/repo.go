@@ -11,11 +11,11 @@ import (
 
 type RepoInput struct {
 	tools.GlobalInput
-	Keyword           string `json:"keyword" jsonschema:"required" jsonschema_description:"Search keyword"`
-	Regexp            bool   `json:"regexp,omitempty" jsonschema_description:"Use regular expressions"`
-	Versions          bool   `json:"versions,omitempty" jsonschema_description:"Show all versions"`
-	Devel             bool   `json:"devel,omitempty" jsonschema_description:"Include development versions"`
-	VersionConstraint string `json:"version_constraint,omitempty" jsonschema_description:"Semver version constraint"`
+	Keyword           string `json:"keyword" jsonschema:"Search keyword"`
+	Regexp            bool   `json:"regexp,omitempty" jsonschema:"Use regular expressions"`
+	Versions          bool   `json:"versions,omitempty" jsonschema:"Show all versions"`
+	Devel             bool   `json:"devel,omitempty" jsonschema:"Include development versions"`
+	VersionConstraint string `json:"version_constraint,omitempty" jsonschema:"Semver version constraint"`
 }
 
 var RepoTool = &mcp.Tool{

@@ -11,9 +11,9 @@ import (
 
 type HubInput struct {
 	tools.GlobalInput
-	Keyword     string `json:"keyword" jsonschema:"required" jsonschema_description:"Search keyword"`
-	MaxColWidth int    `json:"max_col_width,omitempty" jsonschema_description:"Max column width"`
-	ListRepoURL bool   `json:"list_repo_url,omitempty" jsonschema_description:"Show repository URL"`
+	Keyword     string `json:"keyword" jsonschema:"Search keyword"`
+	MaxColWidth int    `json:"max_col_width,omitempty" jsonschema:"Max column width"`
+	ListRepoURL bool   `json:"list_repo_url,omitempty" jsonschema:"Show repository URL"`
 }
 
 var HubTool = &mcp.Tool{

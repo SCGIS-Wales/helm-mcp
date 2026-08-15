@@ -12,13 +12,13 @@ import (
 
 type AddInput struct {
 	tools.GlobalInput
-	Name            string `json:"name" jsonschema:"required" jsonschema_description:"Repository name"`
-	URL             string `json:"url" jsonschema:"required" jsonschema_description:"Repository URL"`
-	Username        string `json:"username,omitempty" jsonschema_description:"Repository username"`
-	Password        string `json:"password,omitempty" jsonschema_description:"Repository password"`
-	ForceUpdate     bool   `json:"force_update,omitempty" jsonschema_description:"Replace existing entry"`
-	CAFile          string `json:"ca_file,omitempty" jsonschema_description:"CA bundle file"`
-	InsecureSkipTLS bool   `json:"insecure_skip_tls,omitempty" jsonschema_description:"Skip TLS verification"`
+	Name            string `json:"name" jsonschema:"Repository name"`
+	URL             string `json:"url" jsonschema:"Repository URL"`
+	Username        string `json:"username,omitempty" jsonschema:"Repository username"`
+	Password        string `json:"password,omitempty" jsonschema:"Repository password"`
+	ForceUpdate     bool   `json:"force_update,omitempty" jsonschema:"Replace existing entry"`
+	CAFile          string `json:"ca_file,omitempty" jsonschema:"CA bundle file"`
+	InsecureSkipTLS bool   `json:"insecure_skip_tls,omitempty" jsonschema:"Skip TLS verification"`
 }
 
 var AddTool = &mcp.Tool{

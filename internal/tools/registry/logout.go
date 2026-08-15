@@ -11,7 +11,7 @@ import (
 
 type LogoutInput struct {
 	tools.GlobalInput
-	Hostname string `json:"hostname" jsonschema:"required" jsonschema_description:"Registry hostname"`
+	Hostname string `json:"hostname" jsonschema:"Registry hostname"`
 }
 
 var LogoutTool = &mcp.Tool{

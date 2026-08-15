@@ -11,14 +11,14 @@ import (
 
 type PackageInput struct {
 	tools.GlobalInput
-	Path             string `json:"path" jsonschema:"required" jsonschema_description:"Path to the chart directory"`
-	Destination      string `json:"destination,omitempty" jsonschema_description:"Output directory"`
-	Version          string `json:"version,omitempty" jsonschema_description:"Override chart version"`
-	AppVersion       string `json:"app_version,omitempty" jsonschema_description:"Override app version"`
-	Sign             bool   `json:"sign,omitempty" jsonschema_description:"Sign the package"`
-	Key              string `json:"key,omitempty" jsonschema_description:"Signing key name"`
-	Keyring          string `json:"keyring,omitempty" jsonschema_description:"Keyring path"`
-	DependencyUpdate bool   `json:"dependency_update,omitempty" jsonschema_description:"Update dependencies before packaging"`
+	Path             string `json:"path" jsonschema:"Path to the chart directory"`
+	Destination      string `json:"destination,omitempty" jsonschema:"Output directory"`
+	Version          string `json:"version,omitempty" jsonschema:"Override chart version"`
+	AppVersion       string `json:"app_version,omitempty" jsonschema:"Override app version"`
+	Sign             bool   `json:"sign,omitempty" jsonschema:"Sign the package"`
+	Key              string `json:"key,omitempty" jsonschema:"Signing key name"`
+	Keyring          string `json:"keyring,omitempty" jsonschema:"Keyring path"`
+	DependencyUpdate bool   `json:"dependency_update,omitempty" jsonschema:"Update dependencies before packaging"`
 }
 
 var PackageTool = &mcp.Tool{

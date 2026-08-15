@@ -13,8 +13,8 @@ import (
 
 type InstallInput struct {
 	tools.GlobalInput
-	URLOrPath string `json:"url_or_path" jsonschema:"required" jsonschema_description:"Plugin URL or local path"`
-	Version   string `json:"version,omitempty" jsonschema_description:"Plugin version"`
+	URLOrPath string `json:"url_or_path" jsonschema:"Plugin URL or local path"`
+	Version   string `json:"version,omitempty" jsonschema:"Plugin version"`
 }
 
 var InstallTool = &mcp.Tool{

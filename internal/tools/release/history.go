@@ -11,8 +11,8 @@ import (
 
 type HistoryInput struct {
 	tools.GlobalInput
-	ReleaseName string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Max         int    `json:"max,omitempty" jsonschema_description:"Maximum number of revisions to return"`
+	ReleaseName string `json:"release_name" jsonschema:"Name of the release"`
+	Max         int    `json:"max,omitempty" jsonschema:"Maximum number of revisions to return"`
 }
 
 var HistoryTool = &mcp.Tool{

@@ -11,18 +11,18 @@ import (
 
 type ListInput struct {
 	tools.GlobalInput
-	AllNamespaces bool   `json:"all_namespaces,omitempty" jsonschema_description:"List releases across all namespaces"`
-	Filter        string `json:"filter,omitempty" jsonschema_description:"Regular expression filter on release name"`
-	Selector      string `json:"selector,omitempty" jsonschema_description:"Label selector filter (v4 only)"`
-	SortBy        string `json:"sort_by,omitempty" jsonschema_description:"Sort by: name or date"`
-	SortReverse   bool   `json:"sort_reverse,omitempty" jsonschema_description:"Reverse the sort order"`
-	Limit         int    `json:"limit,omitempty" jsonschema_description:"Maximum number of releases to return"`
-	Offset        int    `json:"offset,omitempty" jsonschema_description:"Number of releases to skip"`
-	Deployed      bool   `json:"deployed,omitempty" jsonschema_description:"Show deployed releases"`
-	Failed        bool   `json:"failed,omitempty" jsonschema_description:"Show failed releases"`
-	Pending       bool   `json:"pending,omitempty" jsonschema_description:"Show pending releases"`
-	Uninstalled   bool   `json:"uninstalled,omitempty" jsonschema_description:"Show uninstalled releases"`
-	Superseded    bool   `json:"superseded,omitempty" jsonschema_description:"Show superseded releases"`
+	AllNamespaces bool   `json:"all_namespaces,omitempty" jsonschema:"List releases across all namespaces"`
+	Filter        string `json:"filter,omitempty" jsonschema:"Regular expression filter on release name"`
+	Selector      string `json:"selector,omitempty" jsonschema:"Label selector filter (v4 only)"`
+	SortBy        string `json:"sort_by,omitempty" jsonschema:"Sort by: name or date"`
+	SortReverse   bool   `json:"sort_reverse,omitempty" jsonschema:"Reverse the sort order"`
+	Limit         int    `json:"limit,omitempty" jsonschema:"Maximum number of releases to return"`
+	Offset        int    `json:"offset,omitempty" jsonschema:"Number of releases to skip"`
+	Deployed      bool   `json:"deployed,omitempty" jsonschema:"Show deployed releases"`
+	Failed        bool   `json:"failed,omitempty" jsonschema:"Show failed releases"`
+	Pending       bool   `json:"pending,omitempty" jsonschema:"Show pending releases"`
+	Uninstalled   bool   `json:"uninstalled,omitempty" jsonschema:"Show uninstalled releases"`
+	Superseded    bool   `json:"superseded,omitempty" jsonschema:"Show superseded releases"`
 }
 
 var ListTool = &mcp.Tool{

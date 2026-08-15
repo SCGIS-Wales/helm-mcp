@@ -11,31 +11,31 @@ import (
 
 type UpgradeInput struct {
 	tools.GlobalInput
-	ReleaseName          string                 `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Chart                string                 `json:"chart" jsonschema:"required" jsonschema_description:"Chart reference"`
-	Version              string                 `json:"version,omitempty" jsonschema_description:"Chart version constraint"`
-	Values               map[string]interface{} `json:"values,omitempty" jsonschema_description:"Inline values"`
-	ValuesFiles          []string               `json:"values_files,omitempty" jsonschema_description:"Paths to values files"`
-	Install              bool                   `json:"install,omitempty" jsonschema_description:"If release does not exist install it"`
-	Force                bool                   `json:"force,omitempty" jsonschema_description:"Force resource updates"`
-	ResetValues          bool                   `json:"reset_values,omitempty" jsonschema_description:"Reset values to chart defaults"`
-	ReuseValues          bool                   `json:"reuse_values,omitempty" jsonschema_description:"Reuse last release values"`
-	Wait                 bool                   `json:"wait,omitempty" jsonschema_description:"Wait for resources to be ready"`
-	WaitForJobs          bool                   `json:"wait_for_jobs,omitempty" jsonschema_description:"Wait for jobs to complete"`
-	Timeout              string                 `json:"timeout,omitempty" jsonschema_description:"Timeout duration"`
-	DryRun               string                 `json:"dry_run,omitempty" jsonschema_description:"Dry run: none client or server"`
-	Description          string                 `json:"description,omitempty" jsonschema_description:"Custom description"`
-	DisableHooks         bool                   `json:"disable_hooks,omitempty" jsonschema_description:"Disable hooks"`
-	SkipCRDs             bool                   `json:"skip_crds,omitempty" jsonschema_description:"Skip CRDs"`
-	CleanupOnFail        bool                   `json:"cleanup_on_fail,omitempty" jsonschema_description:"Cleanup on failure"`
-	DependencyUpdate     bool                   `json:"dependency_update,omitempty" jsonschema_description:"Update dependencies"`
-	Labels               map[string]string      `json:"labels,omitempty" jsonschema_description:"Labels"`
-	MaxHistory           int                    `json:"max_history,omitempty" jsonschema_description:"Max history revisions"`
-	ResetThenReuseValues bool                   `json:"reset_then_reuse_values,omitempty" jsonschema_description:"Reset then reuse values (v4 only)"`
-	ServerSideApply      bool                   `json:"server_side_apply,omitempty" jsonschema_description:"Server-side apply (v4 only)"`
-	TakeOwnership        bool                   `json:"take_ownership,omitempty" jsonschema_description:"Take ownership (v4 only)"`
-	HideSecret           bool                   `json:"hide_secret,omitempty" jsonschema_description:"Hide secrets (v4 only)"`
-	ForceConflicts       bool                   `json:"force_conflicts,omitempty" jsonschema_description:"Force conflicts (v4 only)"`
+	ReleaseName          string                 `json:"release_name" jsonschema:"Name of the release"`
+	Chart                string                 `json:"chart" jsonschema:"Chart reference"`
+	Version              string                 `json:"version,omitempty" jsonschema:"Chart version constraint"`
+	Values               map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values"`
+	ValuesFiles          []string               `json:"values_files,omitempty" jsonschema:"Paths to values files"`
+	Install              bool                   `json:"install,omitempty" jsonschema:"If release does not exist install it"`
+	Force                bool                   `json:"force,omitempty" jsonschema:"Force resource updates"`
+	ResetValues          bool                   `json:"reset_values,omitempty" jsonschema:"Reset values to chart defaults"`
+	ReuseValues          bool                   `json:"reuse_values,omitempty" jsonschema:"Reuse last release values"`
+	Wait                 bool                   `json:"wait,omitempty" jsonschema:"Wait for resources to be ready"`
+	WaitForJobs          bool                   `json:"wait_for_jobs,omitempty" jsonschema:"Wait for jobs to complete"`
+	Timeout              string                 `json:"timeout,omitempty" jsonschema:"Timeout duration"`
+	DryRun               string                 `json:"dry_run,omitempty" jsonschema:"Dry run: none client or server"`
+	Description          string                 `json:"description,omitempty" jsonschema:"Custom description"`
+	DisableHooks         bool                   `json:"disable_hooks,omitempty" jsonschema:"Disable hooks"`
+	SkipCRDs             bool                   `json:"skip_crds,omitempty" jsonschema:"Skip CRDs"`
+	CleanupOnFail        bool                   `json:"cleanup_on_fail,omitempty" jsonschema:"Cleanup on failure"`
+	DependencyUpdate     bool                   `json:"dependency_update,omitempty" jsonschema:"Update dependencies"`
+	Labels               map[string]string      `json:"labels,omitempty" jsonschema:"Labels"`
+	MaxHistory           int                    `json:"max_history,omitempty" jsonschema:"Max history revisions"`
+	ResetThenReuseValues bool                   `json:"reset_then_reuse_values,omitempty" jsonschema:"Reset then reuse values (v4 only)"`
+	ServerSideApply      bool                   `json:"server_side_apply,omitempty" jsonschema:"Server-side apply (v4 only)"`
+	TakeOwnership        bool                   `json:"take_ownership,omitempty" jsonschema:"Take ownership (v4 only)"`
+	HideSecret           bool                   `json:"hide_secret,omitempty" jsonschema:"Hide secrets (v4 only)"`
+	ForceConflicts       bool                   `json:"force_conflicts,omitempty" jsonschema:"Force conflicts (v4 only)"`
 }
 
 var UpgradeTool = &mcp.Tool{

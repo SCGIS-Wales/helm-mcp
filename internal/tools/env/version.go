@@ -10,7 +10,7 @@ import (
 
 type VersionInput struct {
 	tools.GlobalInput
-	Short bool `json:"short,omitempty" jsonschema_description:"Print only the version number"`
+	Short bool `json:"short,omitempty" jsonschema:"Print only the version number"`
 }
 
 var VersionTool = &mcp.Tool{

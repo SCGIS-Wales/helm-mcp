@@ -11,9 +11,9 @@ import (
 
 type TestInput struct {
 	tools.GlobalInput
-	ReleaseName string   `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release to test"`
-	Timeout     string   `json:"timeout,omitempty" jsonschema_description:"Timeout for test execution"`
-	Filters     []string `json:"filters,omitempty" jsonschema_description:"Filter tests by name"`
+	ReleaseName string   `json:"release_name" jsonschema:"Name of the release to test"`
+	Timeout     string   `json:"timeout,omitempty" jsonschema:"Timeout for test execution"`
+	Filters     []string `json:"filters,omitempty" jsonschema:"Filter tests by name"`
 }
 
 var TestTool = &mcp.Tool{

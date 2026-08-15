@@ -13,16 +13,16 @@ import (
 
 type PullInput struct {
 	tools.GlobalInput
-	Chart       string `json:"chart" jsonschema:"required" jsonschema_description:"Chart reference to pull"`
-	Version     string `json:"version,omitempty" jsonschema_description:"Chart version"`
-	Repo        string `json:"repo,omitempty" jsonschema_description:"Repository URL"`
-	Destination string `json:"destination,omitempty" jsonschema_description:"Output directory"`
-	Untar       bool   `json:"untar,omitempty" jsonschema_description:"Untar the chart after download"`
-	UntarDir    string `json:"untar_dir,omitempty" jsonschema_description:"Directory to untar into"`
-	Verify      bool   `json:"verify,omitempty" jsonschema_description:"Verify the chart"`
-	Keyring     string `json:"keyring,omitempty" jsonschema_description:"Keyring path"`
-	Username    string `json:"username,omitempty" jsonschema_description:"Repository username"`
-	Password    string `json:"password,omitempty" jsonschema_description:"Repository password"`
+	Chart       string `json:"chart" jsonschema:"Chart reference to pull"`
+	Version     string `json:"version,omitempty" jsonschema:"Chart version"`
+	Repo        string `json:"repo,omitempty" jsonschema:"Repository URL"`
+	Destination string `json:"destination,omitempty" jsonschema:"Output directory"`
+	Untar       bool   `json:"untar,omitempty" jsonschema:"Untar the chart after download"`
+	UntarDir    string `json:"untar_dir,omitempty" jsonschema:"Directory to untar into"`
+	Verify      bool   `json:"verify,omitempty" jsonschema:"Verify the chart"`
+	Keyring     string `json:"keyring,omitempty" jsonschema:"Keyring path"`
+	Username    string `json:"username,omitempty" jsonschema:"Repository username"`
+	Password    string `json:"password,omitempty" jsonschema:"Repository password"`
 }
 
 var PullTool = &mcp.Tool{

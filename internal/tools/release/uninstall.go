@@ -11,13 +11,13 @@ import (
 
 type UninstallInput struct {
 	tools.GlobalInput
-	ReleaseName  string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release to uninstall"`
-	KeepHistory  bool   `json:"keep_history,omitempty" jsonschema_description:"Remove all associated resources but keep release history"`
-	DryRun       bool   `json:"dry_run,omitempty" jsonschema_description:"Simulate an uninstall"`
-	Wait         bool   `json:"wait,omitempty" jsonschema_description:"Wait for deletion of all resources"`
-	Timeout      string `json:"timeout,omitempty" jsonschema_description:"Timeout duration"`
-	DisableHooks bool   `json:"disable_hooks,omitempty" jsonschema_description:"Disable pre/post uninstall hooks"`
-	Cascade      string `json:"cascade,omitempty" jsonschema_description:"Deletion propagation: background foreground or orphan"`
+	ReleaseName  string `json:"release_name" jsonschema:"Name of the release to uninstall"`
+	KeepHistory  bool   `json:"keep_history,omitempty" jsonschema:"Remove all associated resources but keep release history"`
+	DryRun       bool   `json:"dry_run,omitempty" jsonschema:"Simulate an uninstall"`
+	Wait         bool   `json:"wait,omitempty" jsonschema:"Wait for deletion of all resources"`
+	Timeout      string `json:"timeout,omitempty" jsonschema:"Timeout duration"`
+	DisableHooks bool   `json:"disable_hooks,omitempty" jsonschema:"Disable pre/post uninstall hooks"`
+	Cascade      string `json:"cascade,omitempty" jsonschema:"Deletion propagation: background foreground or orphan"`
 }
 
 var UninstallTool = &mcp.Tool{

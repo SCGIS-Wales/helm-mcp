@@ -11,9 +11,9 @@ import (
 
 type IndexInput struct {
 	tools.GlobalInput
-	Directory string `json:"directory" jsonschema:"required" jsonschema_description:"Directory containing packaged charts"`
-	URL       string `json:"url,omitempty" jsonschema_description:"URL of the chart repository"`
-	Merge     string `json:"merge,omitempty" jsonschema_description:"Path to existing index to merge into"`
+	Directory string `json:"directory" jsonschema:"Directory containing packaged charts"`
+	URL       string `json:"url,omitempty" jsonschema:"URL of the chart repository"`
+	Merge     string `json:"merge,omitempty" jsonschema:"Path to existing index to merge into"`
 }
 
 var IndexTool = &mcp.Tool{

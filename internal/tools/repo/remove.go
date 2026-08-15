@@ -11,7 +11,7 @@ import (
 
 type RemoveInput struct {
 	tools.GlobalInput
-	Names []string `json:"names" jsonschema:"required" jsonschema_description:"Repository names to remove"`
+	Names []string `json:"names" jsonschema:"Repository names to remove"`
 }
 
 var RemoveTool = &mcp.Tool{

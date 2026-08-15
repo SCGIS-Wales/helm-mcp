@@ -11,8 +11,8 @@ import (
 
 type CreateInput struct {
 	tools.GlobalInput
-	Name    string `json:"name" jsonschema:"required" jsonschema_description:"Name of the chart to create"`
-	Starter string `json:"starter,omitempty" jsonschema_description:"Starter chart name"`
+	Name    string `json:"name" jsonschema:"Name of the chart to create"`
+	Starter string `json:"starter,omitempty" jsonschema:"Starter chart name"`
 }
 
 var CreateTool = &mcp.Tool{

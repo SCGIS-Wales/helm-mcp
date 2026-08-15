@@ -14,8 +14,8 @@ import (
 
 type GetAllInput struct {
 	tools.GlobalInput
-	ReleaseName string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Revision    int    `json:"revision,omitempty" jsonschema_description:"Release revision number"`
+	ReleaseName string `json:"release_name" jsonschema:"Name of the release"`
+	Revision    int    `json:"revision,omitempty" jsonschema:"Release revision number"`
 }
 
 var GetAllTool = &mcp.Tool{
@@ -57,8 +57,8 @@ func HandleGetAll(ctx context.Context, _ *mcp.CallToolRequest, input GetAllInput
 
 type GetHooksInput struct {
 	tools.GlobalInput
-	ReleaseName string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Revision    int    `json:"revision,omitempty" jsonschema_description:"Release revision number"`
+	ReleaseName string `json:"release_name" jsonschema:"Name of the release"`
+	Revision    int    `json:"revision,omitempty" jsonschema:"Release revision number"`
 }
 
 var GetHooksTool = &mcp.Tool{
@@ -93,8 +93,8 @@ func HandleGetHooks(ctx context.Context, _ *mcp.CallToolRequest, input GetHooksI
 
 type GetManifestInput struct {
 	tools.GlobalInput
-	ReleaseName string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Revision    int    `json:"revision,omitempty" jsonschema_description:"Release revision number"`
+	ReleaseName string `json:"release_name" jsonschema:"Name of the release"`
+	Revision    int    `json:"revision,omitempty" jsonschema:"Release revision number"`
 }
 
 var GetManifestTool = &mcp.Tool{
@@ -131,8 +131,8 @@ func HandleGetManifest(ctx context.Context, _ *mcp.CallToolRequest, input GetMan
 
 type GetMetadataInput struct {
 	tools.GlobalInput
-	ReleaseName string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Revision    int    `json:"revision,omitempty" jsonschema_description:"Release revision number"`
+	ReleaseName string `json:"release_name" jsonschema:"Name of the release"`
+	Revision    int    `json:"revision,omitempty" jsonschema:"Release revision number"`
 }
 
 var GetMetadataTool = &mcp.Tool{
@@ -167,8 +167,8 @@ func HandleGetMetadata(ctx context.Context, _ *mcp.CallToolRequest, input GetMet
 
 type GetNotesInput struct {
 	tools.GlobalInput
-	ReleaseName string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Revision    int    `json:"revision,omitempty" jsonschema_description:"Release revision number"`
+	ReleaseName string `json:"release_name" jsonschema:"Name of the release"`
+	Revision    int    `json:"revision,omitempty" jsonschema:"Release revision number"`
 }
 
 var GetNotesTool = &mcp.Tool{
@@ -203,9 +203,9 @@ func HandleGetNotes(ctx context.Context, _ *mcp.CallToolRequest, input GetNotesI
 
 type GetValuesInput struct {
 	tools.GlobalInput
-	ReleaseName string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Revision    int    `json:"revision,omitempty" jsonschema_description:"Release revision number"`
-	All         bool   `json:"all,omitempty" jsonschema_description:"Include computed values"`
+	ReleaseName string `json:"release_name" jsonschema:"Name of the release"`
+	Revision    int    `json:"revision,omitempty" jsonschema:"Release revision number"`
+	All         bool   `json:"all,omitempty" jsonschema:"Include computed values"`
 }
 
 var GetValuesTool = &mcp.Tool{

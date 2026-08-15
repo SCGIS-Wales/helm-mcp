@@ -11,10 +11,10 @@ import (
 
 type DependencyInput struct {
 	tools.GlobalInput
-	ChartPath   string `json:"chart_path" jsonschema:"required" jsonschema_description:"Path to the chart directory"`
-	Verify      bool   `json:"verify,omitempty" jsonschema_description:"Verify dependencies"`
-	Keyring     string `json:"keyring,omitempty" jsonschema_description:"Keyring path"`
-	SkipRefresh bool   `json:"skip_refresh,omitempty" jsonschema_description:"Skip refreshing repository cache"`
+	ChartPath   string `json:"chart_path" jsonschema:"Path to the chart directory"`
+	Verify      bool   `json:"verify,omitempty" jsonschema:"Verify dependencies"`
+	Keyring     string `json:"keyring,omitempty" jsonschema:"Keyring path"`
+	SkipRefresh bool   `json:"skip_refresh,omitempty" jsonschema:"Skip refreshing repository cache"`
 }
 
 var DependencyBuildTool = &mcp.Tool{
@@ -46,7 +46,7 @@ var DependencyListTool = &mcp.Tool{
 
 type DependencyListInput struct {
 	tools.GlobalInput
-	ChartPath string `json:"chart_path" jsonschema:"required" jsonschema_description:"Path to the chart directory"`
+	ChartPath string `json:"chart_path" jsonschema:"Path to the chart directory"`
 }
 
 func HandleDependencyList(ctx context.Context, _ *mcp.CallToolRequest, input DependencyListInput) (*mcp.CallToolResult, any, error) {
