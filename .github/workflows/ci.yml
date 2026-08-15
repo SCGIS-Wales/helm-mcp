@@ -199,6 +199,48 @@ jobs:
           name: python-dist
           path: python/dist/
 
+  docker-build:
+    name: Container Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Build for the runner's own platform only — this job exists to catch
+      # Dockerfile breakage on a PR, not to produce release artifacts. The
+      # multi-arch build stays in publish-container.
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: helm-mcp:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The helm_plugin_* tools shell out to the helm CLI. The runtime image
+      # did not contain one, so all six failed at runtime in the published
+      # image; this asserts the CLI is present and matches the vendored SDK.
+      - name: Verify the Helm CLI is present and matches the SDK
+        run: |
+          set -eu
+          docker run --rm --entrypoint helm helm-mcp:ci version
+          IMAGE_HELM=$(docker run --rm --entrypoint helm helm-mcp:ci version --template '{{.Version}}')
+          SDK_HELM=$(awk '/^\thelm.sh\/helm\/v4 /{print $2}' go.mod)
+          echo "image=${IMAGE_HELM} go.mod=${SDK_HELM}"
+          if [ "$IMAGE_HELM" != "$SDK_HELM" ]; then
+            echo "::error::Dockerfile HELM_VERSION is out of sync with helm.sh/helm/v4 in go.mod"
+            exit 1
+          fi
+
+      - name: Verify the server starts and lists all tools
+        run: |
+          set -eux
+          docker run --rm --entrypoint helm-mcp helm-mcp:ci --version
+
   server-json:
     name: Validate server.json
     runs-on: ubuntu-latest
