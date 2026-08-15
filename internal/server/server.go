@@ -12,13 +12,44 @@ import (
 	"github.com/ssddgreg/helm-mcp/internal/tools/search"
 )
 
-const (
-	ServerName    = "helm-mcp"
-	ServerVersion = "0.1.0"
-)
+const ServerName = "helm-mcp"
+
+// ServerVersion is the fallback version reported to clients when the binary
+// was built without -ldflags "-X main.version=...".
+//
+// This is a var rather than a const so that a build can override it; -X only
+// patches string variables.
+var ServerVersion = "0.2.0"
+
+// instructions is sent to clients during discovery and is the server's only
+// chance to explain itself outside of individual tool descriptions.
+const instructions = `helm-mcp exposes the Helm CLI surface as MCP tools, backed by the Helm Go SDK.
+
+Version selection: every tool accepts helm_version ("v4", the default, or "v3").
+Stay on v4 unless the user explicitly needs v3 behaviour. Some arguments are
+v4-only and are marked as such in their descriptions; passing them with
+helm_version "v3" is an error rather than a silent no-op.
+
+Cluster targeting: every tool also accepts namespace, kube_context, kubeconfig,
+kube_apiserver and kube_token. When the user names a cluster, context or
+namespace, pass it explicitly rather than relying on ambient defaults.
+
+Safety: tools carry annotations. Anything with destructiveHint set changes or
+removes live cluster state (helm_uninstall, helm_rollback, helm_upgrade,
+helm_repo_remove, helm_plugin_uninstall) and should only be called on explicit
+user intent. Prefer the read-only tools (helm_list, helm_status, helm_get_*) to
+establish state first, and helm_template or a dry_run of "client"/"server" to
+preview a change before applying it.`
+
+// schemaCache is shared across every server instance.
+//
+// The HTTP transports construct a fresh mcp.Server per request, so without a
+// shared cache each request would re-derive the JSON schema for all 46 tools
+// by reflection.
+var schemaCache = mcp.NewSchemaCache()
 
 // NewServer creates a new MCP server with all Helm tools registered.
-// If version is empty, the default ServerVersion constant is used.
+// If version is empty, the default ServerVersion is used.
 func NewServer(version string) *mcp.Server {
 	if version == "" {
 		version = ServerVersion
@@ -28,7 +59,15 @@ func NewServer(version string) *mcp.Server {
 			Name:    ServerName,
 			Version: version,
 		},
-		nil,
+		&mcp.ServerOptions{
+			Instructions: instructions,
+			PageSize:     100,
+			SchemaCache:  schemaCache,
+			// Only tools are served. Without this, the SDK advertises the
+			// logging capability for historical reasons, and logging is
+			// deprecated as of protocol version 2026-07-28 (SEP-2577).
+			Capabilities: &mcp.ServerCapabilities{},
+		},
 	)
 
 	registerReleaseTools(server)

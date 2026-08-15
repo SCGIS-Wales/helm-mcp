@@ -3,6 +3,8 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -118,6 +120,44 @@ func TestToolSchemasHaveDescriptions(t *testing.T) {
 			case "required":
 				t.Errorf("%s.%s: description is the literal %q — drop the `jsonschema:\"required\"` tag", tool.Name, name, "required")
 			}
+		}
+	}
+}
+
+// TestToolListIsDeterministic guards the ordering the 2026-07-28 spec asks for:
+// servers SHOULD return tools/list in a deterministic order so clients can
+// cache the list and so prompt caches keep hitting.
+func TestToolListIsDeterministic(t *testing.T) {
+	first := listTools(t)
+	second := listTools(t)
+
+	if len(first) != len(second) {
+		t.Fatalf("tool count differs between calls: %d vs %d", len(first), len(second))
+	}
+	for i := range first {
+		if first[i].Name != second[i].Name {
+			t.Fatalf("tool order differs at index %d: %q vs %q", i, first[i].Name, second[i].Name)
+		}
+	}
+
+	if !slices.IsSortedFunc(first, func(a, b *mcp.Tool) int { return strings.Compare(a.Name, b.Name) }) {
+		names := make([]string, len(first))
+		for i, tool := range first {
+			names[i] = tool.Name
+		}
+		t.Errorf("tools are not in a stable sorted order: %v", names)
+	}
+}
+
+// TestServerAdvertisesInstructions checks that the server explains itself to
+// clients; the instructions are the only server-level guidance an LLM gets.
+func TestServerAdvertisesInstructions(t *testing.T) {
+	if instructions == "" {
+		t.Fatal("instructions must not be empty")
+	}
+	for _, want := range []string{"helm_version", "destructiveHint", "namespace"} {
+		if !strings.Contains(instructions, want) {
+			t.Errorf("instructions do not mention %q", want)
 		}
 	}
 }
