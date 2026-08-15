@@ -139,6 +139,60 @@ func validateNotSensitivePath(path string) error {
 	return nil
 }
 
+// Tool annotation helpers.
+//
+// The MCP spec defaults destructiveHint and openWorldHint to true, so both are
+// pointers in the SDK and must be set explicitly to claim otherwise. These
+// constructors make the three meaningful shapes explicit at each call site.
+//
+// Annotations are hints, not a security boundary — a client may ignore them.
+// They exist so an agent can tell helm_list apart from helm_uninstall.
+var (
+	boolTrue  = true
+	boolFalse = false
+)
+
+// ReadOnly describes a tool that only reads state and can be repeated safely.
+// openWorld reports whether it reaches beyond the configured cluster and
+// repositories — Artifact Hub search and chart downloads do.
+func ReadOnly(title string, openWorld bool) *mcp.ToolAnnotations {
+	ow := boolFalse
+	if openWorld {
+		ow = boolTrue
+	}
+	return &mcp.ToolAnnotations{
+		Title:           title,
+		ReadOnlyHint:    true,
+		IdempotentHint:  true,
+		DestructiveHint: &boolFalse,
+		OpenWorldHint:   &ow,
+	}
+}
+
+// Mutating describes a tool that changes state additively — creating or
+// updating something without removing or replacing existing resources.
+func Mutating(title string, idempotent bool) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		Title:           title,
+		ReadOnlyHint:    false,
+		IdempotentHint:  idempotent,
+		DestructiveHint: &boolFalse,
+		OpenWorldHint:   &boolTrue,
+	}
+}
+
+// Destructive describes a tool that can remove or replace live state and so
+// needs explicit user intent before an agent calls it.
+func Destructive(title string) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		Title:           title,
+		ReadOnlyHint:    false,
+		IdempotentHint:  false,
+		DestructiveHint: &boolTrue,
+		OpenWorldHint:   &boolTrue,
+	}
+}
+
 // ValidatePluginPath validates a filesystem path supplied as a tool argument,
 // applying the same traversal and sensitive-location checks that
 // ValidateGlobalInput applies to kubeconfig.

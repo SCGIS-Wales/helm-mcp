@@ -21,6 +21,7 @@ type GetAllInput struct {
 var GetAllTool = &mcp.Tool{
 	Name:        "helm_get_all",
 	Description: "Get all information (values, manifest, hooks, notes) for a release.",
+	Annotations: tools.ReadOnly("Get all release data", false),
 }
 
 func HandleGetAll(ctx context.Context, _ *mcp.CallToolRequest, input GetAllInput) (*mcp.CallToolResult, any, error) {
@@ -64,6 +65,7 @@ type GetHooksInput struct {
 var GetHooksTool = &mcp.Tool{
 	Name:        "helm_get_hooks",
 	Description: "Get all hooks for a release.",
+	Annotations: tools.ReadOnly("Get release hooks", false),
 }
 
 func HandleGetHooks(ctx context.Context, _ *mcp.CallToolRequest, input GetHooksInput) (*mcp.CallToolResult, any, error) {
@@ -100,6 +102,7 @@ type GetManifestInput struct {
 var GetManifestTool = &mcp.Tool{
 	Name:        "helm_get_manifest",
 	Description: "Get the Kubernetes manifest for a release.",
+	Annotations: tools.ReadOnly("Get release manifest", false),
 }
 
 func HandleGetManifest(ctx context.Context, _ *mcp.CallToolRequest, input GetManifestInput) (*mcp.CallToolResult, any, error) {
@@ -138,14 +141,15 @@ type GetMetadataInput struct {
 var GetMetadataTool = &mcp.Tool{
 	Name:        "helm_get_metadata",
 	Description: "Get metadata for a release.",
+	Annotations: tools.ReadOnly("Get release metadata", false),
 }
 
-func HandleGetMetadata(ctx context.Context, _ *mcp.CallToolRequest, input GetMetadataInput) (*mcp.CallToolResult, any, error) {
+func HandleGetMetadata(ctx context.Context, _ *mcp.CallToolRequest, input GetMetadataInput) (*mcp.CallToolResult, tools.MetadataOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.MetadataOutput{}, nil
 	}
 	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.MetadataOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
@@ -157,10 +161,10 @@ func HandleGetMetadata(ctx context.Context, _ *mcp.CallToolRequest, input GetMet
 		Revision:    input.Revision,
 	})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.MetadataOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.MetadataOutput{Metadata: result}, nil
 }
 
 // --- Get Notes ---
@@ -174,6 +178,7 @@ type GetNotesInput struct {
 var GetNotesTool = &mcp.Tool{
 	Name:        "helm_get_notes",
 	Description: "Get the notes for a release.",
+	Annotations: tools.ReadOnly("Get release notes", false),
 }
 
 func HandleGetNotes(ctx context.Context, _ *mcp.CallToolRequest, input GetNotesInput) (*mcp.CallToolResult, any, error) {
@@ -211,14 +216,15 @@ type GetValuesInput struct {
 var GetValuesTool = &mcp.Tool{
 	Name:        "helm_get_values",
 	Description: "Get the values for a release. Use all=true to include computed values.",
+	Annotations: tools.ReadOnly("Get release values", false),
 }
 
-func HandleGetValues(ctx context.Context, _ *mcp.CallToolRequest, input GetValuesInput) (*mcp.CallToolResult, any, error) {
+func HandleGetValues(ctx context.Context, _ *mcp.CallToolRequest, input GetValuesInput) (*mcp.CallToolResult, tools.ValuesOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.ValuesOutput{}, nil
 	}
 	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.ValuesOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
@@ -231,8 +237,8 @@ func HandleGetValues(ctx context.Context, _ *mcp.CallToolRequest, input GetValue
 		All:         input.All,
 	})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.ValuesOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.ValuesOutput{Values: result}, nil
 }

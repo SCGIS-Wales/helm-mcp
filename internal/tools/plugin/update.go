@@ -18,6 +18,7 @@ type UpdateInput struct {
 var UpdateTool = &mcp.Tool{
 	Name:        "helm_plugin_update",
 	Description: "Update a Helm plugin.",
+	Annotations: tools.Mutating("Update a plugin", true),
 }
 
 func HandleUpdate(ctx context.Context, _ *mcp.CallToolRequest, input UpdateInput) (*mcp.CallToolResult, any, error) {

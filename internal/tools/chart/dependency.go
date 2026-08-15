@@ -20,6 +20,7 @@ type DependencyInput struct {
 var DependencyBuildTool = &mcp.Tool{
 	Name:        "helm_dependency_build",
 	Description: "Build out the charts/ directory from Chart.lock.",
+	Annotations: tools.Mutating("Build chart dependencies", true),
 }
 
 func HandleDependencyBuild(ctx context.Context, _ *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
@@ -42,6 +43,7 @@ func HandleDependencyBuild(ctx context.Context, _ *mcp.CallToolRequest, input De
 var DependencyListTool = &mcp.Tool{
 	Name:        "helm_dependency_list",
 	Description: "List the dependencies for a chart.",
+	Annotations: tools.ReadOnly("List chart dependencies", false),
 }
 
 type DependencyListInput struct {
@@ -71,6 +73,7 @@ func HandleDependencyList(ctx context.Context, _ *mcp.CallToolRequest, input Dep
 var DependencyUpdateTool = &mcp.Tool{
 	Name:        "helm_dependency_update",
 	Description: "Update charts/ based on Chart.yaml contents.",
+	Annotations: tools.Mutating("Update chart dependencies", true),
 }
 
 func HandleDependencyUpdate(ctx context.Context, _ *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {

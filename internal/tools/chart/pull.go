@@ -28,6 +28,7 @@ type PullInput struct {
 var PullTool = &mcp.Tool{
 	Name:        "helm_pull",
 	Description: "Download a chart from a repository or OCI registry.",
+	Annotations: tools.Mutating("Download a chart", true),
 }
 
 func HandlePull(ctx context.Context, _ *mcp.CallToolRequest, input PullInput) (*mcp.CallToolResult, any, error) {

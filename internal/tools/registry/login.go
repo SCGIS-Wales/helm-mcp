@@ -21,6 +21,7 @@ type LoginInput struct {
 var LoginTool = &mcp.Tool{
 	Name:        "helm_registry_login",
 	Description: "Login to an OCI registry for chart storage.",
+	Annotations: tools.Mutating("Log in to an OCI registry", true),
 }
 
 func HandleLogin(ctx context.Context, _ *mcp.CallToolRequest, input LoginInput) (*mcp.CallToolResult, any, error) {

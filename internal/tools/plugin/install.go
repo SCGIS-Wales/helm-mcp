@@ -20,6 +20,7 @@ type InstallInput struct {
 var InstallTool = &mcp.Tool{
 	Name:        "helm_plugin_install",
 	Description: "Install a Helm plugin.",
+	Annotations: tools.Mutating("Install a plugin", false),
 }
 
 func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {

@@ -16,19 +16,20 @@ type ListInput struct {
 var ListTool = &mcp.Tool{
 	Name:        "helm_repo_list",
 	Description: "List configured chart repositories.",
+	Annotations: tools.ReadOnly("List repositories", false),
 }
 
-func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, any, error) {
+func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, tools.RepoListOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.RepoListOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	result, err := engine.RepoList(ctx, &helmengine.RepoListOptions{})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.RepoListOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.RepoListOutput{Repositories: result, Count: len(result)}, nil
 }

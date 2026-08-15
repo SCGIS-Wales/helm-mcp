@@ -21,11 +21,12 @@ type RepoInput struct {
 var RepoTool = &mcp.Tool{
 	Name:        "helm_search_repo",
 	Description: "Search locally configured repositories for charts.",
+	Annotations: tools.ReadOnly("Search local repositories", true),
 }
 
-func HandleRepo(ctx context.Context, _ *mcp.CallToolRequest, input RepoInput) (*mcp.CallToolResult, any, error) {
+func HandleRepo(ctx context.Context, _ *mcp.CallToolRequest, input RepoInput) (*mcp.CallToolResult, tools.SearchOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.SearchOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
@@ -38,8 +39,8 @@ func HandleRepo(ctx context.Context, _ *mcp.CallToolRequest, input RepoInput) (*
 		VersionConstraint: input.VersionConstraint,
 	})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.SearchOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.SearchOutput{Results: result, Count: len(result)}, nil
 }

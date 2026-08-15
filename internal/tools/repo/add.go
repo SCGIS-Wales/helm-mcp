@@ -24,6 +24,7 @@ type AddInput struct {
 var AddTool = &mcp.Tool{
 	Name:        "helm_repo_add",
 	Description: "Add a chart repository.",
+	Annotations: tools.Mutating("Add a repository", true),
 }
 
 func HandleAdd(ctx context.Context, _ *mcp.CallToolRequest, input AddInput) (*mcp.CallToolResult, any, error) {

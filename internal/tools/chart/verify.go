@@ -18,6 +18,7 @@ type VerifyInput struct {
 var VerifyTool = &mcp.Tool{
 	Name:        "helm_verify",
 	Description: "Verify that a chart has a valid provenance file.",
+	Annotations: tools.ReadOnly("Verify chart provenance", false),
 }
 
 func HandleVerify(ctx context.Context, _ *mcp.CallToolRequest, input VerifyInput) (*mcp.CallToolResult, any, error) {

@@ -22,6 +22,7 @@ type LintInput struct {
 var LintTool = &mcp.Tool{
 	Name:        "helm_lint",
 	Description: "Lint a Helm chart for possible issues and best practices.",
+	Annotations: tools.ReadOnly("Lint a chart", false),
 }
 
 func HandleLint(ctx context.Context, _ *mcp.CallToolRequest, input LintInput) (*mcp.CallToolResult, any, error) {

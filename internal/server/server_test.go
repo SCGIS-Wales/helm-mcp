@@ -124,6 +124,119 @@ func TestToolSchemasHaveDescriptions(t *testing.T) {
 	}
 }
 
+// TestToolAnnotations checks that every tool carries annotations and that the
+// safety-relevant classifications are right.
+//
+// Without these an agent cannot tell helm_uninstall apart from helm_list, so a
+// tool silently losing its annotations is a real regression.
+func TestToolAnnotations(t *testing.T) {
+	// Tools that can remove or replace live cluster state.
+	destructive := map[string]bool{
+		"helm_uninstall":        true,
+		"helm_rollback":         true,
+		"helm_upgrade":          true,
+		"helm_repo_remove":      true,
+		"helm_plugin_uninstall": true,
+	}
+	// A sample of tools that must never be reported as read-only.
+	mustNotBeReadOnly := []string{
+		"helm_install", "helm_upgrade", "helm_uninstall", "helm_rollback",
+		"helm_test", "helm_push", "helm_repo_add", "helm_plugin_install",
+	}
+	// A sample of tools that must be reported as read-only.
+	mustBeReadOnly := []string{
+		"helm_list", "helm_status", "helm_history", "helm_get_values",
+		"helm_get_manifest", "helm_repo_list", "helm_env", "helm_version",
+		"helm_template", "helm_lint", "helm_search_hub",
+	}
+
+	byName := make(map[string]*mcp.Tool)
+	for _, tool := range listTools(t) {
+		if tool.Annotations == nil {
+			t.Errorf("%s: no annotations", tool.Name)
+			continue
+		}
+		if tool.Annotations.Title == "" {
+			t.Errorf("%s: annotations have no title", tool.Name)
+		}
+		isDestructive := tool.Annotations.DestructiveHint != nil && *tool.Annotations.DestructiveHint
+		if want := destructive[tool.Name]; isDestructive != want {
+			t.Errorf("%s: destructiveHint = %v, want %v", tool.Name, isDestructive, want)
+		}
+		if tool.Annotations.ReadOnlyHint && isDestructive {
+			t.Errorf("%s: cannot be both read-only and destructive", tool.Name)
+		}
+		byName[tool.Name] = tool
+	}
+
+	for _, name := range mustNotBeReadOnly {
+		if tool, ok := byName[name]; ok && tool.Annotations.ReadOnlyHint {
+			t.Errorf("%s: readOnlyHint is true but the tool mutates state", name)
+		}
+	}
+	for _, name := range mustBeReadOnly {
+		if tool, ok := byName[name]; ok && !tool.Annotations.ReadOnlyHint {
+			t.Errorf("%s: readOnlyHint is false but the tool only reads", name)
+		}
+	}
+
+	// helm_search_hub queries Artifact Hub, so it must declare an open world.
+	if tool, ok := byName["helm_search_hub"]; ok {
+		if tool.Annotations.OpenWorldHint == nil || !*tool.Annotations.OpenWorldHint {
+			t.Error("helm_search_hub: openWorldHint should be true — it queries Artifact Hub")
+		}
+	}
+}
+
+// TestToolOutputSchemas checks that the tools with stable typed results publish
+// an outputSchema, and that the free-form ones do not.
+//
+// A tool gets an outputSchema by declaring a concrete Out type on its handler;
+// leaving it as `any` silently drops both the schema and structuredContent, so
+// a regression here is invisible without this test.
+func TestToolOutputSchemas(t *testing.T) {
+	structured := map[string]bool{
+		"helm_list": true, "helm_status": true, "helm_history": true,
+		"helm_get_metadata": true, "helm_get_values": true,
+		"helm_repo_list": true, "helm_search_repo": true, "helm_search_hub": true,
+		"helm_plugin_list": true, "helm_env": true, "helm_version": true,
+	}
+	// These return free-form YAML or text with no useful schema.
+	unstructured := []string{
+		"helm_template", "helm_lint", "helm_get_manifest", "helm_show_values", "helm_package",
+	}
+
+	byName := make(map[string]*mcp.Tool)
+	for _, tool := range listTools(t) {
+		byName[tool.Name] = tool
+		if want := structured[tool.Name]; (tool.OutputSchema != nil) != want {
+			t.Errorf("%s: has outputSchema = %v, want %v", tool.Name, tool.OutputSchema != nil, want)
+		}
+	}
+
+	// The output schemas must not mark anything required at the top level.
+	// Error paths return the zero value, which serialises to `{}`; if that
+	// failed schema validation the SDK would turn an ordinary tool error into
+	// a protocol error.
+	for name := range structured {
+		tool, ok := byName[name]
+		if !ok || tool.OutputSchema == nil {
+			continue
+		}
+		schema := decodeSchema(t, name, tool.OutputSchema)
+		if len(schema.Required) > 0 {
+			t.Errorf("%s: outputSchema requires %v; every field must be omitempty so the empty error-path result stays valid",
+				name, schema.Required)
+		}
+	}
+
+	for _, name := range unstructured {
+		if tool, ok := byName[name]; ok && tool.OutputSchema != nil {
+			t.Errorf("%s: unexpectedly has an outputSchema", name)
+		}
+	}
+}
+
 // TestToolListIsDeterministic guards the ordering the 2026-07-28 spec asks for:
 // servers SHOULD return tools/list in a deterministic order so clients can
 // cache the list and so prompt caches keep hitting.

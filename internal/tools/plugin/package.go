@@ -22,6 +22,7 @@ type PackageInput struct {
 var PackageTool = &mcp.Tool{
 	Name:        "helm_plugin_package",
 	Description: "Package a Helm plugin directory into a distributable archive, signing it with a PGP key by default. Requires helm_version v4.",
+	Annotations: tools.Mutating("Package a plugin", true),
 }
 
 func HandlePackage(ctx context.Context, _ *mcp.CallToolRequest, input PackageInput) (*mcp.CallToolResult, any, error) {

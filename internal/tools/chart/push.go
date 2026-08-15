@@ -22,6 +22,7 @@ type PushInput struct {
 var PushTool = &mcp.Tool{
 	Name:        "helm_push",
 	Description: "Push a chart archive to an OCI registry.",
+	Annotations: tools.Mutating("Push a chart to a registry", false),
 }
 
 func HandlePush(ctx context.Context, _ *mcp.CallToolRequest, input PushInput) (*mcp.CallToolResult, any, error) {

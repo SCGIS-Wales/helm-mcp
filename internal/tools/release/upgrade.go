@@ -50,6 +50,7 @@ type UpgradeInput struct {
 var UpgradeTool = &mcp.Tool{
 	Name:        "helm_upgrade",
 	Description: "Upgrade a Helm release to a new chart version or with new values.",
+	Annotations: tools.Destructive("Upgrade a release"),
 }
 
 func HandleUpgrade(ctx context.Context, _ *mcp.CallToolRequest, input UpgradeInput) (*mcp.CallToolResult, any, error) {

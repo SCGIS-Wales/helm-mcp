@@ -26,6 +26,7 @@ type UninstallInput struct {
 var UninstallTool = &mcp.Tool{
 	Name:        "helm_uninstall",
 	Description: "Uninstall a Helm release and remove all associated Kubernetes resources.",
+	Annotations: tools.Destructive("Uninstall a release"),
 }
 
 func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {

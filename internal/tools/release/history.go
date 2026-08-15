@@ -18,14 +18,15 @@ type HistoryInput struct {
 var HistoryTool = &mcp.Tool{
 	Name:        "helm_history",
 	Description: "Show the revision history of a Helm release.",
+	Annotations: tools.ReadOnly("Release history", false),
 }
 
-func HandleHistory(ctx context.Context, _ *mcp.CallToolRequest, input HistoryInput) (*mcp.CallToolResult, any, error) {
+func HandleHistory(ctx context.Context, _ *mcp.CallToolRequest, input HistoryInput) (*mcp.CallToolResult, tools.HistoryOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.HistoryOutput{}, nil
 	}
 	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.HistoryOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
@@ -37,8 +38,8 @@ func HandleHistory(ctx context.Context, _ *mcp.CallToolRequest, input HistoryInp
 		Max:         input.Max,
 	})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.HistoryOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.HistoryOutput{Revisions: result, Count: len(result)}, nil
 }

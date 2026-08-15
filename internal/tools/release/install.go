@@ -51,6 +51,7 @@ type InstallInput struct {
 var InstallTool = &mcp.Tool{
 	Name:        "helm_install",
 	Description: "Install a Helm chart as a new release. Supports both local charts and repository charts.",
+	Annotations: tools.Mutating("Install a release", false),
 }
 
 func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {

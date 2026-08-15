@@ -19,6 +19,7 @@ type TestInput struct {
 var TestTool = &mcp.Tool{
 	Name:        "helm_test",
 	Description: "Run the test suite for a Helm release.",
+	Annotations: tools.Mutating("Run release tests", false),
 }
 
 func HandleTest(ctx context.Context, _ *mcp.CallToolRequest, input TestInput) (*mcp.CallToolResult, any, error) {

@@ -18,6 +18,7 @@ type UninstallInput struct {
 var UninstallTool = &mcp.Tool{
 	Name:        "helm_plugin_uninstall",
 	Description: "Uninstall a Helm plugin.",
+	Annotations: tools.Destructive("Uninstall a plugin"),
 }
 
 func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {

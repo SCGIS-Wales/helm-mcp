@@ -17,6 +17,7 @@ type UpdateInput struct {
 var UpdateTool = &mcp.Tool{
 	Name:        "helm_repo_update",
 	Description: "Update chart repository indexes.",
+	Annotations: tools.Mutating("Update repository indexes", true),
 }
 
 func HandleUpdate(ctx context.Context, _ *mcp.CallToolRequest, input UpdateInput) (*mcp.CallToolResult, any, error) {

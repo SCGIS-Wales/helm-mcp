@@ -31,11 +31,12 @@ type ListInput struct {
 var ListTool = &mcp.Tool{
 	Name:        "helm_list",
 	Description: "List Helm releases. Shows deployed releases by default. Use filter flags to show other statuses.",
+	Annotations: tools.ReadOnly("List releases", false),
 }
 
-func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, any, error) {
+func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, tools.ListOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.ListOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
@@ -60,8 +61,8 @@ func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*
 		TimeFormat:    input.TimeFormat,
 	})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.ListOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.ListOutput{Releases: result, Count: len(result)}, nil
 }

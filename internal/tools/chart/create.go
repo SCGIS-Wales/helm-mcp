@@ -18,6 +18,7 @@ type CreateInput struct {
 var CreateTool = &mcp.Tool{
 	Name:        "helm_create",
 	Description: "Create a new Helm chart with the given name in the current directory.",
+	Annotations: tools.Mutating("Scaffold a new chart", false),
 }
 
 func HandleCreate(ctx context.Context, _ *mcp.CallToolRequest, input CreateInput) (*mcp.CallToolResult, any, error) {

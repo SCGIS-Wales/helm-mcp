@@ -18,6 +18,7 @@ type VerifyInput struct {
 var VerifyTool = &mcp.Tool{
 	Name:        "helm_plugin_verify",
 	Description: "Verify that a packaged Helm plugin has been signed and that its provenance is valid. Requires helm_version v4.",
+	Annotations: tools.ReadOnly("Verify plugin signature", false),
 }
 
 func HandleVerify(ctx context.Context, _ *mcp.CallToolRequest, input VerifyInput) (*mcp.CallToolResult, any, error) {

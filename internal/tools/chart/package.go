@@ -24,6 +24,7 @@ type PackageInput struct {
 var PackageTool = &mcp.Tool{
 	Name:        "helm_package",
 	Description: "Package a chart directory into a versioned chart archive (.tgz).",
+	Annotations: tools.Mutating("Package a chart", true),
 }
 
 func HandlePackage(ctx context.Context, _ *mcp.CallToolRequest, input PackageInput) (*mcp.CallToolResult, any, error) {

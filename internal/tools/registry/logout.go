@@ -17,6 +17,7 @@ type LogoutInput struct {
 var LogoutTool = &mcp.Tool{
 	Name:        "helm_registry_logout",
 	Description: "Logout from an OCI registry.",
+	Annotations: tools.Mutating("Log out of an OCI registry", true),
 }
 
 func HandleLogout(ctx context.Context, _ *mcp.CallToolRequest, input LogoutInput) (*mcp.CallToolResult, any, error) {

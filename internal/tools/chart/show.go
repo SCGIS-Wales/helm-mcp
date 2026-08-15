@@ -21,6 +21,7 @@ type ShowInput struct {
 var ShowAllTool = &mcp.Tool{
 	Name:        "helm_show_all",
 	Description: "Show all information for a chart (Chart.yaml, values, README, CRDs).",
+	Annotations: tools.ReadOnly("Show all chart info", true),
 }
 
 func HandleShowAll(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
@@ -41,6 +42,7 @@ func HandleShowAll(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput)
 var ShowChartTool = &mcp.Tool{
 	Name:        "helm_show_chart",
 	Description: "Show the Chart.yaml of a chart.",
+	Annotations: tools.ReadOnly("Show Chart.yaml", true),
 }
 
 func HandleShowChart(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
@@ -61,6 +63,7 @@ func HandleShowChart(ctx context.Context, _ *mcp.CallToolRequest, input ShowInpu
 var ShowCRDsTool = &mcp.Tool{
 	Name:        "helm_show_crds",
 	Description: "Show the CRDs of a chart.",
+	Annotations: tools.ReadOnly("Show chart CRDs", true),
 }
 
 func HandleShowCRDs(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
@@ -81,6 +84,7 @@ func HandleShowCRDs(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput
 var ShowReadmeTool = &mcp.Tool{
 	Name:        "helm_show_readme",
 	Description: "Show the README of a chart.",
+	Annotations: tools.ReadOnly("Show chart README", true),
 }
 
 func HandleShowReadme(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
@@ -101,6 +105,7 @@ func HandleShowReadme(ctx context.Context, _ *mcp.CallToolRequest, input ShowInp
 var ShowValuesTool = &mcp.Tool{
 	Name:        "helm_show_values",
 	Description: "Show the default values of a chart.",
+	Annotations: tools.ReadOnly("Show chart values", true),
 }
 
 func HandleShowValues(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {

@@ -19,6 +19,7 @@ type IndexInput struct {
 var IndexTool = &mcp.Tool{
 	Name:        "helm_repo_index",
 	Description: "Generate an index file for a directory of chart archives.",
+	Annotations: tools.Mutating("Generate a repository index", true),
 }
 
 func HandleIndex(ctx context.Context, _ *mcp.CallToolRequest, input IndexInput) (*mcp.CallToolResult, any, error) {

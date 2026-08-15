@@ -30,6 +30,7 @@ type TemplateInput struct {
 var TemplateTool = &mcp.Tool{
 	Name:        "helm_template",
 	Description: "Render chart templates locally without installing. Useful for previewing manifests.",
+	Annotations: tools.ReadOnly("Render chart templates", true),
 }
 
 func HandleTemplate(ctx context.Context, _ *mcp.CallToolRequest, input TemplateInput) (*mcp.CallToolResult, any, error) {

@@ -29,6 +29,7 @@ type RollbackInput struct {
 var RollbackTool = &mcp.Tool{
 	Name:        "helm_rollback",
 	Description: "Rollback a Helm release to a previous revision.",
+	Annotations: tools.Destructive("Roll back a release"),
 }
 
 func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
