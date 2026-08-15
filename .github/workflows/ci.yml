@@ -409,8 +409,11 @@ jobs:
             fi
             COMMITS=$(git log --format='%B' "$RANGE")
 
-            if echo "$COMMITS" | grep -qE '^BREAKING[ -]CHANGE:' \
-               || echo "$COMMITS" | grep -qE '^[a-z]+(\([^)]*\))?!:'; then
+            # The leading "[-*] ?" tolerates GitHub's squash-merge body, which
+            # prefixes each original commit message with "* ". Without it a
+            # breaking change would be invisible once the PR is squashed.
+            if echo "$COMMITS" | grep -qE '^[[:space:]]*([-*][[:space:]]+)?BREAKING[ -]CHANGE:' \
+               || echo "$COMMITS" | grep -qE '^[[:space:]]*([-*][[:space:]]+)?[a-z]+(\([^)]*\))?!:'; then
               BUMP="minor"
             else
               BUMP="patch"
