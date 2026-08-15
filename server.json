@@ -1,6 +1,6 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.scgis-wales/helm-mcp",
+  "name": "io.github.SCGIS-Wales/helm-mcp",
   "description": "The full Helm CLI surface as 46 MCP tools, backed by the Helm v3 and v4 Go SDKs.",
   "version": "0.2.0",
   "websiteUrl": "https://github.com/SCGIS-Wales/helm-mcp",

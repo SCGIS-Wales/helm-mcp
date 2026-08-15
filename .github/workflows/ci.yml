@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [main, master]
   workflow_dispatch:
+    inputs:
+      publish_tag:
+        description: >-
+          Re-publish an existing tag (e.g. v0.2.0) to the MCP Registry.
+          Leave blank for an ordinary run.
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -252,10 +259,12 @@ jobs:
           python-version: '3.14'
 
       - name: Validate against the official MCP registry schema
+        env:
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
-          pip install jsonschema requests
+          pip install jsonschema
           python3 - <<'PY'
-          import json, urllib.request
+          import json, os, sys, urllib.request
           import jsonschema
 
           with open("server.json") as fh:
@@ -263,6 +272,19 @@ jobs:
           with urllib.request.urlopen(doc["$schema"]) as response:
               schema = json.load(response)
           jsonschema.validate(doc, schema)
+
+          # The schema permits any namespace, but the registry authorises
+          # publishing by GitHub OIDC and matches the owner CASE-SENSITIVELY.
+          # A lowercased namespace validates fine here and then fails at
+          # publish time with a 403, which is only visible after a release.
+          owner = os.environ["REPO_OWNER"]
+          expected = f"io.github.{owner}/"
+          if not doc["name"].startswith(expected):
+              sys.exit(
+                  f"server.json name is {doc['name']!r}, but the registry will only "
+                  f"accept the namespace {expected}* for this repository. "
+                  "The owner segment is case-sensitive."
+              )
           print(f"server.json is valid: {doc['name']} {doc['version']}")
           PY
 
@@ -702,7 +724,16 @@ jobs:
 
   publish-mcp-registry:
     name: Publish to MCP Registry
-    if: needs.auto-tag.outputs.created == 'true'
+    # Also runnable on its own via workflow_dispatch, so a failure here can be
+    # retried against an already-published tag instead of waiting for the next
+    # release. `publish_tag` selects which tag to publish.
+    # !cancelled() is required because auto-tag and publish-pypi are both
+    # skipped on a workflow_dispatch run, and a job whose dependency was
+    # skipped is skipped too unless the condition tolerates it.
+    if: >-
+      !cancelled() &&
+      ((needs.auto-tag.outputs.created == 'true' && needs.publish-pypi.result == 'success')
+        || inputs.publish_tag != '')
     needs: [auto-tag, publish-pypi]
     runs-on: ubuntu-latest
     permissions:
@@ -712,15 +743,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ needs.auto-tag.outputs.tag }}
+          ref: ${{ inputs.publish_tag || needs.auto-tag.outputs.tag }}
 
       - name: Sync server.json to the release version
         env:
-          VERSION: ${{ needs.auto-tag.outputs.version }}
+          VERSION: ${{ inputs.publish_tag || needs.auto-tag.outputs.version }}
         run: |
           python3 - <<'PY'
           import json, os
-          version = os.environ["VERSION"]
+          # Accepts either a bare version (from auto-tag) or a tag like v0.2.0
+          # (from workflow_dispatch); server.json carries the bare version.
+          version = os.environ["VERSION"].lstrip("v")
           with open("server.json") as fh:
               doc = json.load(fh)
           doc["version"] = version
