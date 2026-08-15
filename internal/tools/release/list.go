@@ -11,28 +11,32 @@ import (
 
 type ListInput struct {
 	tools.GlobalInput
-	AllNamespaces bool   `json:"all_namespaces,omitempty" jsonschema_description:"List releases across all namespaces"`
-	Filter        string `json:"filter,omitempty" jsonschema_description:"Regular expression filter on release name"`
-	Selector      string `json:"selector,omitempty" jsonschema_description:"Label selector filter (v4 only)"`
-	SortBy        string `json:"sort_by,omitempty" jsonschema_description:"Sort by: name or date"`
-	SortReverse   bool   `json:"sort_reverse,omitempty" jsonschema_description:"Reverse the sort order"`
-	Limit         int    `json:"limit,omitempty" jsonschema_description:"Maximum number of releases to return"`
-	Offset        int    `json:"offset,omitempty" jsonschema_description:"Number of releases to skip"`
-	Deployed      bool   `json:"deployed,omitempty" jsonschema_description:"Show deployed releases"`
-	Failed        bool   `json:"failed,omitempty" jsonschema_description:"Show failed releases"`
-	Pending       bool   `json:"pending,omitempty" jsonschema_description:"Show pending releases"`
-	Uninstalled   bool   `json:"uninstalled,omitempty" jsonschema_description:"Show uninstalled releases"`
-	Superseded    bool   `json:"superseded,omitempty" jsonschema_description:"Show superseded releases"`
+	AllNamespaces bool   `json:"all_namespaces,omitempty" jsonschema:"List releases across all namespaces"`
+	Filter        string `json:"filter,omitempty" jsonschema:"Regular expression filter on release name"`
+	Selector      string `json:"selector,omitempty" jsonschema:"Label selector filter (v4 only)"`
+	SortBy        string `json:"sort_by,omitempty" jsonschema:"Sort by: name or date"`
+	SortReverse   bool   `json:"sort_reverse,omitempty" jsonschema:"Reverse the sort order"`
+	Limit         int    `json:"limit,omitempty" jsonschema:"Maximum number of releases to return"`
+	Offset        int    `json:"offset,omitempty" jsonschema:"Number of releases to skip"`
+	Deployed      bool   `json:"deployed,omitempty" jsonschema:"Show deployed releases"`
+	Failed        bool   `json:"failed,omitempty" jsonschema:"Show failed releases"`
+	Pending       bool   `json:"pending,omitempty" jsonschema:"Show pending releases"`
+	Uninstalled   bool   `json:"uninstalled,omitempty" jsonschema:"Show uninstalled releases"`
+	Superseded    bool   `json:"superseded,omitempty" jsonschema:"Show superseded releases"`
+	Uninstalling  bool   `json:"uninstalling,omitempty" jsonschema:"Show releases that are currently being uninstalled"`
+	All           bool   `json:"all,omitempty" jsonschema:"Show releases in every state, ignoring the individual status filters"`
+	TimeFormat    string `json:"time_format,omitempty" jsonschema:"Go time layout used to format the last-updated timestamp (e.g. 2006-01-02)"`
 }
 
 var ListTool = &mcp.Tool{
 	Name:        "helm_list",
 	Description: "List Helm releases. Shows deployed releases by default. Use filter flags to show other statuses.",
+	Annotations: tools.ReadOnly("List releases", false),
 }
 
-func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, any, error) {
+func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*mcp.CallToolResult, tools.ListOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.ListOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
@@ -52,10 +56,13 @@ func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*
 		Pending:       input.Pending,
 		Uninstalled:   input.Uninstalled,
 		Superseded:    input.Superseded,
+		Uninstalling:  input.Uninstalling,
+		All:           input.All,
+		TimeFormat:    input.TimeFormat,
 	})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.ListOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.ListOutput{Releases: result, Count: len(result)}, nil
 }

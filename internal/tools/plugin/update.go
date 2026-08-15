@@ -12,12 +12,13 @@ import (
 
 type UpdateInput struct {
 	tools.GlobalInput
-	Name string `json:"name" jsonschema:"required" jsonschema_description:"Plugin name"`
+	Name string `json:"name" jsonschema:"Plugin name"`
 }
 
 var UpdateTool = &mcp.Tool{
 	Name:        "helm_plugin_update",
 	Description: "Update a Helm plugin.",
+	Annotations: tools.Mutating("Update a plugin", true),
 }
 
 func HandleUpdate(ctx context.Context, _ *mcp.CallToolRequest, input UpdateInput) (*mcp.CallToolResult, any, error) {

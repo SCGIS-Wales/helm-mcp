@@ -12,12 +12,13 @@ import (
 
 type UninstallInput struct {
 	tools.GlobalInput
-	Name string `json:"name" jsonschema:"required" jsonschema_description:"Plugin name"`
+	Name string `json:"name" jsonschema:"Plugin name"`
 }
 
 var UninstallTool = &mcp.Tool{
 	Name:        "helm_plugin_uninstall",
 	Description: "Uninstall a Helm plugin.",
+	Annotations: tools.Destructive("Uninstall a plugin"),
 }
 
 func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {

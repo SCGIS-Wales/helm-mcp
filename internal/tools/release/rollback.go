@@ -11,23 +11,25 @@ import (
 
 type RollbackInput struct {
 	tools.GlobalInput
-	ReleaseName     string `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release"`
-	Revision        int    `json:"revision" jsonschema:"required" jsonschema_description:"Revision number to rollback to"`
-	Wait            bool   `json:"wait,omitempty" jsonschema_description:"Wait for resources to be ready"`
-	WaitForJobs     bool   `json:"wait_for_jobs,omitempty" jsonschema_description:"Wait for jobs to complete"`
-	Timeout         string `json:"timeout,omitempty" jsonschema_description:"Timeout duration"`
-	Force           bool   `json:"force,omitempty" jsonschema_description:"Force resource updates"`
-	DryRun          bool   `json:"dry_run,omitempty" jsonschema_description:"Simulate a rollback"`
-	DisableHooks    bool   `json:"disable_hooks,omitempty" jsonschema_description:"Disable hooks"`
-	CleanupOnFail   bool   `json:"cleanup_on_fail,omitempty" jsonschema_description:"Cleanup on failure"`
-	MaxHistory      int    `json:"max_history,omitempty" jsonschema_description:"Max history revisions"`
-	ServerSideApply bool   `json:"server_side_apply,omitempty" jsonschema_description:"Server-side apply (v4 only)"`
-	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema_description:"Force conflicts (v4 only)"`
+	ReleaseName     string `json:"release_name" jsonschema:"Name of the release"`
+	Revision        int    `json:"revision" jsonschema:"Revision number to rollback to"`
+	Wait            bool   `json:"wait,omitempty" jsonschema:"Wait for resources to be ready"`
+	WaitForJobs     bool   `json:"wait_for_jobs,omitempty" jsonschema:"Wait for jobs to complete"`
+	Timeout         string `json:"timeout,omitempty" jsonschema:"Timeout duration"`
+	Force           bool   `json:"force,omitempty" jsonschema:"Force resource updates"`
+	DryRun          bool   `json:"dry_run,omitempty" jsonschema:"Simulate a rollback"`
+	DisableHooks    bool   `json:"disable_hooks,omitempty" jsonschema:"Disable hooks"`
+	CleanupOnFail   bool   `json:"cleanup_on_fail,omitempty" jsonschema:"Cleanup on failure"`
+	MaxHistory      int    `json:"max_history,omitempty" jsonschema:"Max history revisions"`
+	ServerSideApply bool   `json:"server_side_apply,omitempty" jsonschema:"Server-side apply (v4 only)"`
+	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema:"Force conflicts (v4 only)"`
+	WaitStrategy    string `json:"wait_strategy,omitempty" jsonschema:"How to wait for resources: watcher (kstatus), legacy, or hookOnly. Overrides wait. v4 only"`
 }
 
 var RollbackTool = &mcp.Tool{
 	Name:        "helm_rollback",
 	Description: "Rollback a Helm release to a previous revision.",
+	Annotations: tools.Destructive("Roll back a release"),
 }
 
 func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
@@ -58,6 +60,7 @@ func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackI
 		MaxHistory:      input.MaxHistory,
 		ServerSideApply: input.ServerSideApply,
 		ForceConflicts:  input.ForceConflicts,
+		WaitStrategy:    input.WaitStrategy,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

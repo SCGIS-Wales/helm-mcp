@@ -12,24 +12,25 @@ import (
 
 type TemplateInput struct {
 	tools.GlobalInput
-	ReleaseName      string                 `json:"release_name" jsonschema:"required" jsonschema_description:"Release name for template rendering"`
-	Chart            string                 `json:"chart" jsonschema:"required" jsonschema_description:"Chart reference"`
-	Version          string                 `json:"version,omitempty" jsonschema_description:"Chart version"`
-	Values           map[string]interface{} `json:"values,omitempty" jsonschema_description:"Inline values"`
-	ValuesFiles      []string               `json:"values_files,omitempty" jsonschema_description:"Values files"`
-	ShowOnly         []string               `json:"show_only,omitempty" jsonschema_description:"Only show manifests from these templates"`
-	Validate         bool                   `json:"validate,omitempty" jsonschema_description:"Validate against the cluster"`
-	KubeVersion      string                 `json:"kube_version,omitempty" jsonschema_description:"Kubernetes version for capabilities"`
-	APIVersions      []string               `json:"api_versions,omitempty" jsonschema_description:"API versions for capabilities"`
-	IncludeCRDs      bool                   `json:"include_crds,omitempty" jsonschema_description:"Include CRDs"`
-	SkipCRDs         bool                   `json:"skip_crds,omitempty" jsonschema_description:"Skip CRDs"`
-	NoHooks          bool                   `json:"no_hooks,omitempty" jsonschema_description:"Skip hooks"`
-	DependencyUpdate bool                   `json:"dependency_update,omitempty" jsonschema_description:"Update dependencies"`
+	ReleaseName      string                 `json:"release_name" jsonschema:"Release name for template rendering"`
+	Chart            string                 `json:"chart" jsonschema:"Chart reference"`
+	Version          string                 `json:"version,omitempty" jsonschema:"Chart version"`
+	Values           map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values"`
+	ValuesFiles      []string               `json:"values_files,omitempty" jsonschema:"Values files"`
+	ShowOnly         []string               `json:"show_only,omitempty" jsonschema:"Only show manifests from these templates"`
+	Validate         bool                   `json:"validate,omitempty" jsonschema:"Validate against the cluster"`
+	KubeVersion      string                 `json:"kube_version,omitempty" jsonschema:"Kubernetes version for capabilities"`
+	APIVersions      []string               `json:"api_versions,omitempty" jsonschema:"API versions for capabilities"`
+	IncludeCRDs      bool                   `json:"include_crds,omitempty" jsonschema:"Include CRDs"`
+	SkipCRDs         bool                   `json:"skip_crds,omitempty" jsonschema:"Skip CRDs"`
+	NoHooks          bool                   `json:"no_hooks,omitempty" jsonschema:"Skip hooks"`
+	DependencyUpdate bool                   `json:"dependency_update,omitempty" jsonschema:"Update dependencies"`
 }
 
 var TemplateTool = &mcp.Tool{
 	Name:        "helm_template",
 	Description: "Render chart templates locally without installing. Useful for previewing manifests.",
+	Annotations: tools.ReadOnly("Render chart templates", true),
 }
 
 func HandleTemplate(ctx context.Context, _ *mcp.CallToolRequest, input TemplateInput) (*mcp.CallToolResult, any, error) {

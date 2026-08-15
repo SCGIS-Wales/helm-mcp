@@ -68,8 +68,10 @@ from helm_mcp.tools import (
     helm_package,
     helm_plugin_install,
     helm_plugin_list,
+    helm_plugin_package,
     helm_plugin_uninstall,
     helm_plugin_update,
+    helm_plugin_verify,
     helm_pull,
     helm_push,
     helm_registry_login,
@@ -119,7 +121,7 @@ __all__ = [
     "TenacityConfig",
     "BulkheadConfig",
     "OTelConfig",
-    # Async tool wrappers (all 44 tools)
+    # Async tool wrappers (all 46 tools)
     "helm_list",
     "helm_install",
     "helm_upgrade",
@@ -161,7 +163,9 @@ __all__ = [
     "helm_plugin_install",
     "helm_plugin_list",
     "helm_plugin_uninstall",
+    "helm_plugin_package",
     "helm_plugin_update",
+    "helm_plugin_verify",
     "helm_env",
     "helm_version",
 ]

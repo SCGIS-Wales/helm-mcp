@@ -11,14 +11,15 @@ import (
 
 type TestInput struct {
 	tools.GlobalInput
-	ReleaseName string   `json:"release_name" jsonschema:"required" jsonschema_description:"Name of the release to test"`
-	Timeout     string   `json:"timeout,omitempty" jsonschema_description:"Timeout for test execution"`
-	Filters     []string `json:"filters,omitempty" jsonschema_description:"Filter tests by name"`
+	ReleaseName string   `json:"release_name" jsonschema:"Name of the release to test"`
+	Timeout     string   `json:"timeout,omitempty" jsonschema:"Timeout for test execution"`
+	Filters     []string `json:"filters,omitempty" jsonschema:"Filter tests by name"`
 }
 
 var TestTool = &mcp.Tool{
 	Name:        "helm_test",
 	Description: "Run the test suite for a Helm release.",
+	Annotations: tools.Mutating("Run release tests", false),
 }
 
 func HandleTest(ctx context.Context, _ *mcp.CallToolRequest, input TestInput) (*mcp.CallToolResult, any, error) {

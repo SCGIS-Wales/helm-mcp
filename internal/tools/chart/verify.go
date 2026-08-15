@@ -11,13 +11,14 @@ import (
 
 type VerifyInput struct {
 	tools.GlobalInput
-	ChartFile string `json:"chart_file" jsonschema:"required" jsonschema_description:"Path to chart archive to verify"`
-	Keyring   string `json:"keyring,omitempty" jsonschema_description:"Keyring path"`
+	ChartFile string `json:"chart_file" jsonschema:"Path to chart archive to verify"`
+	Keyring   string `json:"keyring,omitempty" jsonschema:"Keyring path"`
 }
 
 var VerifyTool = &mcp.Tool{
 	Name:        "helm_verify",
 	Description: "Verify that a chart has a valid provenance file.",
+	Annotations: tools.ReadOnly("Verify chart provenance", false),
 }
 
 func HandleVerify(ctx context.Context, _ *mcp.CallToolRequest, input VerifyInput) (*mcp.CallToolResult, any, error) {

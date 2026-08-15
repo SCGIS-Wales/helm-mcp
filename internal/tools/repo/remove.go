@@ -11,12 +11,13 @@ import (
 
 type RemoveInput struct {
 	tools.GlobalInput
-	Names []string `json:"names" jsonschema:"required" jsonschema_description:"Repository names to remove"`
+	Names []string `json:"names" jsonschema:"Repository names to remove"`
 }
 
 var RemoveTool = &mcp.Tool{
 	Name:        "helm_repo_remove",
 	Description: "Remove chart repositories.",
+	Annotations: tools.Destructive("Remove repositories"),
 }
 
 func HandleRemove(ctx context.Context, _ *mcp.CallToolRequest, input RemoveInput) (*mcp.CallToolResult, any, error) {

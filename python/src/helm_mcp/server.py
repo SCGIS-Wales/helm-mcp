@@ -10,37 +10,18 @@ from __future__ import annotations
 
 import logging
 import os
-import platform
-import shutil
-import stat
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from fastmcp.client.transports import StdioTransport
 from fastmcp.server import create_proxy
 
+from helm_mcp.discovery import find_binary, is_python_script
 from helm_mcp.resilience import ResilienceConfig, build_middleware, setup_otel
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 logger = logging.getLogger(__name__)
-
-
-def _is_python_script(path: str) -> bool:
-    """Check if *path* is a Python script (e.g. a pip console_script wrapper).
-
-    This prevents ``shutil.which("helm-mcp")`` from returning the
-    Python wrapper installed by pip, which would cause an infinite
-    loop when the Go binary is expected.
-    """
-    try:
-        with Path(path).open("rb") as fh:
-            head = fh.read(128)
-        first_line = head.split(b"\n", 1)[0].lower()
-        return head[:2] == b"#!" and b"python" in first_line
-    except OSError:
-        return False
 
 
 # Environment variables forwarded to the Go subprocess.
@@ -99,78 +80,10 @@ PASSTHROUGH_ENV_VARS: list[str] = [
 ]
 
 
-def _find_binary() -> str:
-    """Locate the helm-mcp binary.
-
-    Search order:
-      1. ``HELM_MCP_BINARY`` environment variable
-      2. Bundled binary in the package ``bin/`` directory
-      3. ``helm-mcp`` on ``PATH`` (platform-specific wheel installs here)
-      4. Auto-download from GitHub Releases (fallback for universal wheel)
-
-    Returns:
-        Absolute path to the helm-mcp executable.
-
-    Raises:
-        FileNotFoundError: If the binary cannot be located.
-    """
-    # 1. Explicit env var
-    env_path = os.environ.get("HELM_MCP_BINARY")
-    if env_path:
-        p = Path(env_path)
-        if p.is_file() and os.access(str(p), os.X_OK):
-            logger.info("using binary from HELM_MCP_BINARY: %s", p)
-            return str(p)
-        raise FileNotFoundError(f"HELM_MCP_BINARY={env_path} does not exist or is not executable")
-
-    # 2. Bundled binary in package data
-    pkg_dir = Path(__file__).parent
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-    arch_map = {"x86_64": "amd64", "aarch64": "arm64", "arm64": "arm64", "amd64": "amd64"}
-    arch = arch_map.get(machine, machine)
-    binary_name = f"helm-mcp-{system}-{arch}"
-    if system == "windows":
-        binary_name += ".exe"
-    for candidate in [pkg_dir / "bin" / binary_name, pkg_dir / "bin" / "helm-mcp"]:
-        if candidate.is_file():
-            # Ensure the binary is executable — pip may not preserve permissions
-            # for package-data files extracted from wheels.
-            if not os.access(str(candidate), os.X_OK):
-                try:
-                    candidate.chmod(
-                        candidate.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH
-                    )
-                except OSError:
-                    continue
-            logger.info("using bundled binary: %s", candidate)
-            return str(candidate)
-
-    # 3. PATH lookup (preferred over download — works with platform-specific wheels).
-    #    Skip Python console_script wrappers to avoid an infinite loop.
-    found = shutil.which("helm-mcp")
-    if found and not _is_python_script(found):
-        logger.info("using binary from PATH: %s", found)
-        return found
-
-    # 4. Auto-download from GitHub Releases (fallback for universal wheel)
-    from helm_mcp import __version__
-    from helm_mcp.download import ensure_binary
-
-    try:
-        downloaded = ensure_binary(__version__)
-        if downloaded:
-            logger.info("using auto-downloaded binary: %s", downloaded)
-            return downloaded
-    except Exception:
-        logger.warning("auto-download failed", exc_info=True)
-
-    raise FileNotFoundError(
-        "helm-mcp binary not found. Either:\n"
-        "  1. Set HELM_MCP_BINARY=/path/to/helm-mcp\n"
-        "  2. Install helm-mcp and ensure it's on your PATH\n"
-        "  3. Install the platform-specific wheel (pip install helm-mcp[binary])"
-    )
+# Binary discovery lives in helm_mcp.discovery so both entry points share it.
+# These aliases keep the historical private names importable.
+_is_python_script = is_python_script
+_find_binary = find_binary
 
 
 def _build_subprocess_env(

@@ -1,0 +1,43 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.scgis-wales/helm-mcp",
+  "description": "The full Helm CLI surface as 46 MCP tools, backed by the Helm v3 and v4 Go SDKs.",
+  "version": "0.2.0",
+  "websiteUrl": "https://github.com/SCGIS-Wales/helm-mcp",
+  "repository": {
+    "url": "https://github.com/SCGIS-Wales/helm-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "pypi",
+      "registryBaseUrl": "https://pypi.org",
+      "identifier": "helm-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KUBECONFIG",
+          "description": "Path to the kubeconfig file. Defaults to ~/.kube/config.",
+          "isRequired": false
+        },
+        {
+          "name": "HELM_MCP_BINARY",
+          "description": "Explicit path to the helm-mcp Go binary. Auto-detected when unset.",
+          "isRequired": false
+        }
+      ]
+    },
+    {
+      "registryType": "oci",
+      "registryBaseUrl": "https://ghcr.io",
+      "identifier": "ghcr.io/scgis-wales/helm-mcp",
+      "version": "0.2.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

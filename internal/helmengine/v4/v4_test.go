@@ -3,6 +3,7 @@ package v4
 import (
 	"context"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	chart "helm.sh/helm/v4/pkg/chart/v2"
 	"helm.sh/helm/v4/pkg/chart/v2/lint/support"
+	"helm.sh/helm/v4/pkg/kube"
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
 
@@ -531,3 +533,142 @@ func TestAppendMatchingEntries_MixedVersions(t *testing.T) {
 		t.Errorf("results[1].ChartVersion = %q, want %q", results[1].ChartVersion, "2.0.0")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// resolveWaitStrategy
+// ---------------------------------------------------------------------------
+
+func TestResolveWaitStrategy(t *testing.T) {
+	tests := []struct {
+		name     string
+		strategy string
+		wait     bool
+		want     kube.WaitStrategy
+		wantErr  bool
+	}{
+		// An explicit strategy always wins over the wait boolean.
+		{"explicit watcher", "watcher", false, kube.StatusWatcherStrategy, false},
+		{"explicit legacy", "legacy", false, kube.LegacyStrategy, false},
+		{"explicit hookOnly overrides wait", "hookOnly", true, kube.HookOnlyStrategy, false},
+		{"case insensitive", "WATCHER", false, kube.StatusWatcherStrategy, false},
+		{"whitespace tolerated", "  legacy  ", false, kube.LegacyStrategy, false},
+
+		// Without a strategy, the wait boolean decides. wait=false must NOT
+		// wait: before this mapping existed the engine hardcoded the watcher
+		// strategy, so wait=false silently waited anyway.
+		{"wait true", "", true, kube.StatusWatcherStrategy, false},
+		{"wait false", "", false, kube.HookOnlyStrategy, false},
+
+		{"invalid", "sometimes", false, "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveWaitStrategy(tt.strategy, tt.wait)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("resolveWaitStrategy(%q, %v) = %q, want error", tt.strategy, tt.wait, got)
+				}
+				if !strings.Contains(err.Error(), "watcher, legacy, hookOnly") {
+					t.Errorf("error should list the valid values, got: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolveWaitStrategy(%q, %v) returned error: %v", tt.strategy, tt.wait, err)
+			}
+			if got != tt.want {
+				t.Errorf("resolveWaitStrategy(%q, %v) = %q, want %q", tt.strategy, tt.wait, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestPluginArgs pins the flag mapping for the two v4-only plugin commands.
+//
+// These shell out to the helm CLI, so the argument list is the whole of the
+// logic worth testing. An earlier version of this test called the methods for
+// real and asserted that empty options produced an error — which made the
+// result depend on whichever helm binary happened to be on PATH, and passed
+// locally while failing in CI.
+func TestPluginPackageArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		opts *helmengine.PluginPackageOptions
+		want []string
+	}{
+		{
+			// Signing is the CLI default, so nothing is passed for it.
+			name: "signing left to the CLI default",
+			opts: &helmengine.PluginPackageOptions{PluginPath: "./p", Sign: true},
+			want: []string{"plugin", "package", "--", "./p"},
+		},
+		{
+			// no_sign on the tool inverts to Sign=false here.
+			name: "explicit opt out of signing",
+			opts: &helmengine.PluginPackageOptions{PluginPath: "./p"},
+			want: []string{"plugin", "package", "--sign=false", "--", "./p"},
+		},
+		{
+			name: "all options",
+			opts: &helmengine.PluginPackageOptions{
+				PluginPath:     "./p",
+				Sign:           true,
+				Key:            "k",
+				Keyring:        "/keys",
+				PassphraseFile: "/pass",
+				Destination:    "/out",
+			},
+			want: []string{
+				"plugin", "package",
+				"--key", "k",
+				"--keyring", "/keys",
+				"--passphrase-file", "/pass",
+				"--destination", "/out",
+				"--", "./p",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pluginPackageArgs(tt.opts)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("pluginPackageArgs() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPluginVerifyArgs(t *testing.T) {
+	got := pluginVerifyArgs(&helmengine.PluginVerifyOptions{PluginPath: "./p.tgz"})
+	want := []string{"plugin", "verify", "--", "./p.tgz"}
+	if !slices.Equal(got, want) {
+		t.Errorf("pluginVerifyArgs() = %q, want %q", got, want)
+	}
+
+	got = pluginVerifyArgs(&helmengine.PluginVerifyOptions{PluginPath: "./p.tgz", Keyring: "/keys"})
+	want = []string{"plugin", "verify", "--keyring", "/keys", "--", "./p.tgz"}
+	if !slices.Equal(got, want) {
+		t.Errorf("pluginVerifyArgs() with keyring = %q, want %q", got, want)
+	}
+}
+
+// TestPluginArgsSeparatePath guards the "--" separator: without it a plugin
+// path beginning with a dash would be parsed as a flag.
+func TestPluginArgsSeparatePath(t *testing.T) {
+	for _, args := range [][]string{
+		pluginPackageArgs(&helmengine.PluginPackageOptions{PluginPath: "-weird", Sign: true}),
+		pluginVerifyArgs(&helmengine.PluginVerifyOptions{PluginPath: "-weird"}),
+	} {
+		if len(args) < 2 || args[len(args)-2] != "--" {
+			t.Errorf("path is not preceded by \"--\": %q", args)
+		}
+	}
+}
+
+// Compile-time assertion that V4Engine satisfies the full Engine interface,
+// including the v4-only PluginPackage and PluginVerify methods. A runtime
+// test would add nothing: New() returns a concrete type, so the check either
+// holds at compile time or the package does not build.
+var _ helmengine.Engine = New()

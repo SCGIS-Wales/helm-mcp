@@ -58,6 +58,10 @@ type Engine interface {
 	PluginList(ctx context.Context) ([]*PluginInfo, error)
 	PluginUninstall(ctx context.Context, opts *PluginUninstallOptions) error
 	PluginUpdate(ctx context.Context, opts *PluginUpdateOptions) error
+	// PluginPackage and PluginVerify were introduced in Helm v4; the v3
+	// engine rejects them the same way as the other v4-only options.
+	PluginPackage(ctx context.Context, opts *PluginPackageOptions) (string, error)
+	PluginVerify(ctx context.Context, opts *PluginVerifyOptions) (string, error)
 
 	// Environment
 	Env(ctx context.Context) (map[string]string, error)

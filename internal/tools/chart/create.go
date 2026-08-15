@@ -11,13 +11,14 @@ import (
 
 type CreateInput struct {
 	tools.GlobalInput
-	Name    string `json:"name" jsonschema:"required" jsonschema_description:"Name of the chart to create"`
-	Starter string `json:"starter,omitempty" jsonschema_description:"Starter chart name"`
+	Name    string `json:"name" jsonschema:"Name of the chart to create"`
+	Starter string `json:"starter,omitempty" jsonschema:"Starter chart name"`
 }
 
 var CreateTool = &mcp.Tool{
 	Name:        "helm_create",
 	Description: "Create a new Helm chart with the given name in the current directory.",
+	Annotations: tools.Mutating("Scaffold a new chart", false),
 }
 
 func HandleCreate(ctx context.Context, _ *mcp.CallToolRequest, input CreateInput) (*mcp.CallToolResult, any, error) {

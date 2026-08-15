@@ -28,7 +28,10 @@
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [MCP Client Configuration](#mcp-client-configuration)
-- [Available Tools](#available-tools-44)
+- [MCP Protocol Support](#mcp-protocol-support)
+- [Available Tools](#available-tools-46)
+- [Tool Annotations](#tool-annotations)
+- [Structured Output](#structured-output)
 - [Helm CLI Coverage](#helm-cli-coverage)
 - [Kubernetes Authentication](#kubernetes-authentication)
 - [Helm Version Selection](#helm-version-selection)
@@ -47,9 +50,9 @@
 
 ## Why helm-mcp?
 
-- **44 MCP tools** covering every Helm CLI command (minus shell completion and help)
+- **46 MCP tools** covering every Helm CLI command (minus shell completion and help)
 - **Dual Helm SDK support** — Helm v3 and v4 via native Go SDK (not CLI wrappers)
-- **Three transport modes** — stdio (default), HTTP (Streamable HTTP), SSE
+- **Two transport modes** — stdio (default) and Streamable HTTP, stateless by default
 - **Cloud provider ready** — EKS, GKE, AKS kubeconfig formats work out of the box
 - **Security first** — Linux process hardening, credential memory zeroing, input validation, path traversal prevention
 - **Python wrapper** — [FastMCP](https://github.com/PrefectHQ/fastmcp)-based proxy that auto-discovers all tools
@@ -122,11 +125,22 @@ helm-mcp --mode stdio
 helm-mcp --mode http --addr :8080
 ```
 
-### SSE mode (Server-Sent Events)
+HTTP mode is **stateless by default** (MCP `2026-07-28`): there is no
+`initialize` handshake and no `Mcp-Session-Id` header, so the server can sit
+behind a plain round-robin load balancer with no sticky sessions and no shared
+session store. Clients speaking an older protocol revision still work — the SDK
+negotiates down automatically.
+
+If a client needs the legacy per-session behaviour:
 
 ```bash
-helm-mcp --mode sse --addr :8080
+helm-mcp --mode http --addr :8080 --stateless=false
 ```
+
+> **Removed in v0.2.0: `--mode sse`.** The HTTP+SSE transport has been
+> deprecated by the MCP specification since `2025-03-26` and is formally
+> Deprecated under the `2026-07-28` feature lifecycle policy. Use
+> `--mode http`, which serves Streamable HTTP on the same address.
 
 ## MCP Client Configuration
 
@@ -173,7 +187,26 @@ helm-mcp --mode http --addr :8080
 # MCP endpoint: http://localhost:8080/mcp
 ```
 
-## Available Tools (44)
+## MCP Protocol Support
+
+helm-mcp implements MCP **`2026-07-28`** and negotiates down to earlier
+revisions (`2025-11-25`, `2025-06-18`, `2025-03-26`, `2024-11-05`) for older
+clients, so upgrading the server does not require upgrading your client.
+
+| Feature | Status |
+|---|---|
+| Tools | Supported — 46 tools, with titles, annotations and output schemas |
+| Stateless transport | Supported and the default for `--mode http` (`--stateless=false` to opt out) |
+| `server/discover` | Supported |
+| Deterministic `tools/list` order | Supported — tools are returned sorted by name so clients and prompt caches keep hitting |
+| Server instructions | Supported — the server explains version selection, cluster targeting and destructive-tool safety |
+| Resources / Prompts | Not applicable — every Helm operation is a tool call |
+| Tasks extension | Not implemented. Attractive for long `helm install --wait` runs, but client support is still thin. Tracked as a follow-up. |
+| MRTR / Elicitation | Not implemented, deliberately. Helm tools take all their input as arguments, so there is no mid-call question to ask. |
+| Roots / Sampling / Logging | Not implemented. All three are deprecated as of `2026-07-28` (SEP-2577). |
+| HTTP+SSE transport | **Removed in v0.2.0** — deprecated by the specification. Use `--mode http`. |
+
+## Available Tools (46)
 
 ### Release Management (14)
 
@@ -237,7 +270,7 @@ helm-mcp --mode http --addr :8080
 | `helm_search_hub` | Search Artifact Hub for charts |
 | `helm_search_repo` | Search locally configured repositories |
 
-### Plugin Management (4)
+### Plugin Management (6)
 
 | Tool | Description |
 |------|-------------|
@@ -245,6 +278,8 @@ helm-mcp --mode http --addr :8080
 | `helm_plugin_list` | List installed plugins |
 | `helm_plugin_uninstall` | Uninstall a plugin |
 | `helm_plugin_update` | Update a plugin |
+| `helm_plugin_package` | Package a plugin directory into a signed archive (v4 only) |
+| `helm_plugin_verify` | Verify a packaged plugin's signature and provenance (v4 only) |
 
 ### Environment (2)
 
@@ -258,6 +293,51 @@ helm-mcp --mode http --addr :8080
 | Tool | Description |
 |------|-------------|
 | `helm_dependency_update` | Update charts/ based on Chart.yaml |
+
+## Tool Annotations
+
+Every tool carries MCP annotations so a client — or an agent deciding what to
+call — can tell a read at a glance from a change to your cluster.
+
+| Annotation | Meaning | Tools |
+|---|---|---|
+| `readOnlyHint: true` | Only reads state; safe to call freely | `helm_list`, `helm_status`, `helm_history`, all `helm_get_*`, all `helm_show_*`, `helm_repo_list`, `helm_plugin_list`, `helm_dependency_list`, `helm_env`, `helm_version`, `helm_lint`, `helm_template`, `helm_verify`, `helm_plugin_verify`, `helm_search_*` |
+| `destructiveHint: true` | Can remove or replace live state — call only on explicit user intent | `helm_uninstall`, `helm_rollback`, `helm_upgrade`, `helm_repo_remove`, `helm_plugin_uninstall` |
+| `openWorldHint: true` | Reaches beyond the configured cluster (Artifact Hub, OCI registries, chart repos) | `helm_search_hub`, `helm_search_repo`, `helm_pull`, `helm_push`, all `helm_show_*`, `helm_template`, `helm_registry_*` |
+| `idempotentHint: true` | Repeating the call with the same arguments has no additional effect | all read-only tools, plus `helm_repo_add`, `helm_repo_update`, `helm_dependency_*`, `helm_plugin_update` |
+
+Everything not listed as destructive is annotated `destructiveHint: false`,
+which matters because the MCP specification defaults that hint to `true`.
+
+Annotations are hints, not a security boundary — a client may ignore them. For
+a real boundary, use the OIDC scopes and roles described under
+[Security](#security).
+
+## Structured Output
+
+Eleven tools publish an `outputSchema` and return `structuredContent` alongside
+the human-readable text, so clients can consume results without parsing prose:
+
+`helm_list`, `helm_status`, `helm_history`, `helm_get_metadata`,
+`helm_get_values`, `helm_repo_list`, `helm_search_repo`, `helm_search_hub`,
+`helm_plugin_list`, `helm_env`, `helm_version`.
+
+```jsonc
+// helm_list
+{
+  "releases": [
+    { "name": "my-app", "namespace": "default", "revision": 3, "status": "deployed", ... }
+  ],
+  "count": 1
+}
+```
+
+The existing JSON text content is unchanged, so clients that parse it keep
+working. Collections are wrapped in an object with a `count` rather than
+returned as a bare array. Tools whose output is free-form YAML or text —
+`helm_template`, `helm_lint`, `helm_get_manifest`, `helm_show_*`,
+`helm_package`, `helm_dependency_list` — have no output schema, because there
+is no useful shape to declare.
 
 ## Helm CLI Coverage
 
@@ -284,7 +364,9 @@ Complete mapping of every `helm` CLI command to its helm-mcp MCP tool equivalent
 | `helm plugin install` | `helm_plugin_install` | Covered |
 | `helm plugin list` | `helm_plugin_list` | Covered |
 | `helm plugin uninstall` | `helm_plugin_uninstall` | Covered |
+| `helm plugin package` | `helm_plugin_package` | Covered (v4 only) |
 | `helm plugin update` | `helm_plugin_update` | Covered |
+| `helm plugin verify` | `helm_plugin_verify` | Covered (v4 only) |
 | `helm pull` | `helm_pull` | Covered |
 | `helm push` | `helm_push` | Covered |
 | `helm registry login` | `helm_registry_login` | Covered |
@@ -312,7 +394,9 @@ Complete mapping of every `helm` CLI command to its helm-mcp MCP tool equivalent
 | `helm completion` | — | Not applicable (shell utility) |
 | `helm help` | — | Not applicable (shell utility) |
 
-**44 of 44** operational Helm commands are covered. The only excluded commands (`completion`, `help`) are shell utilities that have no meaning in an MCP context.
+**46 of 46** operational Helm commands are covered. The only excluded commands (`completion`, `help`) are shell utilities that have no meaning in an MCP context.
+
+`helm plugin package` and `helm plugin verify` were introduced in Helm v4 alongside signed plugin distribution, so they require `helm_version: "v4"`.
 
 ## Kubernetes Authentication
 
@@ -386,16 +470,48 @@ Every tool supports a `helm_version` field to select between Helm v3 and v4:
 
 ### v4-Only Features
 
-These fields are only available when using `helm_version: "v4"`:
+These fields are only available when using `helm_version: "v4"`. Passing one
+with `"v3"` is an error rather than a silent no-op.
 
 - `server_side_apply` — Use Kubernetes server-side apply
 - `take_ownership` — Skip Helm annotation checks
-- `rollback_on_failure` — Auto-rollback on install failure
 - `hide_secret` — Hide secrets in dry-run output
 - `force_conflicts` — Force conflict resolution
 - `selector` — Label selector for list operations
 - `show_resources` — Show resources table in status
 - `reset_then_reuse_values` — Reset then reuse values in upgrade
+- `wait_strategy` — See below
+
+Two tools are v4-only in their entirety: `helm_plugin_package` and
+`helm_plugin_verify`.
+
+### Waiting: `wait` and `wait_strategy`
+
+Helm v4 replaced v3's boolean `--wait` with a strategy enum, so
+`helm_install`, `helm_upgrade`, `helm_rollback` and `helm_uninstall` accept a
+`wait_strategy` field alongside `wait`:
+
+| `wait_strategy` | Behaviour |
+|---|---|
+| `"watcher"` | Wait using kstatus — what `helm --wait` does in v4 |
+| `"legacy"` | Wait using the v3 readiness checks |
+| `"hookOnly"` | Only wait for hooks; the CLI default when `--wait` is omitted |
+
+`wait_strategy` takes precedence when set. Otherwise `wait: true` maps to
+`"watcher"` and `wait: false` maps to `"hookOnly"`.
+
+> Before v0.2.0 the v4 engine hardcoded the watcher strategy, so `wait: false`
+> was silently ignored and every v4 operation waited. If you relied on that
+> behaviour, set `wait: true` (or `wait_strategy: "watcher"`) explicitly.
+
+### Available on both v3 and v4
+
+`rollback_on_failure` (Helm's `--atomic`) is supported by both engines, and is
+available on `helm_install` and `helm_upgrade`. So are `devel`, `sub_notes`,
+`hide_notes`, `skip_schema_validation`, `disable_openapi_validation` and
+`enable_dns`; `output_dir` and `use_release_name` on `helm_install`;
+`ignore_not_found` and `description` on `helm_uninstall`; and `all`,
+`uninstalling` and `time_format` on `helm_list`.
 
 ## Python Package
 
@@ -650,9 +766,15 @@ The `internal/resilience` package provides additional production resilience patt
 
 ### Plugin Verification Required (Helm v4 CLI)
 
-Plugin operations (`helm_plugin_install`, `helm_plugin_uninstall`, `helm_plugin_update`) shell out to the system `helm` CLI. Helm v4 requires plugin source verification by default. Plugins that do not support verification (like `helm-diff`) need `--verify=false`, which the MCP tool does not yet expose.
+All six plugin tools shell out to the system `helm` CLI, which is the only part
+of helm-mcp that does not go through the Helm Go SDK — Helm's plugin packages
+are internal and not importable. Helm v4 requires plugin source verification by
+default, and plugins that do not support it (like `helm-diff`) need
+`--verify=false`, which the MCP tools do not yet expose.
 
-- **Workaround**: Install plugins directly via `helm plugin install <url> --verify=false`
+- **Workaround**: install those plugins directly via `helm plugin install <url> --verify=false`
+- The published container image ships a pinned `helm` CLI, so plugin tools work
+  there. If you run the binary directly, `helm` must be on `PATH`.
 
 ## Security
 
@@ -712,7 +834,7 @@ The security package provides validators for:
 
 ### HTTP Server Hardening
 
-When running in HTTP or SSE mode:
+When running in HTTP mode:
 - `ReadTimeout: 30s` — prevents slow client attacks
 - `WriteTimeout: 60s` — prevents connection exhaustion
 - `IdleTimeout: 120s` — reclaims idle connections
@@ -721,7 +843,7 @@ When running in HTTP or SSE mode:
 
 ### Authentication (OIDC/OAuth2)
 
-When running in HTTP or SSE mode, helm-mcp supports OAuth2/OIDC authentication with JWT validation, claims-based authorization, and structured audit logging. This aligns with the [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices).
+When running in HTTP mode, helm-mcp supports OAuth2/OIDC authentication with JWT validation, claims-based authorization, and structured audit logging. This aligns with the [MCP Security Best Practices](https://modelcontextprotocol.io/specification/2025-11-25/basic/security_best_practices).
 
 **Authentication is fully opt-in.** When no OIDC or token environment variables are set, the server runs without authentication (same as previous versions). Stdio mode is never affected by authentication configuration.
 

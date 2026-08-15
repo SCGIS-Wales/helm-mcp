@@ -54,21 +54,24 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "fastmcp>=3.4.2",
-    "circuitbreaker>=2.0.0,<3",
-    "tenacity>=9.0.0,<10",
+    # Upper bound is deliberate: FastMCP 4 removes the 3.x compatibility shims
+    # and changes the proxy API. It is also still a beta at time of writing,
+    # and this package is published to PyPI. Revisit once 4.x is stable.
+    "fastmcp>=3.4.7,<4",
+    "circuitbreaker>=2.1.3,<3",
+    "tenacity>=9.1.4,<10",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.0",
-    "pytest-asyncio>=0.24",
-    "ruff>=0.9",
-    "mypy>=1.13",
+    "pytest>=9.1",
+    "pytest-asyncio>=1.4",
+    "ruff>=0.16.3",
+    "mypy>=2.3",
 ]
 otel = [
-    "opentelemetry-sdk>=1.20.0",
-    "opentelemetry-exporter-otlp-proto-grpc>=1.20.0",
+    "opentelemetry-sdk>=1.44.0",
+    "opentelemetry-exporter-otlp-proto-grpc>=1.44.0",
 ]
 
 [project.urls]

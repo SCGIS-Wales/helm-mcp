@@ -11,17 +11,18 @@ import (
 
 type PushInput struct {
 	tools.GlobalInput
-	ChartRef  string `json:"chart_ref" jsonschema:"required" jsonschema_description:"Chart archive to push"`
-	Remote    string `json:"remote" jsonschema:"required" jsonschema_description:"OCI registry URL"`
-	PlainHTTP bool   `json:"plain_http,omitempty" jsonschema_description:"Use plain HTTP"`
-	CAFile    string `json:"ca_file,omitempty" jsonschema_description:"CA bundle file"`
-	CertFile  string `json:"cert_file,omitempty" jsonschema_description:"TLS client certificate"`
-	KeyFile   string `json:"key_file,omitempty" jsonschema_description:"TLS client key"`
+	ChartRef  string `json:"chart_ref" jsonschema:"Chart archive to push"`
+	Remote    string `json:"remote" jsonschema:"OCI registry URL"`
+	PlainHTTP bool   `json:"plain_http,omitempty" jsonschema:"Use plain HTTP"`
+	CAFile    string `json:"ca_file,omitempty" jsonschema:"CA bundle file"`
+	CertFile  string `json:"cert_file,omitempty" jsonschema:"TLS client certificate"`
+	KeyFile   string `json:"key_file,omitempty" jsonschema:"TLS client key"`
 }
 
 var PushTool = &mcp.Tool{
 	Name:        "helm_push",
 	Description: "Push a chart archive to an OCI registry.",
+	Annotations: tools.Mutating("Push a chart to a registry", false),
 }
 
 func HandlePush(ctx context.Context, _ *mcp.CallToolRequest, input PushInput) (*mcp.CallToolResult, any, error) {

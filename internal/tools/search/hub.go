@@ -11,19 +11,20 @@ import (
 
 type HubInput struct {
 	tools.GlobalInput
-	Keyword     string `json:"keyword" jsonschema:"required" jsonschema_description:"Search keyword"`
-	MaxColWidth int    `json:"max_col_width,omitempty" jsonschema_description:"Max column width"`
-	ListRepoURL bool   `json:"list_repo_url,omitempty" jsonschema_description:"Show repository URL"`
+	Keyword     string `json:"keyword" jsonschema:"Search keyword"`
+	MaxColWidth int    `json:"max_col_width,omitempty" jsonschema:"Max column width"`
+	ListRepoURL bool   `json:"list_repo_url,omitempty" jsonschema:"Show repository URL"`
 }
 
 var HubTool = &mcp.Tool{
 	Name:        "helm_search_hub",
 	Description: "Search Artifact Hub for Helm charts.",
+	Annotations: tools.ReadOnly("Search Artifact Hub", true),
 }
 
-func HandleHub(ctx context.Context, _ *mcp.CallToolRequest, input HubInput) (*mcp.CallToolResult, any, error) {
+func HandleHub(ctx context.Context, _ *mcp.CallToolRequest, input HubInput) (*mcp.CallToolResult, tools.SearchOutput, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.SearchOutput{}, nil
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
@@ -34,8 +35,8 @@ func HandleHub(ctx context.Context, _ *mcp.CallToolRequest, input HubInput) (*mc
 		ListRepoURL: input.ListRepoURL,
 	})
 	if err != nil {
-		return tools.ErrorResult(err), nil, nil
+		return tools.ErrorResult(err), tools.SearchOutput{}, nil
 	}
 
-	return tools.TextResult(result), nil, nil
+	return tools.TextResult(result), tools.SearchOutput{Results: result, Count: len(result)}, nil
 }

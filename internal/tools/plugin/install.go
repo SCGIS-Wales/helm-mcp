@@ -13,13 +13,14 @@ import (
 
 type InstallInput struct {
 	tools.GlobalInput
-	URLOrPath string `json:"url_or_path" jsonschema:"required" jsonschema_description:"Plugin URL or local path"`
-	Version   string `json:"version,omitempty" jsonschema_description:"Plugin version"`
+	URLOrPath string `json:"url_or_path" jsonschema:"Plugin URL or local path"`
+	Version   string `json:"version,omitempty" jsonschema:"Plugin version"`
 }
 
 var InstallTool = &mcp.Tool{
 	Name:        "helm_plugin_install",
 	Description: "Install a Helm plugin.",
+	Annotations: tools.Mutating("Install a plugin", false),
 }
 
 func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {

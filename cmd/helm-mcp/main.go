@@ -25,9 +25,18 @@ import (
 // version is set at build time via -ldflags "-X main.version=..."
 var version = "dev"
 
+// defaultMaxRequestBytes matches the go-sdk default (4 MiB). It is set
+// explicitly so the limit is visible and tunable rather than implicit.
+const defaultMaxRequestBytes = 4 << 20
+
 func main() {
-	mode := flag.String("mode", "stdio", "Transport mode: stdio, http, or sse")
-	addr := flag.String("addr", ":8080", "Listen address for http/sse mode")
+	mode := flag.String("mode", "stdio", "Transport mode: stdio or http")
+	addr := flag.String("addr", ":8080", "Listen address for http mode")
+	stateless := flag.Bool("stateless", true,
+		"Run the HTTP transport without protocol-level sessions (MCP 2026-07-28). "+
+			"Set to false only for clients that require the legacy session behaviour.")
+	maxRequestBytes := flag.Int64("max-request-bytes", defaultMaxRequestBytes,
+		"Maximum accepted HTTP request body size in bytes")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	noHarden := flag.Bool("no-harden", false, "Disable process security hardening (for debugging)")
@@ -93,7 +102,7 @@ func main() {
 
 	// Build the authentication middleware from environment variables.
 	// Priority: OIDC > static bearer token > none.
-	// Stdio mode is unaffected — auth middleware only applies to HTTP/SSE.
+	// Stdio mode is unaffected — auth middleware only applies to HTTP.
 	authMiddleware, sessionCache := buildAuthMiddleware(logger)
 	if sessionCache != nil {
 		defer sessionCache.Stop()
@@ -110,19 +119,24 @@ func main() {
 		}
 
 	case "http":
-		// Each HTTP request gets its own mcp.Server to avoid shared-state
-		// concurrency issues across concurrent sessions.
+		// Each HTTP request gets its own mcp.Server. Under the stateless
+		// protocol that is the natural shape — there is no per-connection
+		// state to preserve — and it also avoids shared-state races when
+		// running with -stateless=false.
 		handler := mcp.NewStreamableHTTPHandler(
 			func(_ *http.Request) *mcp.Server { return server.NewServer(version) },
-			nil,
+			&mcp.StreamableHTTPOptions{
+				Stateless:           *stateless,
+				MaxRequestBodyBytes: *maxRequestBytes,
+			},
 		)
 		// go-sdk >= v1.6.0 no longer applies cross-origin protection by
 		// default; wrap the handler explicitly so browser-initiated
 		// cross-origin requests stay rejected. Non-browser MCP clients
 		// (no Origin / Sec-Fetch-Site headers) are unaffected.
 		httpServer := newHTTPServer(*addr, crossOriginProtected(authMiddleware(handler)))
-		printAuthStatus(*addr, "HTTP")
-		slog.Info("starting HTTP server", "addr", *addr) //nolint:gosec // addr comes from a trusted CLI flag, not user input
+		printAuthStatus(*addr, *stateless)
+		slog.Info("starting HTTP server", "addr", *addr, "stateless", *stateless) //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Fprintf(os.Stderr, "HTTP server error: %v\n", err)
@@ -130,22 +144,16 @@ func main() {
 		}
 
 	case "sse":
-		// Each SSE session gets its own mcp.Server.
-		handler := mcp.NewSSEHandler(
-			func(_ *http.Request) *mcp.Server { return server.NewServer(version) },
-			nil,
-		)
-		httpServer := newHTTPServer(*addr, crossOriginProtected(authMiddleware(handler)))
-		printAuthStatus(*addr, "SSE")
-		slog.Info("starting SSE server", "addr", *addr) //nolint:gosec // addr comes from a trusted CLI flag, not user input
-		gracefulShutdown(ctx, httpServer)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			fmt.Fprintf(os.Stderr, "SSE server error: %v\n", err)
-			os.Exit(1)
-		}
+		// HTTP+SSE has been deprecated since protocol version 2025-03-26 and
+		// is formally Deprecated under the 2026-07-28 feature lifecycle policy.
+		// Give the migration hint rather than a bare "unknown mode".
+		fmt.Fprint(os.Stderr,
+			"--mode sse was removed in v0.2.0: the MCP specification deprecates the HTTP+SSE transport.\n"+
+				"Use --mode http instead; it serves Streamable HTTP on the same address.\n")
+		os.Exit(1)
 
 	default:
-		fmt.Fprintf(os.Stderr, "unknown mode: %s (valid: stdio, http, sse)\n", *mode)
+		fmt.Fprintf(os.Stderr, "unknown mode: %s (valid: stdio, http)\n", *mode)
 		os.Exit(1)
 	}
 }
@@ -225,9 +233,14 @@ func buildAuthMiddleware(logger *slog.Logger) (func(http.Handler) http.Handler, 
 	return security.NewAuthMiddleware(config), nil
 }
 
-// printAuthStatus logs the authentication mode to stderr.
-func printAuthStatus(addr, transport string) {
-	fmt.Fprintf(os.Stderr, "helm-mcp %s server listening on %s\n", transport, addr)
+// printAuthStatus logs the listen address, protocol mode and authentication
+// mode to stderr.
+func printAuthStatus(addr string, stateless bool) {
+	session := "sessions: enabled (legacy)"
+	if stateless {
+		session = "sessions: disabled (stateless, MCP 2026-07-28)"
+	}
+	fmt.Fprintf(os.Stderr, "helm-mcp Streamable HTTP server listening on %s\n  %s\n", addr, session)
 
 	switch {
 	case os.Getenv("HELM_MCP_OIDC_ISSUER") != "":

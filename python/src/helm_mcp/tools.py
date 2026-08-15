@@ -1,4 +1,4 @@
-"""Resilient async tool wrappers for all 44 helm-mcp MCP tools.
+"""Resilient async tool wrappers for all 46 helm-mcp MCP tools.
 
 Provides typed, production-grade async functions wrapping every tool exposed
 by the helm-mcp Go binary. Built on top of the FastMCP ``Client`` and designed
@@ -981,6 +981,30 @@ class HelmClient:
         args = {"name": name, **kwargs}
         return await self.call_tool("helm_plugin_update", _clean_args(args), timeout=timeout)
 
+    async def plugin_package(
+        self,
+        plugin_path: str,
+        *,
+        timeout: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Package a plugin directory into a signed archive (Helm v4 only)."""
+        _require("plugin_path", plugin_path)
+        args = {"plugin_path": plugin_path, **kwargs}
+        return await self.call_tool("helm_plugin_package", _clean_args(args), timeout=timeout)
+
+    async def plugin_verify(
+        self,
+        plugin_path: str,
+        *,
+        timeout: float | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Verify that a packaged plugin is signed and valid (Helm v4 only)."""
+        _require("plugin_path", plugin_path)
+        args = {"plugin_path": plugin_path, **kwargs}
+        return await self.call_tool("helm_plugin_verify", _clean_args(args), timeout=timeout)
+
     # -----------------------------------------------------------------------
     # Environment tools
     # -----------------------------------------------------------------------
@@ -1281,6 +1305,18 @@ async def helm_plugin_update(name: str, **kwargs: Any) -> Any:
     """Update a Helm plugin."""
     client = await _get_default_client()
     return await client.plugin_update(name, **kwargs)
+
+
+async def helm_plugin_package(plugin_path: str, **kwargs: Any) -> Any:
+    """Package a plugin directory into a signed archive (Helm v4 only)."""
+    client = await _get_default_client()
+    return await client.plugin_package(plugin_path, **kwargs)
+
+
+async def helm_plugin_verify(plugin_path: str, **kwargs: Any) -> Any:
+    """Verify that a packaged plugin is signed and valid (Helm v4 only)."""
+    client = await _get_default_client()
+    return await client.plugin_verify(plugin_path, **kwargs)
 
 
 async def helm_env(**kwargs: Any) -> Any:

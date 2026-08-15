@@ -8,7 +8,11 @@ vendor/
 
 # Coverage reports
 python_coverage*.xml
+python/coverage.xml
 python/.coverage
+
+# SonarQube scanner working directory
+.scannerwork/
 
 # Python
 python/.venv/

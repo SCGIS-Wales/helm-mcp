@@ -11,12 +11,13 @@ import (
 
 type UpdateInput struct {
 	tools.GlobalInput
-	Names []string `json:"names,omitempty" jsonschema_description:"Repository names to update (all if empty)"`
+	Names []string `json:"names,omitempty" jsonschema:"Repository names to update (all if empty)"`
 }
 
 var UpdateTool = &mcp.Tool{
 	Name:        "helm_repo_update",
 	Description: "Update chart repository indexes.",
+	Annotations: tools.Mutating("Update repository indexes", true),
 }
 
 func HandleUpdate(ctx context.Context, _ *mcp.CallToolRequest, input UpdateInput) (*mcp.CallToolResult, any, error) {

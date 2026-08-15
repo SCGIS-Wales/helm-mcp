@@ -11,16 +11,17 @@ import (
 
 type LoginInput struct {
 	tools.GlobalInput
-	Hostname string `json:"hostname" jsonschema:"required" jsonschema_description:"Registry hostname"`
-	Username string `json:"username,omitempty" jsonschema_description:"Username"`
-	Password string `json:"password,omitempty" jsonschema_description:"Password"`
-	Insecure bool   `json:"insecure,omitempty" jsonschema_description:"Allow insecure connections"`
-	CAFile   string `json:"ca_file,omitempty" jsonschema_description:"CA bundle file"`
+	Hostname string `json:"hostname" jsonschema:"Registry hostname"`
+	Username string `json:"username,omitempty" jsonschema:"Username"`
+	Password string `json:"password,omitempty" jsonschema:"Password"`
+	Insecure bool   `json:"insecure,omitempty" jsonschema:"Allow insecure connections"`
+	CAFile   string `json:"ca_file,omitempty" jsonschema:"CA bundle file"`
 }
 
 var LoginTool = &mcp.Tool{
 	Name:        "helm_registry_login",
 	Description: "Login to an OCI registry for chart storage.",
+	Annotations: tools.Mutating("Log in to an OCI registry", true),
 }
 
 func HandleLogin(ctx context.Context, _ *mcp.CallToolRequest, input LoginInput) (*mcp.CallToolResult, any, error) {

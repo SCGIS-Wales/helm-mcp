@@ -26,6 +26,31 @@ const (
 	errFailedAccessRelease = "failed to access release: %w"
 )
 
+// resolveWaitStrategy maps the tool-level wait arguments onto a v4 WaitStrategy.
+//
+// Helm v4 replaced the v3 `Wait bool` with a strategy enum, and the SDK
+// requires one to be set. An explicit wait_strategy always wins; otherwise
+// `wait: true` selects "watcher" (kstatus, what `helm --wait` does in v4) and
+// `wait: false` selects "hookOnly", which is the CLI's default when --wait is
+// omitted.
+func resolveWaitStrategy(strategy string, wait bool) (kube.WaitStrategy, error) {
+	switch strings.ToLower(strings.TrimSpace(strategy)) {
+	case "watcher":
+		return kube.StatusWatcherStrategy, nil
+	case "legacy":
+		return kube.LegacyStrategy, nil
+	case "hookonly":
+		return kube.HookOnlyStrategy, nil
+	case "":
+		if wait {
+			return kube.StatusWatcherStrategy, nil
+		}
+		return kube.HookOnlyStrategy, nil
+	default:
+		return "", fmt.Errorf("invalid wait_strategy value: %s (valid: watcher, legacy, hookOnly)", strategy)
+	}
+}
+
 func releaserToInfo(rel release.Releaser) *helmengine.ReleaseInfo {
 	if rel == nil {
 		return nil
@@ -100,6 +125,9 @@ func (e *V4Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	client.Superseded = opts.Superseded
 	client.SortReverse = opts.SortReverse
 	client.Selector = opts.Selector
+	client.Uninstalling = opts.Uninstalling
+	client.All = opts.All
+	client.TimeFormat = opts.TimeFormat
 
 	switch strings.ToLower(opts.SortBy) {
 	case "date":
@@ -108,7 +136,8 @@ func (e *V4Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 		// default sort by name
 	}
 
-	if !opts.Deployed && !opts.Failed && !opts.Pending && !opts.Uninstalled && !opts.Superseded {
+	if !opts.All && !opts.Deployed && !opts.Failed && !opts.Pending &&
+		!opts.Uninstalled && !opts.Superseded && !opts.Uninstalling {
 		client.Deployed = true
 	}
 
@@ -149,9 +178,20 @@ func (e *V4Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.RollbackOnFailure = opts.RollbackOnFailure
 	client.ForceConflicts = opts.ForceConflicts
 	client.HideSecret = opts.HideSecret
+	client.Devel = opts.Devel
+	client.SubNotes = opts.SubNotes
+	client.HideNotes = opts.HideNotes
+	client.SkipSchemaValidation = opts.SkipSchemaValidation
+	client.DisableOpenAPIValidation = opts.DisableOpenAPIValidation
+	client.EnableDNS = opts.EnableDNS
+	client.OutputDir = opts.OutputDir
+	client.UseReleaseName = opts.UseReleaseName
 
-	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
-	client.WaitStrategy = kube.StatusWatcherStrategy
+	waitStrategy, err := resolveWaitStrategy(opts.WaitStrategy, opts.Wait)
+	if err != nil {
+		return nil, err
+	}
+	client.WaitStrategy = waitStrategy
 	if opts.WaitForJobs {
 		client.WaitForJobs = true
 	}
@@ -226,9 +266,19 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.TakeOwnership = opts.TakeOwnership
 	client.ForceConflicts = opts.ForceConflicts
 	client.HideSecret = opts.HideSecret
+	client.RollbackOnFailure = opts.RollbackOnFailure
+	client.Devel = opts.Devel
+	client.SubNotes = opts.SubNotes
+	client.HideNotes = opts.HideNotes
+	client.SkipSchemaValidation = opts.SkipSchemaValidation
+	client.DisableOpenAPIValidation = opts.DisableOpenAPIValidation
+	client.EnableDNS = opts.EnableDNS
 
-	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
-	client.WaitStrategy = kube.StatusWatcherStrategy
+	waitStrategy, err := resolveWaitStrategy(opts.WaitStrategy, opts.Wait)
+	if err != nil {
+		return nil, err
+	}
+	client.WaitStrategy = waitStrategy
 	if opts.WaitForJobs {
 		client.WaitForJobs = true
 	}
@@ -287,9 +337,14 @@ func (e *V4Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 	client.KeepHistory = opts.KeepHistory
 	client.DryRun = opts.DryRun
 	client.DisableHooks = opts.DisableHooks
+	client.IgnoreNotFound = opts.IgnoreNotFound
+	client.Description = opts.Description
 
-	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
-	client.WaitStrategy = kube.StatusWatcherStrategy
+	waitStrategy, err := resolveWaitStrategy(opts.WaitStrategy, opts.Wait)
+	if err != nil {
+		return nil, err
+	}
+	client.WaitStrategy = waitStrategy
 
 	if opts.Timeout != "" {
 		timeout, err := parseDuration(opts.Timeout)
@@ -341,8 +396,11 @@ func (e *V4Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 		client.DryRunStrategy = action.DryRunClient
 	}
 
-	// Always set a default WaitStrategy — v4 SDK requires it even when Wait is false.
-	client.WaitStrategy = kube.StatusWatcherStrategy
+	waitStrategy, err := resolveWaitStrategy(opts.WaitStrategy, opts.Wait)
+	if err != nil {
+		return err
+	}
+	client.WaitStrategy = waitStrategy
 	if opts.WaitForJobs {
 		client.WaitForJobs = true
 	}

@@ -685,3 +685,64 @@ func TestLint_DefaultPaths(t *testing.T) {
 		t.Fatal("Lint() returned nil result")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// v4-only argument rejection
+// ---------------------------------------------------------------------------
+
+// TestWaitStrategyRejectedOnV3 checks that wait_strategy — which maps onto
+// Helm v4's kube.WaitStrategy enum and has no v3 equivalent — is rejected with
+// a message pointing at `wait`, rather than being silently ignored.
+func TestWaitStrategyRejectedOnV3(t *testing.T) {
+	e := New()
+	ctx := context.Background()
+	cfg := &helmengine.GlobalConfig{Namespace: "default"}
+
+	checks := []struct {
+		name string
+		err  error
+	}{
+		{"Install", func() error {
+			_, err := e.Install(ctx, cfg, &helmengine.InstallOptions{WaitStrategy: "watcher"})
+			return err
+		}()},
+		{"Upgrade", func() error {
+			_, err := e.Upgrade(ctx, cfg, &helmengine.UpgradeOptions{WaitStrategy: "watcher"})
+			return err
+		}()},
+		{"Uninstall", func() error {
+			_, err := e.Uninstall(ctx, cfg, &helmengine.UninstallOptions{WaitStrategy: "watcher"})
+			return err
+		}()},
+		{"Rollback", e.Rollback(ctx, cfg, &helmengine.RollbackOptions{WaitStrategy: "watcher"})},
+	}
+
+	for _, c := range checks {
+		if c.err == nil {
+			t.Errorf("%s: wait_strategy should be rejected on the v3 engine", c.name)
+			continue
+		}
+		if !strings.Contains(c.err.Error(), "wait_strategy is only supported in Helm v4") {
+			t.Errorf("%s: unexpected error: %v", c.name, c.err)
+		}
+	}
+}
+
+// TestRollbackOnFailureAcceptedOnV3 pins down that rollback_on_failure is NOT
+// v4-only: Helm v3 provides the same behaviour under the name Atomic, so the
+// engine must map it rather than reject it.
+func TestRollbackOnFailureAcceptedOnV3(t *testing.T) {
+	e := New()
+	cfg := &helmengine.GlobalConfig{Namespace: "default"}
+
+	_, err := e.Install(context.Background(), cfg, &helmengine.InstallOptions{
+		ReleaseName:       "test",
+		Chart:             "definitely-not-a-real-chart",
+		RollbackOnFailure: true,
+	})
+	// Without a cluster this fails for other reasons; the point is only that
+	// it is not rejected for using rollback_on_failure.
+	if err != nil && strings.Contains(err.Error(), "rollback_on_failure is only supported in Helm v4") {
+		t.Errorf("rollback_on_failure should map to v3's Atomic, got: %v", err)
+	}
+}

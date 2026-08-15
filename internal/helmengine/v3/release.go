@@ -24,6 +24,9 @@ const (
 	errInvalidTimeout        = "invalid timeout: %w"
 	errServerSideApplyV4Only = "server_side_apply is only supported in Helm v4"
 	errForceConflictsV4Only  = "force_conflicts is only supported in Helm v4"
+	// wait_strategy exposes Helm v4's kube.WaitStrategy enum. v3 only has a
+	// boolean Wait, so there is nothing to map it onto.
+	errWaitStrategyV4Only = "wait_strategy is only supported in Helm v4; use wait instead"
 )
 
 func releaseToInfo(rel *release.Release) *helmengine.ReleaseInfo {
@@ -90,6 +93,9 @@ func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	client.Uninstalled = opts.Uninstalled
 	client.Superseded = opts.Superseded
 	client.SortReverse = opts.SortReverse
+	client.Uninstalling = opts.Uninstalling
+	client.All = opts.All
+	client.TimeFormat = opts.TimeFormat
 
 	if opts.Selector != "" {
 		return nil, fmt.Errorf("selector is only supported in Helm v4; set helm_version to v4 or remove this field")
@@ -99,7 +105,8 @@ func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 		client.ByDate = true
 	}
 
-	if !opts.Deployed && !opts.Failed && !opts.Pending && !opts.Uninstalled && !opts.Superseded {
+	if !opts.All && !opts.Deployed && !opts.Failed && !opts.Pending &&
+		!opts.Uninstalled && !opts.Superseded && !opts.Uninstalling {
 		client.Deployed = true
 	}
 
@@ -116,14 +123,14 @@ func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 }
 
 func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.InstallOptions) (*helmengine.ReleaseInfo, error) {
+	if opts.WaitStrategy != "" {
+		return nil, errors.New(errWaitStrategyV4Only)
+	}
 	if opts.ServerSideApply {
 		return nil, errors.New(errServerSideApplyV4Only)
 	}
 	if opts.TakeOwnership {
 		return nil, fmt.Errorf("take_ownership is only supported in Helm v4")
-	}
-	if opts.RollbackOnFailure {
-		return nil, fmt.Errorf("rollback_on_failure is only supported in Helm v4")
 	}
 	if opts.ForceConflicts {
 		return nil, errors.New(errForceConflictsV4Only)
@@ -152,6 +159,16 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.NameTemplate = opts.NameTemplate
 	client.Description = opts.Description
 	client.Labels = opts.Labels
+	// v3 names this Atomic; v4 names it RollbackOnFailure.
+	client.Atomic = opts.RollbackOnFailure
+	client.Devel = opts.Devel
+	client.SubNotes = opts.SubNotes
+	client.HideNotes = opts.HideNotes
+	client.SkipSchemaValidation = opts.SkipSchemaValidation
+	client.DisableOpenAPIValidation = opts.DisableOpenAPIValidation
+	client.EnableDNS = opts.EnableDNS
+	client.OutputDir = opts.OutputDir
+	client.UseReleaseName = opts.UseReleaseName
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
@@ -197,6 +214,9 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 }
 
 func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.UpgradeOptions) (*helmengine.ReleaseInfo, error) {
+	if opts.WaitStrategy != "" {
+		return nil, errors.New(errWaitStrategyV4Only)
+	}
 	if opts.ServerSideApply {
 		return nil, errors.New(errServerSideApplyV4Only)
 	}
@@ -233,6 +253,14 @@ func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.Description = opts.Description
 	client.Labels = opts.Labels
 	client.MaxHistory = opts.MaxHistory
+	// v3 names this Atomic; v4 names it RollbackOnFailure.
+	client.Atomic = opts.RollbackOnFailure
+	client.Devel = opts.Devel
+	client.SubNotes = opts.SubNotes
+	client.HideNotes = opts.HideNotes
+	client.SkipSchemaValidation = opts.SkipSchemaValidation
+	client.DisableOpenAPIValidation = opts.DisableOpenAPIValidation
+	client.EnableDNS = opts.EnableDNS
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
@@ -276,6 +304,9 @@ func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 }
 
 func (e *V3Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.UninstallOptions) (*helmengine.UninstallResult, error) {
+	if opts.WaitStrategy != "" {
+		return nil, errors.New(errWaitStrategyV4Only)
+	}
 	actionConfig, _, err := newActionConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -286,6 +317,8 @@ func (e *V3Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 	client.DryRun = opts.DryRun
 	client.Wait = opts.Wait
 	client.DisableHooks = opts.DisableHooks
+	client.IgnoreNotFound = opts.IgnoreNotFound
+	client.Description = opts.Description
 	if opts.Timeout != "" {
 		t, err := parseDuration(opts.Timeout)
 		if err != nil {
@@ -310,6 +343,9 @@ func (e *V3Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, op
 }
 
 func (e *V3Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.RollbackOptions) error {
+	if opts.WaitStrategy != "" {
+		return errors.New(errWaitStrategyV4Only)
+	}
 	if opts.ServerSideApply {
 		return errors.New(errServerSideApplyV4Only)
 	}

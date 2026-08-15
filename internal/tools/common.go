@@ -32,17 +32,17 @@ var sensitivePrefixes = []string{
 
 // GlobalInput is embedded in every tool input struct to provide shared fields.
 type GlobalInput struct {
-	HelmVersion       string  `json:"helm_version,omitempty" jsonschema_description:"Helm SDK version: v3 or v4 (default: v4)"`
-	Namespace         string  `json:"namespace,omitempty" jsonschema_description:"Kubernetes namespace"`
-	KubeContext       string  `json:"kube_context,omitempty" jsonschema_description:"Kubernetes context name from kubeconfig"`
-	KubeConfig        string  `json:"kubeconfig,omitempty" jsonschema_description:"Path to kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)"`
-	KubeAPIServer     string  `json:"kube_apiserver,omitempty" jsonschema_description:"Kubernetes API server URL (overrides kubeconfig)"`
-	KubeBearerToken   string  `json:"kube_token,omitempty" jsonschema_description:"Bearer token for Kubernetes API authentication"`
-	KubeTLSServerName string  `json:"kube_tls_server_name,omitempty" jsonschema_description:"Server name for TLS certificate validation"`
-	KubeInsecureTLS   bool    `json:"kube_insecure_tls,omitempty" jsonschema_description:"Skip TLS certificate verification (insecure)"`
-	Debug             bool    `json:"debug,omitempty" jsonschema_description:"Enable debug output"`
-	BurstLimit        int     `json:"burst_limit,omitempty" jsonschema_description:"Client-side default throttling limit"`
-	QPS               float32 `json:"qps,omitempty" jsonschema_description:"Client-side QPS rate limit"`
+	HelmVersion       string  `json:"helm_version,omitempty" jsonschema:"Helm SDK version: v3 or v4 (default: v4)"`
+	Namespace         string  `json:"namespace,omitempty" jsonschema:"Kubernetes namespace"`
+	KubeContext       string  `json:"kube_context,omitempty" jsonschema:"Kubernetes context name from kubeconfig"`
+	KubeConfig        string  `json:"kubeconfig,omitempty" jsonschema:"Path to kubeconfig file (defaults to $KUBECONFIG or ~/.kube/config)"`
+	KubeAPIServer     string  `json:"kube_apiserver,omitempty" jsonschema:"Kubernetes API server URL (overrides kubeconfig)"`
+	KubeBearerToken   string  `json:"kube_token,omitempty" jsonschema:"Bearer token for Kubernetes API authentication"`
+	KubeTLSServerName string  `json:"kube_tls_server_name,omitempty" jsonschema:"Server name for TLS certificate validation"`
+	KubeInsecureTLS   bool    `json:"kube_insecure_tls,omitempty" jsonschema:"Skip TLS certificate verification (insecure)"`
+	Debug             bool    `json:"debug,omitempty" jsonschema:"Enable debug output"`
+	BurstLimit        int     `json:"burst_limit,omitempty" jsonschema:"Client-side default throttling limit"`
+	QPS               float32 `json:"qps,omitempty" jsonschema:"Client-side QPS rate limit"`
 }
 
 // ZeroBearerToken zeroes the bearer token field in the input after use.
@@ -137,6 +137,68 @@ func validateNotSensitivePath(path string) error {
 		}
 	}
 	return nil
+}
+
+// Tool annotation helpers.
+//
+// The MCP spec defaults destructiveHint and openWorldHint to true, so both are
+// pointers in the SDK and must be set explicitly to claim otherwise. These
+// constructors make the three meaningful shapes explicit at each call site.
+//
+// Each returns freshly allocated pointers rather than the address of a shared
+// package-level bool, so one tool's annotations can never alias another's.
+//
+// Annotations are hints, not a security boundary — a client may ignore them.
+// They exist so an agent can tell helm_list apart from helm_uninstall.
+
+// boolPtr returns a pointer to a copy of v.
+func boolPtr(v bool) *bool { return &v }
+
+// ReadOnly describes a tool that only reads state and can be repeated safely.
+// openWorld reports whether it reaches beyond the configured cluster and
+// repositories — Artifact Hub search and chart downloads do.
+func ReadOnly(title string, openWorld bool) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		Title:           title,
+		ReadOnlyHint:    true,
+		IdempotentHint:  true,
+		DestructiveHint: boolPtr(false),
+		OpenWorldHint:   boolPtr(openWorld),
+	}
+}
+
+// Mutating describes a tool that changes state additively — creating or
+// updating something without removing or replacing existing resources.
+func Mutating(title string, idempotent bool) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		Title:           title,
+		ReadOnlyHint:    false,
+		IdempotentHint:  idempotent,
+		DestructiveHint: boolPtr(false),
+		OpenWorldHint:   boolPtr(true),
+	}
+}
+
+// Destructive describes a tool that can remove or replace live state and so
+// needs explicit user intent before an agent calls it.
+func Destructive(title string) *mcp.ToolAnnotations {
+	return &mcp.ToolAnnotations{
+		Title:           title,
+		ReadOnlyHint:    false,
+		IdempotentHint:  false,
+		DestructiveHint: boolPtr(true),
+		OpenWorldHint:   boolPtr(true),
+	}
+}
+
+// ValidatePluginPath validates a filesystem path supplied as a tool argument,
+// applying the same traversal and sensitive-location checks that
+// ValidateGlobalInput applies to kubeconfig.
+func ValidatePluginPath(path string) error {
+	if err := security.ValidatePath(path); err != nil {
+		return err
+	}
+	return validateNotSensitivePath(path)
 }
 
 // ValidateReleaseName delegates to security.ValidateReleaseName.

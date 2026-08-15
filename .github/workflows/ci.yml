@@ -17,9 +17,9 @@ jobs:
     name: Go Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -40,9 +40,9 @@ jobs:
       matrix:
         go-version: ['1.26']
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: ${{ matrix.go-version }}
           cache: true
@@ -53,7 +53,7 @@ jobs:
       - name: Upload coverage
         if: matrix.go-version == '1.26'
         # NOTE: keep this guard in sync with the go-version matrix above.
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           files: coverage.out
           flags: go
@@ -70,9 +70,9 @@ jobs:
           - goos: windows
             goarch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -85,7 +85,7 @@ jobs:
           go build -ldflags="-s -w" -o helm-mcp-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.goos == 'windows' && '.exe' || '' }} ./cmd/helm-mcp/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: helm-mcp-${{ matrix.goos }}-${{ matrix.goarch }}
           path: helm-mcp-*
@@ -94,11 +94,11 @@ jobs:
     name: Go Security Scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
-          go-version: '1.26.x'
+          go-version: '1.26.6'
           cache: true
 
       - name: Run govulncheck
@@ -126,9 +126,9 @@ jobs:
       run:
         working-directory: python
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -157,9 +157,9 @@ jobs:
       run:
         working-directory: python
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -176,9 +176,9 @@ jobs:
       run:
         working-directory: python
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -194,18 +194,85 @@ jobs:
           twine check dist/*
 
       - name: Upload Python dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-dist
           path: python/dist/
+
+  docker-build:
+    name: Container Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Build for the runner's own platform only — this job exists to catch
+      # Dockerfile breakage on a PR, not to produce release artifacts. The
+      # multi-arch build stays in publish-container.
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: helm-mcp:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # The helm_plugin_* tools shell out to the helm CLI. The runtime image
+      # did not contain one, so all six failed at runtime in the published
+      # image; this asserts the CLI is present and matches the vendored SDK.
+      - name: Verify the Helm CLI is present and matches the SDK
+        run: |
+          set -eu
+          docker run --rm --entrypoint helm helm-mcp:ci version
+          IMAGE_HELM=$(docker run --rm --entrypoint helm helm-mcp:ci version --template '{{.Version}}')
+          SDK_HELM=$(awk '/^\thelm.sh\/helm\/v4 /{print $2}' go.mod)
+          echo "image=${IMAGE_HELM} go.mod=${SDK_HELM}"
+          if [ "$IMAGE_HELM" != "$SDK_HELM" ]; then
+            echo "::error::Dockerfile HELM_VERSION is out of sync with helm.sh/helm/v4 in go.mod"
+            exit 1
+          fi
+
+      - name: Verify the server starts and lists all tools
+        run: |
+          set -eux
+          docker run --rm --entrypoint helm-mcp helm-mcp:ci --version
+
+  server-json:
+    name: Validate server.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Validate against the official MCP registry schema
+        run: |
+          pip install jsonschema requests
+          python3 - <<'PY'
+          import json, urllib.request
+          import jsonschema
+
+          with open("server.json") as fh:
+              doc = json.load(fh)
+          with urllib.request.urlopen(doc["$schema"]) as response:
+              schema = json.load(response)
+          jsonschema.validate(doc, schema)
+          print(f"server.json is valid: {doc['name']} {doc['version']}")
+          PY
 
   changelog-script-test:
     name: Changelog Script Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -219,9 +286,9 @@ jobs:
     name: Wheel Builder Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -238,9 +305,9 @@ jobs:
     name: Wheel Install Test (Ubuntu 22.04)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -256,14 +323,14 @@ jobs:
     name: Integration Tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.12'
 
@@ -314,13 +381,18 @@ jobs:
       created: ${{ steps.create_tag.outputs.created }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           token: ${{ secrets.TAP_GITHUB_TOKEN }}
 
       - name: Determine next version
         id: version
+        # Conventional-commit aware. A breaking change ("feat!:", "fix!:", or a
+        # "BREAKING CHANGE:" trailer) bumps the minor while the project is on
+        # 0.x; anything else bumps the patch. Without this the pipeline could
+        # only ever produce patch releases, so a release that removed a
+        # transport would still have shipped as 0.1.x.
         run: |
           LATEST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
           if [ -z "$LATEST_TAG" ]; then
@@ -330,7 +402,33 @@ jobs:
             MAJOR=$(echo "$CURRENT" | cut -d. -f1)
             MINOR=$(echo "$CURRENT" | cut -d. -f2)
             PATCH=$(echo "$CURRENT" | cut -d. -f3 | cut -d- -f1)
-            NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+            RANGE="${LATEST_TAG}..HEAD"
+            if ! git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
+              RANGE="HEAD"
+            fi
+            COMMITS=$(git log --format='%B' "$RANGE")
+
+            # The leading "[-*] ?" tolerates GitHub's squash-merge body, which
+            # prefixes each original commit message with "* ". Without it a
+            # breaking change would be invisible once the PR is squashed.
+            if echo "$COMMITS" | grep -qE '^[[:space:]]*([-*][[:space:]]+)?BREAKING[ -]CHANGE:' \
+               || echo "$COMMITS" | grep -qE '^[[:space:]]*([-*][[:space:]]+)?[a-z]+(\([^)]*\))?!:'; then
+              BUMP="minor"
+            else
+              BUMP="patch"
+            fi
+
+            if [ "$BUMP" = "minor" ] && [ "$MAJOR" = "0" ]; then
+              # 0.x: a breaking change moves the minor, which is the strongest
+              # signal semver gives before 1.0.
+              NEXT="${MAJOR}.$((MINOR + 1)).0"
+            elif [ "$BUMP" = "minor" ]; then
+              NEXT="${MAJOR}.$((MINOR + 1)).0"
+            else
+              NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            fi
+            echo "Bump type: ${BUMP} (from ${LATEST_TAG})"
           fi
           echo "version=${NEXT}" >> "$GITHUB_OUTPUT"
           echo "tag=v${NEXT}" >> "$GITHUB_OUTPUT"
@@ -393,9 +491,9 @@ jobs:
           - goos: windows
             goarch: arm64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
           cache: true
@@ -413,7 +511,7 @@ jobs:
             -o "${BINARY_NAME}" ./cmd/helm-mcp/
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: release-${{ matrix.goos }}-${{ matrix.goarch }}
           path: helm-mcp-*
@@ -429,16 +527,16 @@ jobs:
       contents: read
     steps:
       - name: Checkout (version-bumped commit)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.auto-tag.outputs.tag }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
       - name: Download release binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
@@ -488,7 +586,7 @@ jobs:
         run: ls -la dist/
 
       - name: Upload all wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: python-wheels
           path: dist/*.whl
@@ -503,10 +601,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Download all release binaries
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: release-*
           merge-multiple: true
@@ -558,11 +656,11 @@ jobs:
       id-token: write
     steps:
       - name: Checkout source (for sdist build)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.auto-tag.outputs.tag }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -576,7 +674,7 @@ jobs:
         run: mkdir -p dist/
 
       - name: Download pre-built wheels
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: python-wheels
           path: dist/
@@ -597,6 +695,54 @@ jobs:
         with:
           packages-dir: dist/
 
+  # ---------- Publish to the official MCP Registry ----------
+  #
+  # Authenticates with GitHub OIDC, so no secret is stored. The
+  # io.github.scgis-wales namespace is proved by the workflow's own identity.
+
+  publish-mcp-registry:
+    name: Publish to MCP Registry
+    if: needs.auto-tag.outputs.created == 'true'
+    needs: [auto-tag, publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.auto-tag.outputs.tag }}
+
+      - name: Sync server.json to the release version
+        env:
+          VERSION: ${{ needs.auto-tag.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          version = os.environ["VERSION"]
+          with open("server.json") as fh:
+              doc = json.load(fh)
+          doc["version"] = version
+          for package in doc.get("packages", []):
+              package["version"] = version
+          with open("server.json", "w") as fh:
+              json.dump(doc, fh, indent=2)
+              fh.write("\n")
+          print(f"server.json set to {version}")
+          PY
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar -xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Publish
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
+
   # ---------- Update CHANGELOG.md with PR description ----------
 
   update-changelog:
@@ -608,13 +754,13 @@ jobs:
       contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
           ref: main
           token: ${{ secrets.TAP_GITHUB_TOKEN }}
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.14'
 
@@ -653,15 +799,15 @@ jobs:
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.auto-tag.outputs.tag }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -669,7 +815,7 @@ jobs:
 
       - name: Extract metadata for Docker
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
@@ -678,7 +824,7 @@ jobs:
             type=raw,value=latest
 
       - name: Build and push container image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: .
           push: true
