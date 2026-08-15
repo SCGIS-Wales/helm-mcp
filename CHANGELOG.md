@@ -7,6 +7,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-08-15
+
+### Breaking Changes
+- Removed the `--mode sse` transport. HTTP+SSE has been deprecated by the MCP specification since protocol version `2025-03-26` and is formally Deprecated under the `2026-07-28` feature lifecycle policy. Use `--mode http`, which serves Streamable HTTP on the same address; passing `--mode sse` now exits with a migration message
+- Removed `--transport sse` from the `helm-mcp-python` CLI, matching the Go server
+- `--mode http` is now **stateless by default**, following the `2026-07-28` protocol: no `initialize` handshake and no `Mcp-Session-Id` header. Pass `--stateless=false` for the previous behaviour. Clients on older protocol revisions are unaffected — the SDK negotiates down
+- `wait: false` now genuinely does not wait on the Helm v4 engine. It was previously ignored (see Fixed), so callers relying on the old behaviour should set `wait: true` or `wait_strategy: "watcher"` explicitly
+
+### Fixed
+- **Tool argument descriptions were being silently dropped from every published schema.** The input structs used `invopop/jsonschema` tag conventions, but the go-sdk infers schemas with `google/jsonschema-go`, which reads the `jsonschema` tag as the description verbatim and never reads `jsonschema_description`. The effect was that all 44 tools published schemas in which 162 arguments had no description at all and 38 required arguments had the literal description `"required"`. All 200 tags were corrected; the server now publishes 751 real argument descriptions. A regression test lists the tools over an in-memory client and asserts on the wire format
+- **`wait: false` was ignored on the Helm v4 engine.** `Install`, `Upgrade`, `Uninstall` and `Rollback` all hardcoded `WaitStrategy = StatusWatcherStrategy`, so every v4 operation waited regardless of the argument. Helm v4 replaced v3's `Wait bool` with a strategy enum whose CLI default is `hookOnly`; the arguments are now mapped onto it properly
+- **`rollback_on_failure` was rejected as v4-only**, but Helm v3 provides exactly this behaviour as `Atomic`. It is now supported on both engines, and exposed on `helm_upgrade` as well as `helm_install`
+- **The published container image could not run any `helm_plugin_*` tool.** Those tools shell out to the `helm` CLI, which was never installed in the runtime stage. The image now includes a checksum-verified Helm CLI pinned to the same version as the vendored SDK
+- **`make build` always produced version `dev`.** The Makefile's `-ldflags -X` targeted `internal/server.ServerVersion`, which is the fallback rather than the reported symbol, and was a `const` — and `-X` only patches string variables. It now targets `main.version`, matching the Dockerfile and CI
+- **The release pipeline could only cut patch versions.** `auto-tag` computed `${MAJOR}.${MINOR}.$((PATCH + 1))` unconditionally, so this release would have shipped as `0.1.39`. It now reads the commits since the last tag and bumps the minor for a `feat!:` marker or a `BREAKING CHANGE:` trailer
+- The `helm-mcp` command ignored `HELM_MCP_BINARY`. `cli.py` and `server.py` carried separate, drifted copies of the binary-discovery logic; both now delegate to a shared `helm_mcp.discovery` module
+- Corrected an install hint pointing at a `helm-mcp[binary]` extra that has never existed, and the binary-discovery order documented in `python/README.md`, which contradicted the code
+- `sonar-project.properties` declared `sonar.python.version=3.10` while the package requires 3.12+
+
+### Added
+- **MCP `2026-07-28` protocol support** via go-sdk v1.7.0, including `server/discover`, stateless Streamable HTTP, cacheable list results and deterministic `tools/list` ordering. Older protocol revisions down to `2024-11-05` continue to work through negotiation
+- **Server instructions**, explaining `helm_version` selection, cluster targeting and destructive-tool safety to connected clients. `mcp.NewServer` was previously constructed with no options at all
+- **Tool annotations on all 46 tools** — `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint` and `openWorldHint`. Previously a client had no way to distinguish `helm_uninstall` from `helm_list`
+- **Structured output on 11 tools** — `helm_list`, `helm_status`, `helm_history`, `helm_get_metadata`, `helm_get_values`, `helm_repo_list`, `helm_search_repo`, `helm_search_hub`, `helm_plugin_list`, `helm_env` and `helm_version` now publish an `outputSchema` and return `structuredContent`. The existing text content is unchanged
+- **Two new tools**, both Helm v4 only: `helm_plugin_package` and `helm_plugin_verify`, covering Helm v4's signed plugin distribution. Tool count 44 → 46
+- **New arguments** across the release tools, diffed against the Helm action structs: `devel`, `sub_notes`, `hide_notes`, `skip_schema_validation`, `disable_openapi_validation`, `enable_dns`, `output_dir` and `use_release_name` on `helm_install`; the same set plus `rollback_on_failure` on `helm_upgrade`; `ignore_not_found` and `description` on `helm_uninstall`; `all`, `uninstalling` and `time_format` on `helm_list`; and `wait_strategy` on install, upgrade, rollback and uninstall
+- `--stateless` and `--max-request-bytes` flags on the HTTP transport
+- A shared JSON schema cache across server instances. The HTTP transports build a fresh server per request, so every request previously re-derived all 46 tool schemas by reflection
+- `server.json` and a `mcp-publisher` release job, publishing to the official MCP Registry under `io.github.scgis-wales` via GitHub OIDC — no stored secret. A CI job validates `server.json` against the official schema on every push
+- A `windows/amd64` cross-compile target in the Makefile, matching the CI build matrix
+
+### Changed
+- Dependencies patched to current: go-sdk v1.6.1 → v1.7.0, `helm.sh/helm/v4` v4.2.2 → v4.2.4, `helm.sh/helm/v3` v3.21.2 → v3.21.4, and the full indirect tree including `k8s.io/*` v0.36.2 → v0.36.3. `govulncheck` reports only standard-library advisories, all fixed in the Go 1.26.6 now pinned in CI
+- Python dependencies patched: `fastmcp` >=3.4.7 (with a new `<4` upper bound — FastMCP 4 drops the 3.x compatibility shims and is still a beta), `circuitbreaker` >=2.1.3, `tenacity` >=9.1.4, and dev tooling to `pytest` >=9.1, `pytest-asyncio` >=1.4, `ruff` >=0.16.3 and `mypy` >=2.3
+- GitHub Actions updated across the board: `checkout` v4→v7, `setup-go` v5→v7, `setup-python` v5→v7, `upload-artifact` v4→v7, `download-artifact` v4→v8, `codecov-action` v4→v7 and the `docker/*` actions
+- Container base images pinned: `golang:1-alpine` → `golang:1.26.6-alpine`, `alpine:latest` → `alpine:3.24`
+- The server no longer advertises the MCP logging capability, which is deprecated as of `2026-07-28` (SEP-2577)
+
+
 
 
 
@@ -335,7 +374,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.38...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.38...v0.2.0
 [0.1.38]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.37...v0.1.38
 [0.1.37]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.36...v0.1.37
 [0.1.36]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.35...v0.1.36
