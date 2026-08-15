@@ -26,7 +26,7 @@ Usage with custom resilience config:
     server = create_server(resilience=config)
 """
 
-__version__ = "0.1.38"
+__version__ = "0.2.0"
 
 from helm_mcp.client import create_client
 from helm_mcp.resilience import (
