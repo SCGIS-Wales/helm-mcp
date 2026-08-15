@@ -667,11 +667,8 @@ func TestPluginArgsSeparatePath(t *testing.T) {
 	}
 }
 
-// TestV4EngineImplementsPluginPackaging is a compile-time check that both
-// v4-only methods satisfy the Engine interface.
-func TestV4EngineImplementsPluginPackaging(t *testing.T) {
-	var e helmengine.Engine = New()
-	if e == nil {
-		t.Fatal("New() returned nil")
-	}
-}
+// Compile-time assertion that V4Engine satisfies the full Engine interface,
+// including the v4-only PluginPackage and PluginVerify methods. A runtime
+// test would add nothing: New() returns a concrete type, so the check either
+// holds at compile time or the package does not build.
+var _ helmengine.Engine = New()
