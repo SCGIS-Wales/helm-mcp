@@ -46,13 +46,13 @@ def test_all_exports():
     assert "HelmTimeoutError" in all_exports
     assert "HelmConnectionError" in all_exports
     assert "HelmToolError" in all_exports
-    # Sample of tool wrappers (all 44)
+    # Sample of tool wrappers (all 46)
     assert "helm_list" in all_exports
     assert "helm_install" in all_exports
     assert "helm_status" in all_exports
     assert "helm_version" in all_exports
-    # Total: 3 core + 6 client/exceptions + 44 tools = 53
-    assert len(all_exports) == 64
+    # Total: 3 core + 6 client/exceptions + 46 tools = 55
+    assert len(all_exports) == 66
 
 
 def test_py_typed_marker():
@@ -959,3 +959,54 @@ class TestCLIResilienceFlags:
         call_kwargs = mock_create.call_args[1]
         config = call_kwargs["resilience"]
         assert config.otel.enabled is True
+
+
+# ---------------------------------------------------------------------------
+# Shared binary discovery (helm_mcp.discovery)
+# ---------------------------------------------------------------------------
+
+
+def test_cli_and_server_share_binary_discovery():
+    """Both entry points must resolve the binary the same way.
+
+    They used to carry separate copies of this logic that had drifted: only
+    the server honoured HELM_MCP_BINARY, so `helm-mcp` silently ignored it.
+    """
+    from helm_mcp import cli, discovery, server
+
+    assert server._find_binary is discovery.find_binary
+    assert cli._find_binary is discovery.find_binary
+    assert server._is_python_script is discovery.is_python_script
+    assert cli._is_python_script is discovery.is_python_script
+
+
+def test_cli_honours_helm_mcp_binary(tmp_path, monkeypatch):
+    """The `helm-mcp` entry point now respects HELM_MCP_BINARY."""
+    from helm_mcp.cli import _find_binary
+
+    binary = tmp_path / "helm-mcp"
+    binary.write_bytes(b"\x7fELF")
+    binary.chmod(0o755)
+
+    monkeypatch.setenv("HELM_MCP_BINARY", str(binary))
+    assert _find_binary("helm-mcp") == str(binary)
+
+
+def test_cli_rejects_bad_helm_mcp_binary(tmp_path, monkeypatch):
+    """A HELM_MCP_BINARY pointing nowhere is an error, not a silent fallback."""
+    from helm_mcp.cli import _find_binary
+
+    monkeypatch.setenv("HELM_MCP_BINARY", str(tmp_path / "missing"))
+    with pytest.raises(FileNotFoundError, match="HELM_MCP_BINARY"):
+        _find_binary("helm-mcp")
+
+
+def test_platform_binary_name_matches_wheel_layout():
+    """The bundled name must match what scripts/build_wheels.py writes."""
+    from helm_mcp.discovery import platform_binary_name
+
+    name = platform_binary_name()
+    assert name.startswith("helm-mcp-")
+    system, arch = name.removeprefix("helm-mcp-").removesuffix(".exe").split("-", 1)
+    assert system in {"linux", "darwin", "windows"}
+    assert arch in {"amd64", "arm64"} or arch

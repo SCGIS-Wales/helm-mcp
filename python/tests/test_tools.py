@@ -511,12 +511,12 @@ class TestInputValidation:
 
 
 # ---------------------------------------------------------------------------
-# All 44 tool methods exist
+# All 46 tool methods exist
 # ---------------------------------------------------------------------------
 
 
 class TestAllToolsExist:
-    """Verify all 44 tool methods are defined on HelmClient."""
+    """Verify all 46 tool methods are defined on HelmClient."""
 
     EXPECTED_METHODS = [
         # Release management (14)
@@ -562,11 +562,13 @@ class TestAllToolsExist:
         # Search (2)
         "search_hub",
         "search_repo",
-        # Plugin (4)
+        # Plugin (6)
         "plugin_install",
         "plugin_list",
         "plugin_uninstall",
         "plugin_update",
+        "plugin_package",
+        "plugin_verify",
         # Environment (2)
         "env",
         "version",
@@ -580,7 +582,7 @@ class TestAllToolsExist:
             )
 
     def test_method_count(self):
-        assert len(self.EXPECTED_METHODS) == 44
+        assert len(self.EXPECTED_METHODS) == 46
 
 
 # ---------------------------------------------------------------------------
@@ -1028,3 +1030,50 @@ class TestHelmClientResilienceConfig:
         assert client._breaker is None
         assert client._semaphore is None
         assert client._config.tenacity.enabled is False
+
+
+# ---------------------------------------------------------------------------
+# Helm v4 plugin tools
+# ---------------------------------------------------------------------------
+
+
+class TestPluginPackageVerify:
+    """The two tools added for Helm v4's signed plugin distribution."""
+
+    @staticmethod
+    def _client(text):
+        mock_client = AsyncMock()
+        mock_client.call_tool = AsyncMock(return_value=[MagicMock(text=text, isError=False)])
+        helm = HelmClient()
+        helm._client = mock_client
+        helm._connected = True
+        return helm, mock_client
+
+    @pytest.mark.asyncio
+    async def test_plugin_package_forwards_arguments(self):
+        helm, mock_client = self._client("packaged")
+
+        await helm.plugin_package("./example-plugin", destination="/tmp/out", no_sign=True)
+
+        mock_client.call_tool.assert_called_once_with(
+            "helm_plugin_package",
+            {"plugin_path": "./example-plugin", "destination": "/tmp/out", "no_sign": True},
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugin_verify_forwards_arguments(self):
+        helm, mock_client = self._client("Signed by: someone")
+
+        await helm.plugin_verify("./example-plugin-0.1.0.tgz")
+
+        mock_client.call_tool.assert_called_once_with(
+            "helm_plugin_verify",
+            {"plugin_path": "./example-plugin-0.1.0.tgz"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_plugin_path_is_required(self):
+        helm, _ = self._client("unused")
+        for call in (helm.plugin_package, helm.plugin_verify):
+            with pytest.raises(ValueError, match="plugin_path"):
+                await call("")

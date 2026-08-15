@@ -10,85 +10,16 @@ from __future__ import annotations
 import argparse
 import logging
 import os
-import shutil
-import stat
 import sys
-from pathlib import Path
 
+from helm_mcp.discovery import find_binary, find_bundled_binary, is_python_script
 
-def _find_bundled_binary(name: str) -> str | None:
-    """Locate a binary bundled inside the package ``bin/`` directory.
-
-    If the binary exists but is not executable, it is chmod'd on first use.
-
-    Returns:
-        Absolute path to the binary, or ``None`` if not found.
-    """
-    pkg_dir = Path(__file__).parent
-    bundled = pkg_dir / "bin" / name
-    if not bundled.is_file():
-        return None
-    # Ensure the binary is executable — pip may not preserve permissions
-    # for package-data files extracted from wheels.
-    if not os.access(str(bundled), os.X_OK):
-        try:
-            bundled.chmod(bundled.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
-        except OSError:
-            return None
-    return str(bundled)
-
-
-def _is_python_script(path: str) -> bool:
-    """Check if *path* is a Python script (e.g. a pip console_script wrapper).
-
-    This prevents ``shutil.which("helm-mcp")`` from returning the
-    Python wrapper installed by pip, which would cause an infinite
-    ``exec`` loop when ``helm_mcp_main`` tries to replace itself with
-    the "real" binary.
-    """
-    try:
-        with Path(path).open("rb") as fh:
-            head = fh.read(128)
-        first_line = head.split(b"\n", 1)[0].lower()
-        return head[:2] == b"#!" and b"python" in first_line
-    except OSError:
-        return False
-
-
-def _find_binary(name: str) -> str:
-    """Find the Go binary by name: bundled → PATH → auto-download.
-
-    Raises:
-        FileNotFoundError: If the binary cannot be located.
-    """
-    # 1. Bundled binary inside the Python package
-    bundled = _find_bundled_binary(name)
-    if bundled:
-        return bundled
-
-    # 2. Binary on PATH (e.g. installed via go install or Homebrew).
-    #    Skip Python console_script wrappers to avoid an infinite exec loop.
-    found = shutil.which(name)
-    if found and not _is_python_script(found):
-        return found
-
-    # 3. Auto-download from GitHub Releases (fallback for universal wheel)
-    try:
-        from helm_mcp import __version__
-        from helm_mcp.download import ensure_binary
-
-        downloaded = ensure_binary(__version__)
-        if downloaded:
-            return downloaded
-    except Exception:
-        pass
-
-    raise FileNotFoundError(
-        f"{name} binary not found. Install helm-mcp via:\n"
-        "  pip install helm-mcp  (platform wheel bundles the binary)\n"
-        "  or: go install github.com/SCGIS-Wales/helm-mcp/cmd/helm-mcp@latest\n"
-        "  or: set HELM_MCP_BINARY=/path/to/helm-mcp"
-    )
+# Binary discovery lives in helm_mcp.discovery so both entry points share it.
+# Going through it is what gives the `helm-mcp` command HELM_MCP_BINARY
+# support, which its own copy of this logic never had.
+_is_python_script = is_python_script
+_find_bundled_binary = find_bundled_binary
+_find_binary = find_binary
 
 
 def helm_mcp_main() -> None:
@@ -112,20 +43,22 @@ def main() -> None:
     )
     parser.add_argument(
         "--transport",
-        choices=["stdio", "http", "sse"],
+        # sse was dropped in 0.2.0: the MCP specification deprecates the
+        # HTTP+SSE transport, and the Go server no longer serves it.
+        choices=["stdio", "http"],
         default="stdio",
         help="Transport mode (default: stdio)",
     )
     parser.add_argument(
         "--host",
         default="0.0.0.0",
-        help="Host for HTTP/SSE mode (default: 0.0.0.0)",
+        help="Host for HTTP mode (default: 0.0.0.0)",
     )
     parser.add_argument(
         "--port",
         type=int,
         default=8080,
-        help="Port for HTTP/SSE mode (default: 8080)",
+        help="Port for HTTP mode (default: 8080)",
     )
     parser.add_argument(
         "--binary",

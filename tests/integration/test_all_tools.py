@@ -1,4 +1,4 @@
-"""Integration tests for all 44 helm-mcp MCP tools.
+"""Integration tests for all 46 helm-mcp MCP tools.
 
 Tests run against a real Kubernetes cluster (k3d/kind/minikube) and
 exercise each MCP tool via the FastMCP Python client over stdio.
@@ -925,7 +925,7 @@ class TestChartVerifyAndPush:
 
 
 class TestToolsDiscovery:
-    """Verify all 44 tools are registered and well-formed."""
+    """Verify all 46 tools are registered and well-formed."""
 
     EXPECTED_TOOLS = {
         "helm_env",
@@ -970,17 +970,80 @@ class TestToolsDiscovery:
         "helm_plugin_list",
         "helm_plugin_uninstall",
         "helm_plugin_update",
+        "helm_plugin_package",
+        "helm_plugin_verify",
         "helm_registry_login",
         "helm_registry_logout",
     }
 
-    async def test_all_44_tools_registered(self, mcp_client):
-        """Verify all 44 tools are available via MCP tools/list."""
+    async def test_all_46_tools_registered(self, mcp_client):
+        """Verify all 46 tools are available via MCP tools/list."""
         tools = await mcp_client.list_tools()
         tool_names = {t.name for t in tools}
-        assert len(tools) == 44, f"Expected 44 tools, got {len(tools)}: {tool_names}"
+        assert len(tools) == 46, f"Expected 46 tools, got {len(tools)}: {tool_names}"
         missing = self.EXPECTED_TOOLS - tool_names
         assert not missing, f"Missing tools: {missing}"
+
+    async def test_tool_arguments_are_documented(self, mcp_client):
+        """Every tool argument carries a real description.
+
+        The input structs are inferred by google/jsonschema-go, which reads the
+        ``jsonschema`` struct tag as the description verbatim. Using the wrong
+        tag drops descriptions silently, and a literal ``jsonschema:"required"``
+        publishes the description "required".
+        """
+        tools = await mcp_client.list_tools()
+        for tool in tools:
+            properties = (tool.inputSchema or {}).get("properties", {})
+            assert properties, f"{tool.name} has no arguments at all"
+            for arg, schema in properties.items():
+                description = schema.get("description", "")
+                assert description, f"{tool.name}.{arg} has no description"
+                assert description != "required", (
+                    f"{tool.name}.{arg} description is the literal 'required'"
+                )
+
+    async def test_tools_have_annotations(self, mcp_client):
+        """Destructive tools are marked as such, read-only tools as read-only."""
+        destructive = {
+            "helm_uninstall",
+            "helm_rollback",
+            "helm_upgrade",
+            "helm_repo_remove",
+            "helm_plugin_uninstall",
+        }
+        read_only = {"helm_list", "helm_status", "helm_history", "helm_env", "helm_version"}
+
+        tools = await mcp_client.list_tools()
+        for tool in tools:
+            annotations = tool.annotations
+            assert annotations is not None, f"{tool.name} has no annotations"
+            assert annotations.title, f"{tool.name} has no annotation title"
+            if tool.name in destructive:
+                assert annotations.destructiveHint, f"{tool.name} should be destructive"
+            else:
+                assert not annotations.destructiveHint, f"{tool.name} should not be destructive"
+            if tool.name in read_only:
+                assert annotations.readOnlyHint, f"{tool.name} should be read-only"
+
+    async def test_structured_tools_have_output_schemas(self, mcp_client):
+        """The tools with stable typed results publish an outputSchema."""
+        expected = {
+            "helm_list",
+            "helm_status",
+            "helm_history",
+            "helm_get_metadata",
+            "helm_get_values",
+            "helm_repo_list",
+            "helm_search_repo",
+            "helm_search_hub",
+            "helm_plugin_list",
+            "helm_env",
+            "helm_version",
+        }
+        tools = {t.name: t for t in await mcp_client.list_tools()}
+        for name in expected:
+            assert tools[name].outputSchema, f"{name} has no outputSchema"
 
     async def test_tools_have_descriptions(self, mcp_client):
         """All tools have non-empty descriptions."""
