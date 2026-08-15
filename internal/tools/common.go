@@ -145,27 +145,25 @@ func validateNotSensitivePath(path string) error {
 // pointers in the SDK and must be set explicitly to claim otherwise. These
 // constructors make the three meaningful shapes explicit at each call site.
 //
+// Each returns freshly allocated pointers rather than the address of a shared
+// package-level bool, so one tool's annotations can never alias another's.
+//
 // Annotations are hints, not a security boundary — a client may ignore them.
 // They exist so an agent can tell helm_list apart from helm_uninstall.
-var (
-	boolTrue  = true
-	boolFalse = false
-)
+
+// boolPtr returns a pointer to a copy of v.
+func boolPtr(v bool) *bool { return &v }
 
 // ReadOnly describes a tool that only reads state and can be repeated safely.
 // openWorld reports whether it reaches beyond the configured cluster and
 // repositories — Artifact Hub search and chart downloads do.
 func ReadOnly(title string, openWorld bool) *mcp.ToolAnnotations {
-	ow := boolFalse
-	if openWorld {
-		ow = boolTrue
-	}
 	return &mcp.ToolAnnotations{
 		Title:           title,
 		ReadOnlyHint:    true,
 		IdempotentHint:  true,
-		DestructiveHint: &boolFalse,
-		OpenWorldHint:   &ow,
+		DestructiveHint: boolPtr(false),
+		OpenWorldHint:   boolPtr(openWorld),
 	}
 }
 
@@ -176,8 +174,8 @@ func Mutating(title string, idempotent bool) *mcp.ToolAnnotations {
 		Title:           title,
 		ReadOnlyHint:    false,
 		IdempotentHint:  idempotent,
-		DestructiveHint: &boolFalse,
-		OpenWorldHint:   &boolTrue,
+		DestructiveHint: boolPtr(false),
+		OpenWorldHint:   boolPtr(true),
 	}
 }
 
@@ -188,8 +186,8 @@ func Destructive(title string) *mcp.ToolAnnotations {
 		Title:           title,
 		ReadOnlyHint:    false,
 		IdempotentHint:  false,
-		DestructiveHint: &boolTrue,
-		OpenWorldHint:   &boolTrue,
+		DestructiveHint: boolPtr(true),
+		OpenWorldHint:   boolPtr(true),
 	}
 }
 
