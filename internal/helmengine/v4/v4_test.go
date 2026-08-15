@@ -3,6 +3,7 @@ package v4
 import (
 	"context"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -583,16 +584,94 @@ func TestResolveWaitStrategy(t *testing.T) {
 	}
 }
 
-// TestPluginPackageVerifyRequireV4 documents that the v4 engine implements the
-// two plugin commands that only exist in Helm v4.
-func TestPluginPackageVerifyExist(t *testing.T) {
-	var e helmengine.Engine = New()
-	if _, err := e.PluginPackage(context.Background(), &helmengine.PluginPackageOptions{}); err == nil {
-		// A missing plugin path (or missing helm CLI) must surface as an error,
-		// not a silent success.
-		t.Error("PluginPackage with empty options should fail")
+// TestPluginArgs pins the flag mapping for the two v4-only plugin commands.
+//
+// These shell out to the helm CLI, so the argument list is the whole of the
+// logic worth testing. An earlier version of this test called the methods for
+// real and asserted that empty options produced an error — which made the
+// result depend on whichever helm binary happened to be on PATH, and passed
+// locally while failing in CI.
+func TestPluginPackageArgs(t *testing.T) {
+	tests := []struct {
+		name string
+		opts *helmengine.PluginPackageOptions
+		want []string
+	}{
+		{
+			// Signing is the CLI default, so nothing is passed for it.
+			name: "signing left to the CLI default",
+			opts: &helmengine.PluginPackageOptions{PluginPath: "./p", Sign: true},
+			want: []string{"plugin", "package", "--", "./p"},
+		},
+		{
+			// no_sign on the tool inverts to Sign=false here.
+			name: "explicit opt out of signing",
+			opts: &helmengine.PluginPackageOptions{PluginPath: "./p"},
+			want: []string{"plugin", "package", "--sign=false", "--", "./p"},
+		},
+		{
+			name: "all options",
+			opts: &helmengine.PluginPackageOptions{
+				PluginPath:     "./p",
+				Sign:           true,
+				Key:            "k",
+				Keyring:        "/keys",
+				PassphraseFile: "/pass",
+				Destination:    "/out",
+			},
+			want: []string{
+				"plugin", "package",
+				"--key", "k",
+				"--keyring", "/keys",
+				"--passphrase-file", "/pass",
+				"--destination", "/out",
+				"--", "./p",
+			},
+		},
 	}
-	if _, err := e.PluginVerify(context.Background(), &helmengine.PluginVerifyOptions{}); err == nil {
-		t.Error("PluginVerify with empty options should fail")
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := pluginPackageArgs(tt.opts)
+			if !slices.Equal(got, tt.want) {
+				t.Errorf("pluginPackageArgs() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPluginVerifyArgs(t *testing.T) {
+	got := pluginVerifyArgs(&helmengine.PluginVerifyOptions{PluginPath: "./p.tgz"})
+	want := []string{"plugin", "verify", "--", "./p.tgz"}
+	if !slices.Equal(got, want) {
+		t.Errorf("pluginVerifyArgs() = %q, want %q", got, want)
+	}
+
+	got = pluginVerifyArgs(&helmengine.PluginVerifyOptions{PluginPath: "./p.tgz", Keyring: "/keys"})
+	want = []string{"plugin", "verify", "--keyring", "/keys", "--", "./p.tgz"}
+	if !slices.Equal(got, want) {
+		t.Errorf("pluginVerifyArgs() with keyring = %q, want %q", got, want)
+	}
+}
+
+// TestPluginArgsSeparatePath guards the "--" separator: without it a plugin
+// path beginning with a dash would be parsed as a flag.
+func TestPluginArgsSeparatePath(t *testing.T) {
+	for _, args := range [][]string{
+		pluginPackageArgs(&helmengine.PluginPackageOptions{PluginPath: "-weird", Sign: true}),
+		pluginVerifyArgs(&helmengine.PluginVerifyOptions{PluginPath: "-weird"}),
+	} {
+		if len(args) < 2 || args[len(args)-2] != "--" {
+			t.Errorf("path is not preceded by \"--\": %q", args)
+		}
+	}
+}
+
+// TestV4EngineImplementsPluginPackaging is a compile-time check that both
+// v4-only methods satisfy the Engine interface.
+func TestV4EngineImplementsPluginPackaging(t *testing.T) {
+	var e helmengine.Engine = New()
+	if e == nil {
+		t.Fatal("New() returned nil")
 	}
 }
