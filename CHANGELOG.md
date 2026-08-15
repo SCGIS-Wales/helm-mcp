@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+
+## [0.2.1] - 2026-08-15
+
+### Fixed
+- Follow-up to #48. v0.2.0 published successfully to PyPI, GHCR and GitHub Releases, but the new MCP Registry step failed: ([#49](https://github.com/SCGIS-Wales/helm-mcp/pull/49))
+- I lowercased the namespace assuming reverse-DNS names are case-insensitive. The registry authorises via GitHub OIDC and matches the owner segment **case-sensitively**, so it must carry the org's real casing. The GHCR identifier is unchanged — that registry does require lowercase. ([#49](https://github.com/SCGIS-Wales/helm-mcp/pull/49))
+
 ## [0.2.0] - 2026-08-15
 
 ### Breaking Changes
@@ -374,7 +381,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.38...v0.2.0
 [0.1.38]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.37...v0.1.38
 [0.1.37]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.36...v0.1.37
