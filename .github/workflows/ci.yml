@@ -199,6 +199,31 @@ jobs:
           name: python-dist
           path: python/dist/
 
+  server-json:
+    name: Validate server.json
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.14'
+
+      - name: Validate against the official MCP registry schema
+        run: |
+          pip install jsonschema requests
+          python3 - <<'PY'
+          import json, urllib.request
+          import jsonschema
+
+          with open("server.json") as fh:
+              doc = json.load(fh)
+          with urllib.request.urlopen(doc["$schema"]) as response:
+              schema = json.load(response)
+          jsonschema.validate(doc, schema)
+          print(f"server.json is valid: {doc['name']} {doc['version']}")
+          PY
+
   changelog-script-test:
     name: Changelog Script Test
     runs-on: ubuntu-latest
@@ -321,6 +346,11 @@ jobs:
 
       - name: Determine next version
         id: version
+        # Conventional-commit aware. A breaking change ("feat!:", "fix!:", or a
+        # "BREAKING CHANGE:" trailer) bumps the minor while the project is on
+        # 0.x; anything else bumps the patch. Without this the pipeline could
+        # only ever produce patch releases, so a release that removed a
+        # transport would still have shipped as 0.1.x.
         run: |
           LATEST_TAG=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -1)
           if [ -z "$LATEST_TAG" ]; then
@@ -330,7 +360,30 @@ jobs:
             MAJOR=$(echo "$CURRENT" | cut -d. -f1)
             MINOR=$(echo "$CURRENT" | cut -d. -f2)
             PATCH=$(echo "$CURRENT" | cut -d. -f3 | cut -d- -f1)
-            NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+
+            RANGE="${LATEST_TAG}..HEAD"
+            if ! git rev-parse "$LATEST_TAG" >/dev/null 2>&1; then
+              RANGE="HEAD"
+            fi
+            COMMITS=$(git log --format='%B' "$RANGE")
+
+            if echo "$COMMITS" | grep -qE '^BREAKING[ -]CHANGE:' \
+               || echo "$COMMITS" | grep -qE '^[a-z]+(\([^)]*\))?!:'; then
+              BUMP="minor"
+            else
+              BUMP="patch"
+            fi
+
+            if [ "$BUMP" = "minor" ] && [ "$MAJOR" = "0" ]; then
+              # 0.x: a breaking change moves the minor, which is the strongest
+              # signal semver gives before 1.0.
+              NEXT="${MAJOR}.$((MINOR + 1)).0"
+            elif [ "$BUMP" = "minor" ]; then
+              NEXT="${MAJOR}.$((MINOR + 1)).0"
+            else
+              NEXT="${MAJOR}.${MINOR}.$((PATCH + 1))"
+            fi
+            echo "Bump type: ${BUMP} (from ${LATEST_TAG})"
           fi
           echo "version=${NEXT}" >> "$GITHUB_OUTPUT"
           echo "tag=v${NEXT}" >> "$GITHUB_OUTPUT"
@@ -596,6 +649,54 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
+
+  # ---------- Publish to the official MCP Registry ----------
+  #
+  # Authenticates with GitHub OIDC, so no secret is stored. The
+  # io.github.scgis-wales namespace is proved by the workflow's own identity.
+
+  publish-mcp-registry:
+    name: Publish to MCP Registry
+    if: needs.auto-tag.outputs.created == 'true'
+    needs: [auto-tag, publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.auto-tag.outputs.tag }}
+
+      - name: Sync server.json to the release version
+        env:
+          VERSION: ${{ needs.auto-tag.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+          version = os.environ["VERSION"]
+          with open("server.json") as fh:
+              doc = json.load(fh)
+          doc["version"] = version
+          for package in doc.get("packages", []):
+              package["version"] = version
+          with open("server.json", "w") as fh:
+              json.dump(doc, fh, indent=2)
+              fh.write("\n")
+          print(f"server.json set to {version}")
+          PY
+
+      - name: Install mcp-publisher
+        run: |
+          curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar -xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Publish
+        run: |
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish
 
   # ---------- Update CHANGELOG.md with PR description ----------
 
