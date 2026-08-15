@@ -11,13 +11,16 @@ import (
 
 type UninstallInput struct {
 	tools.GlobalInput
-	ReleaseName  string `json:"release_name" jsonschema:"Name of the release to uninstall"`
-	KeepHistory  bool   `json:"keep_history,omitempty" jsonschema:"Remove all associated resources but keep release history"`
-	DryRun       bool   `json:"dry_run,omitempty" jsonschema:"Simulate an uninstall"`
-	Wait         bool   `json:"wait,omitempty" jsonschema:"Wait for deletion of all resources"`
-	Timeout      string `json:"timeout,omitempty" jsonschema:"Timeout duration"`
-	DisableHooks bool   `json:"disable_hooks,omitempty" jsonschema:"Disable pre/post uninstall hooks"`
-	Cascade      string `json:"cascade,omitempty" jsonschema:"Deletion propagation: background foreground or orphan"`
+	ReleaseName    string `json:"release_name" jsonschema:"Name of the release to uninstall"`
+	KeepHistory    bool   `json:"keep_history,omitempty" jsonschema:"Remove all associated resources but keep release history"`
+	DryRun         bool   `json:"dry_run,omitempty" jsonschema:"Simulate an uninstall"`
+	Wait           bool   `json:"wait,omitempty" jsonschema:"Wait for deletion of all resources"`
+	Timeout        string `json:"timeout,omitempty" jsonschema:"Timeout duration"`
+	DisableHooks   bool   `json:"disable_hooks,omitempty" jsonschema:"Disable pre/post uninstall hooks"`
+	Cascade        string `json:"cascade,omitempty" jsonschema:"Deletion propagation: background foreground or orphan"`
+	IgnoreNotFound bool   `json:"ignore_not_found,omitempty" jsonschema:"Succeed instead of erroring when the release does not exist"`
+	Description    string `json:"description,omitempty" jsonschema:"Custom description recorded against the uninstall"`
+	WaitStrategy   string `json:"wait_strategy,omitempty" jsonschema:"How to wait for deletion: watcher (kstatus), legacy, or hookOnly. Overrides wait. v4 only"`
 }
 
 var UninstallTool = &mcp.Tool{
@@ -48,6 +51,10 @@ func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input Uninstal
 		Timeout:      input.Timeout,
 		DisableHooks: input.DisableHooks,
 		Cascade:      input.Cascade,
+
+		IgnoreNotFound: input.IgnoreNotFound,
+		Description:    input.Description,
+		WaitStrategy:   input.WaitStrategy,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

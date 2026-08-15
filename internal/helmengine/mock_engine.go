@@ -51,6 +51,8 @@ type MockEngine struct {
 	PluginListFn       func(ctx context.Context) ([]*PluginInfo, error)
 	PluginUninstallFn  func(ctx context.Context, opts *PluginUninstallOptions) error
 	PluginUpdateFn     func(ctx context.Context, opts *PluginUpdateOptions) error
+	PluginPackageFn    func(ctx context.Context, opts *PluginPackageOptions) (string, error)
+	PluginVerifyFn     func(ctx context.Context, opts *PluginVerifyOptions) (string, error)
 	EnvFn              func(ctx context.Context) (map[string]string, error)
 	VersionFn          func(ctx context.Context) (*VersionInfo, error)
 
@@ -491,6 +493,20 @@ func (m *MockEngine) PluginUpdate(ctx context.Context, opts *PluginUpdateOptions
 		return m.PluginUpdateFn(ctx, opts)
 	}
 	return nil
+}
+
+func (m *MockEngine) PluginPackage(ctx context.Context, opts *PluginPackageOptions) (string, error) {
+	if m.PluginPackageFn != nil {
+		return m.PluginPackageFn(ctx, opts)
+	}
+	return "Successfully packaged plugin and saved it to: ./example-plugin-0.1.0.tgz", nil
+}
+
+func (m *MockEngine) PluginVerify(ctx context.Context, opts *PluginVerifyOptions) (string, error) {
+	if m.PluginVerifyFn != nil {
+		return m.PluginVerifyFn(ctx, opts)
+	}
+	return "Signed by: Example Signer <signer@example.com>", nil
 }
 
 func (m *MockEngine) Env(ctx context.Context) (map[string]string, error) {

@@ -23,6 +23,9 @@ type ListInput struct {
 	Pending       bool   `json:"pending,omitempty" jsonschema:"Show pending releases"`
 	Uninstalled   bool   `json:"uninstalled,omitempty" jsonschema:"Show uninstalled releases"`
 	Superseded    bool   `json:"superseded,omitempty" jsonschema:"Show superseded releases"`
+	Uninstalling  bool   `json:"uninstalling,omitempty" jsonschema:"Show releases that are currently being uninstalled"`
+	All           bool   `json:"all,omitempty" jsonschema:"Show releases in every state, ignoring the individual status filters"`
+	TimeFormat    string `json:"time_format,omitempty" jsonschema:"Go time layout used to format the last-updated timestamp (e.g. 2006-01-02)"`
 }
 
 var ListTool = &mcp.Tool{
@@ -52,6 +55,9 @@ func HandleList(ctx context.Context, _ *mcp.CallToolRequest, input ListInput) (*
 		Pending:       input.Pending,
 		Uninstalled:   input.Uninstalled,
 		Superseded:    input.Superseded,
+		Uninstalling:  input.Uninstalling,
+		All:           input.All,
+		TimeFormat:    input.TimeFormat,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

@@ -108,12 +108,22 @@ type InstallOptions struct {
 	GenerateName     bool                   `json:"generate_name,omitempty"`
 	NameTemplate     string                 `json:"name_template,omitempty"`
 	Labels           map[string]string      `json:"labels,omitempty"`
+	// v3 calls this Atomic; v4 calls it RollbackOnFailure. Supported by both.
+	RollbackOnFailure        bool   `json:"rollback_on_failure,omitempty"`
+	Devel                    bool   `json:"devel,omitempty"`
+	SubNotes                 bool   `json:"sub_notes,omitempty"`
+	HideNotes                bool   `json:"hide_notes,omitempty"`
+	SkipSchemaValidation     bool   `json:"skip_schema_validation,omitempty"`
+	DisableOpenAPIValidation bool   `json:"disable_openapi_validation,omitempty"`
+	EnableDNS                bool   `json:"enable_dns,omitempty"`
+	OutputDir                string `json:"output_dir,omitempty"`
+	UseReleaseName           bool   `json:"use_release_name,omitempty"`
 	// v4-specific
-	ServerSideApply   bool `json:"server_side_apply,omitempty"`
-	TakeOwnership     bool `json:"take_ownership,omitempty"`
-	RollbackOnFailure bool `json:"rollback_on_failure,omitempty"`
-	HideSecret        bool `json:"hide_secret,omitempty"`
-	ForceConflicts    bool `json:"force_conflicts,omitempty"`
+	ServerSideApply bool   `json:"server_side_apply,omitempty"`
+	TakeOwnership   bool   `json:"take_ownership,omitempty"`
+	HideSecret      bool   `json:"hide_secret,omitempty"`
+	ForceConflicts  bool   `json:"force_conflicts,omitempty"`
+	WaitStrategy    string `json:"wait_strategy,omitempty"` // v4 only
 }
 
 // UpgradeOptions contains options for helm upgrade.
@@ -139,22 +149,34 @@ type UpgradeOptions struct {
 	Labels               map[string]string      `json:"labels,omitempty"`
 	MaxHistory           int                    `json:"max_history,omitempty"`
 	ResetThenReuseValues bool                   `json:"reset_then_reuse_values,omitempty"`
+	// v3 calls this Atomic; v4 calls it RollbackOnFailure. Supported by both.
+	RollbackOnFailure        bool `json:"rollback_on_failure,omitempty"`
+	Devel                    bool `json:"devel,omitempty"`
+	SubNotes                 bool `json:"sub_notes,omitempty"`
+	HideNotes                bool `json:"hide_notes,omitempty"`
+	SkipSchemaValidation     bool `json:"skip_schema_validation,omitempty"`
+	DisableOpenAPIValidation bool `json:"disable_openapi_validation,omitempty"`
+	EnableDNS                bool `json:"enable_dns,omitempty"`
 	// v4-specific
-	ServerSideApply bool `json:"server_side_apply,omitempty"`
-	TakeOwnership   bool `json:"take_ownership,omitempty"`
-	HideSecret      bool `json:"hide_secret,omitempty"`
-	ForceConflicts  bool `json:"force_conflicts,omitempty"`
+	ServerSideApply bool   `json:"server_side_apply,omitempty"`
+	TakeOwnership   bool   `json:"take_ownership,omitempty"`
+	HideSecret      bool   `json:"hide_secret,omitempty"`
+	ForceConflicts  bool   `json:"force_conflicts,omitempty"`
+	WaitStrategy    string `json:"wait_strategy,omitempty"` // v4 only
 }
 
 // UninstallOptions contains options for helm uninstall.
 type UninstallOptions struct {
-	ReleaseName  string `json:"release_name"`
-	KeepHistory  bool   `json:"keep_history,omitempty"`
-	DryRun       bool   `json:"dry_run,omitempty"`
-	Wait         bool   `json:"wait,omitempty"`
-	Timeout      string `json:"timeout,omitempty"`
-	DisableHooks bool   `json:"disable_hooks,omitempty"`
-	Cascade      string `json:"cascade,omitempty"`
+	ReleaseName    string `json:"release_name"`
+	KeepHistory    bool   `json:"keep_history,omitempty"`
+	DryRun         bool   `json:"dry_run,omitempty"`
+	Wait           bool   `json:"wait,omitempty"`
+	Timeout        string `json:"timeout,omitempty"`
+	DisableHooks   bool   `json:"disable_hooks,omitempty"`
+	Cascade        string `json:"cascade,omitempty"`
+	IgnoreNotFound bool   `json:"ignore_not_found,omitempty"`
+	Description    string `json:"description,omitempty"`
+	WaitStrategy   string `json:"wait_strategy,omitempty"` // v4 only
 }
 
 // RollbackOptions contains options for helm rollback.
@@ -170,8 +192,9 @@ type RollbackOptions struct {
 	CleanupOnFail bool   `json:"cleanup_on_fail,omitempty"`
 	MaxHistory    int    `json:"max_history,omitempty"`
 	// v4-specific
-	ServerSideApply bool `json:"server_side_apply,omitempty"`
-	ForceConflicts  bool `json:"force_conflicts,omitempty"`
+	ServerSideApply bool   `json:"server_side_apply,omitempty"`
+	ForceConflicts  bool   `json:"force_conflicts,omitempty"`
+	WaitStrategy    string `json:"wait_strategy,omitempty"` // v4 only
 }
 
 // ListOptions contains options for helm list.
@@ -188,6 +211,9 @@ type ListOptions struct {
 	Pending       bool   `json:"pending,omitempty"`
 	Uninstalled   bool   `json:"uninstalled,omitempty"`
 	Superseded    bool   `json:"superseded,omitempty"`
+	Uninstalling  bool   `json:"uninstalling,omitempty"`
+	All           bool   `json:"all,omitempty"`
+	TimeFormat    string `json:"time_format,omitempty"`
 }
 
 // StatusOptions contains options for helm status.
@@ -402,6 +428,22 @@ type PluginUninstallOptions struct {
 // PluginUpdateOptions contains options for helm plugin update.
 type PluginUpdateOptions struct {
 	Name string `json:"name"`
+}
+
+// PluginPackageOptions contains options for helm plugin package (Helm v4 only).
+type PluginPackageOptions struct {
+	PluginPath     string `json:"plugin_path"`
+	Destination    string `json:"destination,omitempty"`
+	Sign           bool   `json:"sign,omitempty"`
+	Key            string `json:"key,omitempty"`
+	Keyring        string `json:"keyring,omitempty"`
+	PassphraseFile string `json:"passphrase_file,omitempty"`
+}
+
+// PluginVerifyOptions contains options for helm plugin verify (Helm v4 only).
+type PluginVerifyOptions struct {
+	PluginPath string `json:"plugin_path"`
+	Keyring    string `json:"keyring,omitempty"`
 }
 
 // ZeroPassword zeroes the Password field after use.

@@ -30,12 +30,22 @@ type InstallInput struct {
 	GenerateName     bool                   `json:"generate_name,omitempty" jsonschema:"Auto-generate release name"`
 	NameTemplate     string                 `json:"name_template,omitempty" jsonschema:"Go template for name generation"`
 	Labels           map[string]string      `json:"labels,omitempty" jsonschema:"Labels to add to release metadata"`
+	// Supported by both v3 (as --atomic) and v4 (as --rollback-on-failure).
+	RollbackOnFailure        bool   `json:"rollback_on_failure,omitempty" jsonschema:"Roll the release back automatically if the install fails (helm --atomic)"`
+	Devel                    bool   `json:"devel,omitempty" jsonschema:"Allow development chart versions (alpha/beta/rc) to satisfy the version constraint"`
+	SubNotes                 bool   `json:"sub_notes,omitempty" jsonschema:"Also render the NOTES.txt of subcharts"`
+	HideNotes                bool   `json:"hide_notes,omitempty" jsonschema:"Omit NOTES.txt from the output"`
+	SkipSchemaValidation     bool   `json:"skip_schema_validation,omitempty" jsonschema:"Skip validation of values against the chart's values.schema.json"`
+	DisableOpenAPIValidation bool   `json:"disable_openapi_validation,omitempty" jsonschema:"Skip validating rendered manifests against the Kubernetes OpenAPI schema"`
+	EnableDNS                bool   `json:"enable_dns,omitempty" jsonschema:"Allow DNS lookups from templates via the getHostByName function"`
+	OutputDir                string `json:"output_dir,omitempty" jsonschema:"Write rendered manifests to this directory instead of only applying them"`
+	UseReleaseName           bool   `json:"use_release_name,omitempty" jsonschema:"Prefix files written to output_dir with the release name"`
 	// v4-specific
-	ServerSideApply   bool `json:"server_side_apply,omitempty" jsonschema:"Use Kubernetes server-side apply (v4 only)"`
-	TakeOwnership     bool `json:"take_ownership,omitempty" jsonschema:"Skip helm annotation checks (v4 only)"`
-	RollbackOnFailure bool `json:"rollback_on_failure,omitempty" jsonschema:"Rollback on install failure (v4 only)"`
-	HideSecret        bool `json:"hide_secret,omitempty" jsonschema:"Hide secrets in dry-run output (v4 only)"`
-	ForceConflicts    bool `json:"force_conflicts,omitempty" jsonschema:"Force conflict resolution (v4 only)"`
+	ServerSideApply bool   `json:"server_side_apply,omitempty" jsonschema:"Use Kubernetes server-side apply (v4 only)"`
+	TakeOwnership   bool   `json:"take_ownership,omitempty" jsonschema:"Skip helm annotation checks (v4 only)"`
+	HideSecret      bool   `json:"hide_secret,omitempty" jsonschema:"Hide secrets in dry-run output (v4 only)"`
+	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema:"Force conflict resolution (v4 only)"`
+	WaitStrategy    string `json:"wait_strategy,omitempty" jsonschema:"How to wait for resources: watcher (kstatus), legacy, or hookOnly. Overrides wait. v4 only"`
 }
 
 var InstallTool = &mcp.Tool{
@@ -85,6 +95,16 @@ func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInp
 		RollbackOnFailure: input.RollbackOnFailure,
 		HideSecret:        input.HideSecret,
 		ForceConflicts:    input.ForceConflicts,
+
+		Devel:                    input.Devel,
+		SubNotes:                 input.SubNotes,
+		HideNotes:                input.HideNotes,
+		SkipSchemaValidation:     input.SkipSchemaValidation,
+		DisableOpenAPIValidation: input.DisableOpenAPIValidation,
+		EnableDNS:                input.EnableDNS,
+		OutputDir:                input.OutputDir,
+		UseReleaseName:           input.UseReleaseName,
+		WaitStrategy:             input.WaitStrategy,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

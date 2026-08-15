@@ -36,6 +36,15 @@ type UpgradeInput struct {
 	TakeOwnership        bool                   `json:"take_ownership,omitempty" jsonschema:"Take ownership (v4 only)"`
 	HideSecret           bool                   `json:"hide_secret,omitempty" jsonschema:"Hide secrets (v4 only)"`
 	ForceConflicts       bool                   `json:"force_conflicts,omitempty" jsonschema:"Force conflicts (v4 only)"`
+	// Supported by both v3 (as --atomic) and v4 (as --rollback-on-failure).
+	RollbackOnFailure        bool   `json:"rollback_on_failure,omitempty" jsonschema:"Roll the release back automatically if the upgrade fails (helm --atomic)"`
+	Devel                    bool   `json:"devel,omitempty" jsonschema:"Allow development chart versions (alpha/beta/rc) to satisfy the version constraint"`
+	SubNotes                 bool   `json:"sub_notes,omitempty" jsonschema:"Also render the NOTES.txt of subcharts"`
+	HideNotes                bool   `json:"hide_notes,omitempty" jsonschema:"Omit NOTES.txt from the output"`
+	SkipSchemaValidation     bool   `json:"skip_schema_validation,omitempty" jsonschema:"Skip validation of values against the chart's values.schema.json"`
+	DisableOpenAPIValidation bool   `json:"disable_openapi_validation,omitempty" jsonschema:"Skip validating rendered manifests against the Kubernetes OpenAPI schema"`
+	EnableDNS                bool   `json:"enable_dns,omitempty" jsonschema:"Allow DNS lookups from templates via the getHostByName function"`
+	WaitStrategy             string `json:"wait_strategy,omitempty" jsonschema:"How to wait for resources: watcher (kstatus), legacy, or hookOnly. Overrides wait. v4 only"`
 }
 
 var UpgradeTool = &mcp.Tool{
@@ -84,6 +93,15 @@ func HandleUpgrade(ctx context.Context, _ *mcp.CallToolRequest, input UpgradeInp
 		TakeOwnership:        input.TakeOwnership,
 		HideSecret:           input.HideSecret,
 		ForceConflicts:       input.ForceConflicts,
+
+		RollbackOnFailure:        input.RollbackOnFailure,
+		Devel:                    input.Devel,
+		SubNotes:                 input.SubNotes,
+		HideNotes:                input.HideNotes,
+		SkipSchemaValidation:     input.SkipSchemaValidation,
+		DisableOpenAPIValidation: input.DisableOpenAPIValidation,
+		EnableDNS:                input.EnableDNS,
+		WaitStrategy:             input.WaitStrategy,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

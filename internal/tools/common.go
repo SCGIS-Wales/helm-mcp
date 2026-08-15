@@ -139,6 +139,16 @@ func validateNotSensitivePath(path string) error {
 	return nil
 }
 
+// ValidatePluginPath validates a filesystem path supplied as a tool argument,
+// applying the same traversal and sensitive-location checks that
+// ValidateGlobalInput applies to kubeconfig.
+func ValidatePluginPath(path string) error {
+	if err := security.ValidatePath(path); err != nil {
+		return err
+	}
+	return validateNotSensitivePath(path)
+}
+
 // ValidateReleaseName delegates to security.ValidateReleaseName.
 func ValidateReleaseName(name string) error {
 	return security.ValidateReleaseName(name)

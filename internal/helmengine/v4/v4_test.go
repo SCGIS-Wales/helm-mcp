@@ -11,6 +11,7 @@ import (
 
 	chart "helm.sh/helm/v4/pkg/chart/v2"
 	"helm.sh/helm/v4/pkg/chart/v2/lint/support"
+	"helm.sh/helm/v4/pkg/kube"
 	repo "helm.sh/helm/v4/pkg/repo/v1"
 )
 
@@ -529,5 +530,69 @@ func TestAppendMatchingEntries_MixedVersions(t *testing.T) {
 	}
 	if results[1].ChartVersion != "2.0.0" {
 		t.Errorf("results[1].ChartVersion = %q, want %q", results[1].ChartVersion, "2.0.0")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// resolveWaitStrategy
+// ---------------------------------------------------------------------------
+
+func TestResolveWaitStrategy(t *testing.T) {
+	tests := []struct {
+		name     string
+		strategy string
+		wait     bool
+		want     kube.WaitStrategy
+		wantErr  bool
+	}{
+		// An explicit strategy always wins over the wait boolean.
+		{"explicit watcher", "watcher", false, kube.StatusWatcherStrategy, false},
+		{"explicit legacy", "legacy", false, kube.LegacyStrategy, false},
+		{"explicit hookOnly overrides wait", "hookOnly", true, kube.HookOnlyStrategy, false},
+		{"case insensitive", "WATCHER", false, kube.StatusWatcherStrategy, false},
+		{"whitespace tolerated", "  legacy  ", false, kube.LegacyStrategy, false},
+
+		// Without a strategy, the wait boolean decides. wait=false must NOT
+		// wait: before this mapping existed the engine hardcoded the watcher
+		// strategy, so wait=false silently waited anyway.
+		{"wait true", "", true, kube.StatusWatcherStrategy, false},
+		{"wait false", "", false, kube.HookOnlyStrategy, false},
+
+		{"invalid", "sometimes", false, "", true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := resolveWaitStrategy(tt.strategy, tt.wait)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("resolveWaitStrategy(%q, %v) = %q, want error", tt.strategy, tt.wait, got)
+				}
+				if !strings.Contains(err.Error(), "watcher, legacy, hookOnly") {
+					t.Errorf("error should list the valid values, got: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("resolveWaitStrategy(%q, %v) returned error: %v", tt.strategy, tt.wait, err)
+			}
+			if got != tt.want {
+				t.Errorf("resolveWaitStrategy(%q, %v) = %q, want %q", tt.strategy, tt.wait, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestPluginPackageVerifyRequireV4 documents that the v4 engine implements the
+// two plugin commands that only exist in Helm v4.
+func TestPluginPackageVerifyExist(t *testing.T) {
+	var e helmengine.Engine = New()
+	if _, err := e.PluginPackage(context.Background(), &helmengine.PluginPackageOptions{}); err == nil {
+		// A missing plugin path (or missing helm CLI) must surface as an error,
+		// not a silent success.
+		t.Error("PluginPackage with empty options should fail")
+	}
+	if _, err := e.PluginVerify(context.Background(), &helmengine.PluginVerifyOptions{}); err == nil {
+		t.Error("PluginVerify with empty options should fail")
 	}
 }

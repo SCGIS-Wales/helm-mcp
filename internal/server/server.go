@@ -139,6 +139,8 @@ func registerPluginTools(s *mcp.Server) {
 	mcp.AddTool(s, plugin.ListTool, plugin.HandleList)
 	mcp.AddTool(s, plugin.UninstallTool, plugin.HandleUninstall)
 	mcp.AddTool(s, plugin.UpdateTool, plugin.HandleUpdate)
+	mcp.AddTool(s, plugin.PackageTool, plugin.HandlePackage)
+	mcp.AddTool(s, plugin.VerifyTool, plugin.HandleVerify)
 }
 
 func registerEnvTools(s *mcp.Server) {

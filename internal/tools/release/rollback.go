@@ -23,6 +23,7 @@ type RollbackInput struct {
 	MaxHistory      int    `json:"max_history,omitempty" jsonschema:"Max history revisions"`
 	ServerSideApply bool   `json:"server_side_apply,omitempty" jsonschema:"Server-side apply (v4 only)"`
 	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema:"Force conflicts (v4 only)"`
+	WaitStrategy    string `json:"wait_strategy,omitempty" jsonschema:"How to wait for resources: watcher (kstatus), legacy, or hookOnly. Overrides wait. v4 only"`
 }
 
 var RollbackTool = &mcp.Tool{
@@ -58,6 +59,7 @@ func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackI
 		MaxHistory:      input.MaxHistory,
 		ServerSideApply: input.ServerSideApply,
 		ForceConflicts:  input.ForceConflicts,
+		WaitStrategy:    input.WaitStrategy,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

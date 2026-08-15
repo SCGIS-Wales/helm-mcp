@@ -88,3 +88,15 @@ func (e *V3Engine) PluginUpdate(ctx context.Context, opts *helmengine.PluginUpda
 
 	return nil
 }
+
+// PluginPackage is not available in Helm v3: `helm plugin package` was
+// introduced in Helm v4 along with signed plugin distribution.
+func (e *V3Engine) PluginPackage(_ context.Context, _ *helmengine.PluginPackageOptions) (string, error) {
+	return "", fmt.Errorf("plugin packaging is only supported in Helm v4; set helm_version to v4")
+}
+
+// PluginVerify is not available in Helm v3: `helm plugin verify` was
+// introduced in Helm v4 along with signed plugin distribution.
+func (e *V3Engine) PluginVerify(_ context.Context, _ *helmengine.PluginVerifyOptions) (string, error) {
+	return "", fmt.Errorf("plugin verification is only supported in Helm v4; set helm_version to v4")
+}
