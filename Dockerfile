@@ -1,7 +1,7 @@
 # Build stage — pinned to the build host's platform so the compiler always
 # runs natively; the target platform is reached via Go cross-compilation
 # (CGO is disabled) instead of QEMU-emulating the whole toolchain.
-FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine3.24 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.6-alpine AS builder
 
 ARG VERSION=dev
 ARG TARGETOS
@@ -10,7 +10,7 @@ ARG TARGETARCH
 # Keep in sync with helm.sh/helm/v4 in go.mod: the helm_plugin_* tools shell
 # out to this binary, so a mismatched CLI would expose a different plugin
 # surface from the SDK the rest of the server uses.
-ARG HELM_VERSION=v4.3.0
+ARG HELM_VERSION=v4.2.4
 
 RUN apk add --no-cache git ca-certificates curl
 
@@ -36,7 +36,7 @@ RUN set -eux; \
     install -m 0755 "/tmp/${TARGETOS}-${TARGETARCH}/helm" /helm
 
 # Runtime stage
-FROM alpine:3.24.2
+FROM alpine:3.24
 
 RUN apk add --no-cache ca-certificates tzdata git && \
     adduser -D -u 1000 helmuser
