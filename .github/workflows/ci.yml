@@ -285,6 +285,14 @@ jobs:
                   f"accept the namespace {expected}* for this repository. "
                   "The owner segment is case-sensitive."
               )
+
+          # The registry verifies PyPI ownership by looking for this marker in
+          # the package README. Without it every publish is rejected with a
+          # 400, which is only visible after a release has gone out.
+          marker = f"mcp-name: {doc['name']}"
+          with open("python/README.md") as fh:
+              if marker not in fh.read():
+                  sys.exit(f"python/README.md must contain '{marker}' for the MCP Registry.")
           print(f"server.json is valid: {doc['name']} {doc['version']}")
           PY
 
@@ -375,9 +383,20 @@ jobs:
       - name: Create k3d cluster
         run: k3d cluster create helm-mcp-test --wait --timeout 120s
 
+      # A Ready node does not mean the API server is serving every group yet:
+      # aggregated APIs (metrics-server) come up a few seconds later, and until
+      # then discovery returns 503 and kubectl/helm calls fail.
       - name: Wait for cluster ready
         run: |
           kubectl wait --for=condition=ready node --all --timeout=60s
+          for i in $(seq 1 60); do
+            if kubectl get --raw='/readyz' >/dev/null 2>&1 \
+               && kubectl wait --for=condition=Available apiservice --all --timeout=5s >/dev/null 2>&1; then
+              break
+            fi
+            sleep 2
+          done
+          kubectl wait --for=condition=Available apiservice --all --timeout=30s
           kubectl cluster-info
 
       - name: Add Helm repos

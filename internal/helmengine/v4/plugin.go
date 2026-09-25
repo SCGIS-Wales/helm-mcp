@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -27,7 +26,7 @@ func (e *V4Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginIns
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", args...)
+	cmd := helmengine.HelmCommand(execCtx, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -43,7 +42,7 @@ func (e *V4Engine) PluginList(ctx context.Context) ([]*helmengine.PluginInfo, er
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", "plugin", "list")
+	cmd := helmengine.HelmCommand(execCtx, "plugin", "list")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -80,7 +79,7 @@ func (e *V4Engine) PluginUninstall(ctx context.Context, opts *helmengine.PluginU
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", "plugin", "uninstall", "--", opts.Name)
+	cmd := helmengine.HelmCommand(execCtx, "plugin", "uninstall", "--", opts.Name)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -96,7 +95,7 @@ func (e *V4Engine) PluginUpdate(ctx context.Context, opts *helmengine.PluginUpda
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", "plugin", "update", "--", opts.Name)
+	cmd := helmengine.HelmCommand(execCtx, "plugin", "update", "--", opts.Name)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -152,7 +151,7 @@ func (e *V4Engine) PluginPackage(ctx context.Context, opts *helmengine.PluginPac
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", args...)
+	cmd := helmengine.HelmCommand(execCtx, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -172,7 +171,7 @@ func (e *V4Engine) PluginVerify(ctx context.Context, opts *helmengine.PluginVeri
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", args...)
+	cmd := helmengine.HelmCommand(execCtx, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
