@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
+	"github.com/ssddgreg/helm-mcp/internal/security"
 	"github.com/ssddgreg/helm-mcp/internal/tools"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -25,7 +26,7 @@ var ShowAllTool = &mcp.Tool{
 }
 
 func HandleShowAll(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
-	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+	if err := validateShowInput(&input); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
@@ -46,7 +47,7 @@ var ShowChartTool = &mcp.Tool{
 }
 
 func HandleShowChart(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
-	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+	if err := validateShowInput(&input); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
@@ -67,7 +68,7 @@ var ShowCRDsTool = &mcp.Tool{
 }
 
 func HandleShowCRDs(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
-	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+	if err := validateShowInput(&input); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
@@ -88,7 +89,7 @@ var ShowReadmeTool = &mcp.Tool{
 }
 
 func HandleShowReadme(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
-	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+	if err := validateShowInput(&input); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
@@ -109,7 +110,7 @@ var ShowValuesTool = &mcp.Tool{
 }
 
 func HandleShowValues(ctx context.Context, _ *mcp.CallToolRequest, input ShowInput) (*mcp.CallToolResult, any, error) {
-	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+	if err := validateShowInput(&input); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
@@ -131,4 +132,21 @@ func toShowOpts(input *ShowInput) *helmengine.ShowOptions {
 		Devel:    input.Devel,
 		JSONPath: input.JSONPath,
 	}
+}
+
+// validateShowInput validates the input shared by every helm_show_* tool.
+// A URL chart reference or repository is fetched, so both get the SSRF check.
+func validateShowInput(input *ShowInput) error {
+	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return err
+	}
+	if err := tools.ValidateChartRef(input.Chart); err != nil {
+		return err
+	}
+	if input.Repo != "" {
+		if err := security.ValidateURL(input.Repo); err != nil {
+			return err
+		}
+	}
+	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
+	"github.com/ssddgreg/helm-mcp/internal/security"
 	"github.com/ssddgreg/helm-mcp/internal/tools"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -23,6 +24,11 @@ var RemoveTool = &mcp.Tool{
 func HandleRemove(ctx context.Context, _ *mcp.CallToolRequest, input RemoveInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
+	}
+	for _, name := range input.Names {
+		if err := security.ValidateRepoName(name); err != nil {
+			return tools.ErrorResult(err), nil, nil
+		}
 	}
 
 	engine := tools.SelectEngine(input.HelmVersion)

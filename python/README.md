@@ -59,8 +59,9 @@ asyncio.run(main())
 # stdio mode (default, for MCP clients like Claude Code)
 helm-mcp-python
 
-# HTTP mode (Streamable HTTP)
-helm-mcp-python --transport http --host 0.0.0.0 --port 8080
+# HTTP mode (Streamable HTTP). Loopback only by default: the proxy has no
+# authentication, so binding elsewhere needs --allow-remote
+helm-mcp-python --transport http --port 8080
 
 # Pre-download binary
 helm-mcp-python --setup

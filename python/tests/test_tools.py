@@ -1077,3 +1077,32 @@ class TestPluginPackageVerify:
         for call in (helm.plugin_package, helm.plugin_verify):
             with pytest.raises(ValueError, match="plugin_path"):
                 await call("")
+
+
+class TestMutatingToolsAreNotReplayed:
+    """A transient failure on a mutating tool is reported, never retried."""
+
+    @pytest.mark.asyncio
+    async def test_mutating_tool_not_retried(self):
+        config = ResilienceConfig(
+            circuit_breaker=CircuitBreakerConfig(enabled=False),
+            tenacity=TenacityConfig(enabled=True, max_attempts=3, min_wait=0.01, max_wait=0.02),
+        )
+        helm = HelmClient(resilience=config, max_reconnects=3)
+
+        call_count = 0
+        mock_client = AsyncMock()
+
+        async def failing_call(tool_name, args):
+            nonlocal call_count
+            call_count += 1
+            raise OSError("connection lost mid-call")
+
+        mock_client.call_tool = failing_call
+        helm._client = mock_client
+        helm._connected = True
+
+        with pytest.raises(HelmConnectionError, match="not retried"):
+            await helm.call_tool("helm_upgrade", {"release_name": "x", "chart": "y"})
+        assert call_count == 1
+        assert helm._connected is False

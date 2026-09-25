@@ -536,3 +536,72 @@ func TestValidateKubeConfig_SymlinkRejection(t *testing.T) {
 		t.Errorf("expected error about symlink, got: %v", err)
 	}
 }
+
+func TestValidateRepoName(t *testing.T) {
+	tests := []struct {
+		name    string
+		wantErr bool
+	}{
+		{"bitnami", false},
+		{"my_repo.v2-test", false},
+		{"Stable", false},
+		{"", true},
+		{"-flag", true},
+		{"../../etc/x", true},
+		{"a/b", true},
+		{"a..b", true},
+		{`a\b`, true},
+		{strings.Repeat("a", 254), true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateRepoName(tt.name); (err != nil) != tt.wantErr {
+				t.Errorf("ValidateRepoName(%q) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateURL_InternalRanges(t *testing.T) {
+	for _, u := range []string{
+		"http://0.0.0.0:8080/",
+		"http://0.1.2.3/",
+		"http://100.64.1.1/",
+		"http://[::]/",
+		"http://[::ffff:127.0.0.1]/",
+		"http://[::ffff:169.254.169.254]/",
+		"http://[64:ff9b::a9fe:a9fe]/",
+		"https://169.254.169.254/latest/meta-data",
+	} {
+		if err := ValidateURL(u); err == nil {
+			t.Errorf("ValidateURL(%q) = nil, want error", u)
+		}
+	}
+	if err := ValidateURL("https://8.8.8.8/"); err != nil {
+		t.Errorf("ValidateURL(public IP) = %v, want nil", err)
+	}
+}
+
+func TestValidatePath_SymlinkedParentRejection(t *testing.T) {
+	dir := t.TempDir()
+	target := filepath.Join(dir, "real")
+	if err := os.Mkdir(target, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(target, "secret"), []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlinks unsupported: %v", err)
+	}
+	if err := ValidatePath(filepath.Join(link, "secret")); err == nil {
+		t.Error("expected a path through a symlinked directory to be rejected")
+	}
+	if err := ValidatePath(filepath.Join(link, "not-yet-created")); err == nil {
+		t.Error("expected a new file under a symlinked directory to be rejected")
+	}
+	if err := ValidatePath(filepath.Join(target, "secret")); err != nil {
+		t.Errorf("expected the direct path to pass, got %v", err)
+	}
+}

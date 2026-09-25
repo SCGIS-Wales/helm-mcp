@@ -145,7 +145,7 @@ def create_server(
 
         server = create_server()
         server.run()                                       # stdio
-        server.run(transport="http", host="0.0.0.0", port=8080)  # HTTP
+        server.run(transport="http", host="127.0.0.1", port=8080)  # HTTP
 
     With custom resilience config::
 

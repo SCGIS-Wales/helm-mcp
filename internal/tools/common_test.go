@@ -288,3 +288,36 @@ func TestValidateGlobalInput(t *testing.T) {
 		}
 	}
 }
+
+func TestValidateChartRef(t *testing.T) {
+	for _, ref := range []string{"bitnami/nginx", "./mychart", "nginx", ""} {
+		if err := ValidateChartRef(ref); err != nil {
+			t.Errorf("ValidateChartRef(%q) = %v, want nil", ref, err)
+		}
+	}
+	for _, ref := range []string{"http://169.254.169.254/chart.tgz", "oci://127.0.0.1/charts/x", "file:///etc/passwd"} {
+		if err := ValidateChartRef(ref); err == nil {
+			t.Errorf("ValidateChartRef(%q) = nil, want error", ref)
+		}
+	}
+}
+
+func TestValidateValuesFiles(t *testing.T) {
+	if err := ValidateValuesFiles([]string{"values.yaml", "https://8.8.8.8/values.yaml"}); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	for _, f := range []string{"http://169.254.169.254/latest/meta-data", "../../secret.yaml", "/etc/shadow"} {
+		if err := ValidateValuesFiles([]string{f}); err == nil {
+			t.Errorf("ValidateValuesFiles(%q) = nil, want error", f)
+		}
+	}
+}
+
+func TestValidateFilePaths(t *testing.T) {
+	if err := ValidateFilePaths("", "keyring.gpg"); err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if err := ValidateFilePaths("ok", "/etc/shadow"); err == nil {
+		t.Error("expected a sensitive path to be rejected")
+	}
+}

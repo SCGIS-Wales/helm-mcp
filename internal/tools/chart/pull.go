@@ -35,6 +35,9 @@ func HandlePull(ctx context.Context, _ *mcp.CallToolRequest, input PullInput) (*
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateFilePaths(input.Destination, input.Keyring); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	// Validate URL-like chart references and repo URLs for SSRF protection.
 	if input.Repo != "" {

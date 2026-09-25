@@ -95,6 +95,15 @@ type OIDCValidator struct {
 	config  OIDCConfig
 	jwks    *jwksCache
 	httpCli *http.Client
+
+	// discoveryMu guards the cached jwks_uri. Without the cache every token
+	// that missed the session cache (including every invalid one) cost an
+	// outbound discovery request, so an unauthenticated flood became a flood
+	// against the identity provider.
+	discoveryMu    sync.Mutex
+	discoveredJWKS string
+	discoveredAt   time.Time
+	discoveryTTL   time.Duration
 }
 
 // NewOIDCValidator creates a new OIDC token validator.
@@ -109,9 +118,10 @@ func NewOIDCValidator(config OIDCConfig) (*OIDCValidator, error) {
 	}
 
 	v := &OIDCValidator{
-		config:  config,
-		httpCli: httpCli,
-		jwks:    newJWKSCache(),
+		config:       config,
+		httpCli:      httpCli,
+		jwks:         newJWKSCache(),
+		discoveryTTL: 1 * time.Hour,
 	}
 
 	return v, nil
@@ -123,7 +133,7 @@ func (v *OIDCValidator) ValidateToken(ctx context.Context, tokenString string) (
 	// Fetch (or use cached) JWKS keys.
 	jwksURL := v.config.JWKSURL
 	if jwksURL == "" {
-		discovered, err := v.discoverJWKS(ctx)
+		discovered, err := v.cachedJWKSURL(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("JWKS discovery failed: %w", err)
 		}
@@ -214,6 +224,24 @@ func (v *OIDCValidator) ValidateToken(ctx context.Context, tokenString string) (
 	}
 
 	return claims, nil
+}
+
+// cachedJWKSURL returns the discovered jwks_uri, refreshing it from the
+// discovery endpoint at most once per discoveryTTL.
+func (v *OIDCValidator) cachedJWKSURL(ctx context.Context) (string, error) {
+	v.discoveryMu.Lock()
+	defer v.discoveryMu.Unlock()
+
+	if v.discoveredJWKS != "" && time.Since(v.discoveredAt) < v.discoveryTTL {
+		return v.discoveredJWKS, nil
+	}
+	jwksURL, err := v.discoverJWKS(ctx)
+	if err != nil {
+		return "", err
+	}
+	v.discoveredJWKS = jwksURL
+	v.discoveredAt = time.Now()
+	return jwksURL, nil
 }
 
 // discoverJWKS fetches the JWKS URL from the OIDC discovery endpoint.
@@ -344,11 +372,15 @@ type jwksCache struct {
 	url     string
 	fetched time.Time
 	ttl     time.Duration
+	// minRefresh bounds how often an unknown kid may force a refetch, so a
+	// stream of tokens with made-up kids cannot hammer the JWKS endpoint.
+	minRefresh time.Duration
 }
 
 func newJWKSCache() *jwksCache {
 	return &jwksCache{
-		ttl: 1 * time.Hour, // JWKS keys are rotated infrequently; 1h cache is standard.
+		ttl:        1 * time.Hour, // JWKS keys are rotated infrequently; 1h cache is standard.
+		minRefresh: 1 * time.Minute,
 	}
 }
 
@@ -362,17 +394,26 @@ func (c *jwksCache) GetKeys(ctx context.Context, jwksURL string, httpCli *http.C
 	}
 	c.mu.RUnlock()
 
-	return c.RefreshKeys(ctx, jwksURL, httpCli)
+	return c.refresh(ctx, jwksURL, httpCli, c.ttl)
 }
 
-// RefreshKeys forces a fetch of JWKS keys and updates the cache.
-// Uses double-check locking to avoid thundering herd on concurrent cache misses.
+// RefreshKeys forces a fetch of JWKS keys after a signing key rotation. It
+// skips the fetch only when the keys were fetched within minRefresh, which
+// both collapses concurrent callers and rate-limits unknown-kid refetches.
+// It previously reused the 1h TTL, so a rotated key was rejected for up to
+// an hour.
 func (c *jwksCache) RefreshKeys(ctx context.Context, jwksURL string, httpCli *http.Client) (map[string]*rsa.PublicKey, error) {
+	return c.refresh(ctx, jwksURL, httpCli, c.minRefresh)
+}
+
+// refresh fetches keys unless the cache for jwksURL is younger than maxAge.
+// Uses double-check locking to avoid thundering herd on concurrent cache misses.
+func (c *jwksCache) refresh(ctx context.Context, jwksURL string, httpCli *http.Client, maxAge time.Duration) (map[string]*rsa.PublicKey, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	// Double-check: another goroutine may have already refreshed while we waited for the lock.
-	if c.url == jwksURL && time.Since(c.fetched) < c.ttl && len(c.keys) > 0 {
+	if c.url == jwksURL && time.Since(c.fetched) < maxAge && len(c.keys) > 0 {
 		return c.keys, nil
 	}
 

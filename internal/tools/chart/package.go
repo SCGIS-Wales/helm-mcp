@@ -31,6 +31,9 @@ func HandlePackage(ctx context.Context, _ *mcp.CallToolRequest, input PackageInp
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateFilePaths(input.Destination, input.Keyring); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 

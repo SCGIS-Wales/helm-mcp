@@ -28,6 +28,9 @@ func HandleLogin(ctx context.Context, _ *mcp.CallToolRequest, input LoginInput) 
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateFilePaths(input.CAFile); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 	defer input.ZeroBearerToken()

@@ -31,6 +31,12 @@ func HandleAdd(ctx context.Context, _ *mcp.CallToolRequest, input AddInput) (*mc
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := security.ValidateRepoName(input.Name); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateFilePaths(input.CAFile); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 	if err := security.ValidateURL(input.URL); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

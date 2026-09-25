@@ -201,6 +201,55 @@ func ValidatePluginPath(path string) error {
 	return validateNotSensitivePath(path)
 }
 
+// ValidateFilePaths applies ValidatePluginPath to every non-empty path, so
+// keyrings, CA bundles, output directories and the like get the same
+// traversal, symlink and sensitive-location checks as kubeconfig.
+func ValidateFilePaths(paths ...string) error {
+	for _, p := range paths {
+		if p == "" {
+			continue
+		}
+		if err := ValidatePluginPath(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// isRemoteRef reports whether a chart, values file or registry reference is
+// a URL that Helm will fetch over the network rather than read from disk.
+func isRemoteRef(ref string) bool {
+	return strings.Contains(ref, "://")
+}
+
+// ValidateChartRef applies the SSRF checks to a chart reference that is a
+// URL (https://, oci://). Repository references such as "bitnami/nginx" and
+// local chart paths are left to Helm.
+func ValidateChartRef(ref string) error {
+	if isRemoteRef(ref) {
+		return security.ValidateURL(ref)
+	}
+	return nil
+}
+
+// ValidateValuesFiles checks every values file. Helm fetches URL entries
+// with its getters and reads the rest from disk, so each gets the matching
+// SSRF or path check.
+func ValidateValuesFiles(files []string) error {
+	for _, f := range files {
+		if isRemoteRef(f) {
+			if err := security.ValidateURL(f); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := ValidateFilePaths(f); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // ValidateReleaseName delegates to security.ValidateReleaseName.
 func ValidateReleaseName(name string) error {
 	return security.ValidateReleaseName(name)

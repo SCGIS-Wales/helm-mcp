@@ -29,6 +29,9 @@ func HandlePackage(ctx context.Context, _ *mcp.CallToolRequest, input PackageInp
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateFilePaths(input.Destination, input.Keyring, input.PassphraseFile); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 	if result := tools.ValidateRequired("plugin_path", input.PluginPath); result != nil {
 		return result, nil, nil
 	}

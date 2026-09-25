@@ -29,6 +29,9 @@ func HandleLint(ctx context.Context, _ *mcp.CallToolRequest, input LintInput) (*
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateValuesFiles(input.ValuesFiles); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 

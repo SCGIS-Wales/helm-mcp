@@ -37,6 +37,12 @@ func HandleTemplate(ctx context.Context, _ *mcp.CallToolRequest, input TemplateI
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateChartRef(input.Chart); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateValuesFiles(input.ValuesFiles); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 	if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

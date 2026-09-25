@@ -8,6 +8,7 @@ Provides two commands:
 from __future__ import annotations
 
 import argparse
+import ipaddress
 import logging
 import os
 import sys
@@ -20,6 +21,16 @@ from helm_mcp.discovery import find_binary, find_bundled_binary, is_python_scrip
 _is_python_script = is_python_script
 _find_bundled_binary = find_bundled_binary
 _find_binary = find_binary
+
+
+def is_loopback_host(host: str) -> bool:
+    """Report whether *host* only accepts connections from this machine."""
+    if host.lower() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host.strip("[]")).is_loopback
+    except ValueError:
+        return False
 
 
 def helm_mcp_main() -> None:
@@ -51,8 +62,16 @@ def main() -> None:
     )
     parser.add_argument(
         "--host",
-        default="0.0.0.0",
-        help="Host for HTTP mode (default: 0.0.0.0)",
+        default="127.0.0.1",
+        help="Host for HTTP mode (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--allow-remote",
+        action="store_true",
+        help=(
+            "Allow binding HTTP mode to a non-loopback host. The Python proxy has no "
+            "authentication; prefer the Go server's --mode http with OIDC for remote use"
+        ),
     )
     parser.add_argument(
         "--port",
@@ -173,6 +192,16 @@ def main() -> None:
         logger.error("binary not found: %s", e)
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
+
+    if args.transport == "http" and not is_loopback_host(args.host) and not args.allow_remote:
+        print(
+            f"Error: refusing to serve unauthenticated HTTP on {args.host}. Anyone who can "
+            "reach it could install Helm plugins, which run arbitrary code. Use --host "
+            "127.0.0.1, run the Go server with --mode http and OIDC, or pass --allow-remote "
+            "behind your own authenticating proxy.",
+            file=sys.stderr,
+        )
+        sys.exit(2)
 
     logger.info("starting server with transport=%s", args.transport)
     if args.transport == "stdio":

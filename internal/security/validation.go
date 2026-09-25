@@ -25,6 +25,11 @@ var validNamePattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9\-\.]*[a-z0-9])?$`)
 // and must not start with a dash (to prevent argument injection).
 var validPluginNamePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_\-]*$`)
 
+// validRepoNamePattern matches chart repository names. The Helm SDK joins
+// the name into cache file paths ("<cache>/<name>-index.yaml") and only the
+// Helm CLI rejects separators, so the MCP layer has to enforce it itself.
+var validRepoNamePattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._\-]*$`)
+
 // Regex patterns for credential scrubbing (compiled once at package init).
 var (
 	scrubTokenPattern       = regexp.MustCompile(`(?i)(bearer\s+|token[=:]\s*)[^\s"']+`)
@@ -38,12 +43,16 @@ var privateIPNets []*net.IPNet
 
 func init() {
 	cidrs := []string{
+		"0.0.0.0/8",      // "this network"; 0.0.0.0 reaches localhost on Linux
 		"127.0.0.0/8",    // loopback
 		"10.0.0.0/8",     // RFC 1918
+		"100.64.0.0/10",  // RFC 6598 carrier-grade NAT, used by some VPCs
 		"172.16.0.0/12",  // RFC 1918
 		"192.168.0.0/16", // RFC 1918
-		"169.254.0.0/16", // link-local
+		"169.254.0.0/16", // link-local, including cloud metadata endpoints
+		"::/128",         // IPv6 unspecified
 		"::1/128",        // IPv6 loopback
+		"64:ff9b::/96",   // NAT64, which can embed any private IPv4 address
 		"fe80::/10",      // IPv6 link-local
 		"fc00::/7",       // IPv6 unique-local
 	}
@@ -58,6 +67,15 @@ func init() {
 
 // isPrivateIP checks whether an IP address falls within a private/internal range.
 func isPrivateIP(ip net.IP) bool {
+	// IPv4-mapped IPv6 addresses (::ffff:127.0.0.1) are normalised so the
+	// IPv4 ranges apply to them too.
+	if v4 := ip.To4(); v4 != nil {
+		ip = v4
+	}
+	if ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() {
+		return true
+	}
 	for _, ipNet := range privateIPNets {
 		if ipNet.Contains(ip) {
 			return true
@@ -79,6 +97,20 @@ func ValidateReleaseName(name string) error {
 	}
 	if !validNamePattern.MatchString(name) {
 		return fmt.Errorf("release name %q is invalid: must consist of lowercase alphanumeric characters, dashes, or dots, and must start and end with an alphanumeric character", name)
+	}
+	return nil
+}
+
+// ValidateRepoName validates a chart repository name.
+func ValidateRepoName(name string) error {
+	if name == "" {
+		return fmt.Errorf("repository name is required")
+	}
+	if len(name) > maxNameLength {
+		return fmt.Errorf("repository name %q exceeds maximum length of %d", name, maxNameLength)
+	}
+	if !validRepoNamePattern.MatchString(name) || strings.Contains(name, "..") {
+		return fmt.Errorf("repository name %q is invalid: must consist of alphanumeric characters, dots, dashes, or underscores, and must start with an alphanumeric character", name)
 	}
 	return nil
 }
@@ -240,6 +272,12 @@ func ValidatePath(path string) error {
 		return fmt.Errorf("invalid path %q: %w", path, err)
 	}
 	cleanPath := filepath.Clean(absPath)
+	// Lstat only inspects the final component, so a symlinked parent
+	// directory (/tmp/d -> /etc, then /tmp/d/shadow) would otherwise pass.
+	// Checked first so it also covers files that do not exist yet.
+	if err := rejectSymlinkedParents(path, cleanPath); err != nil {
+		return err
+	}
 	info, err := os.Lstat(cleanPath)
 	if err != nil {
 		// File doesn't exist yet — that's OK; the caller will get an error
@@ -253,6 +291,29 @@ func ValidatePath(path string) error {
 		return fmt.Errorf("path %q is a symlink, which is not allowed for security", path)
 	}
 	return nil
+}
+
+// rejectSymlinkedParents fails when any ancestor directory of cleanPath is
+// a symlink, other than well-known OS-managed aliases.
+func rejectSymlinkedParents(path, cleanPath string) error {
+	for dir := filepath.Dir(cleanPath); dir != filepath.Dir(dir); dir = filepath.Dir(dir) {
+		info, err := os.Lstat(dir)
+		if err != nil {
+			continue // missing ancestors cannot redirect anything
+		}
+		if info.Mode()&os.ModeSymlink != 0 && !systemAliases[dir] {
+			return fmt.Errorf("path %q traverses the symlink %q, which is not allowed for security", path, dir)
+		}
+	}
+	return nil
+}
+
+// systemAliases are OS-managed symlinks that legitimate paths traverse:
+// macOS links /tmp, /var and /etc into /private, and usr-merged Linux
+// distributions link /bin, /sbin and /lib* into /usr.
+var systemAliases = map[string]bool{
+	"/tmp": true, "/var": true, "/etc": true,
+	"/bin": true, "/sbin": true, "/lib": true, "/lib32": true, "/lib64": true,
 }
 
 // ValidateTimeout checks that a timeout duration string is parseable and

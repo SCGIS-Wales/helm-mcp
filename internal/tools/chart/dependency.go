@@ -27,6 +27,9 @@ func HandleDependencyBuild(ctx context.Context, _ *mcp.CallToolRequest, input De
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateFilePaths(input.Keyring); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
@@ -78,6 +81,9 @@ var DependencyUpdateTool = &mcp.Tool{
 
 func HandleDependencyUpdate(ctx context.Context, _ *mcp.CallToolRequest, input DependencyInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateFilePaths(input.Keyring); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
