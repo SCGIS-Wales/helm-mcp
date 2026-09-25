@@ -88,7 +88,7 @@ sudo mv helm-mcp-linux-arm64 /usr/local/bin/helm-mcp
 
 ### Build from Source
 
-Requires Go 1.25+.
+Requires Go 1.27+.
 
 ```bash
 git clone https://github.com/SCGIS-Wales/helm-mcp.git
@@ -1009,7 +1009,7 @@ export NO_PROXY=localhost,127.0.0.1,.internal.company.com
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.27+
 - Python 3.12+ (for the Python package)
 - golangci-lint v2 (optional, for linting)
 

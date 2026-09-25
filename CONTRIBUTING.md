@@ -19,7 +19,7 @@ Thank you for your interest in contributing to helm-mcp! This project is open so
 
 ### Go (MCP Server)
 
-Requires Go 1.25+.
+Requires Go 1.27+.
 
 ```bash
 # Build
