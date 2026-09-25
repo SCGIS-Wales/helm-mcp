@@ -10,6 +10,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.4.1] - 2026-09-25
+
+### Fixed
+- Two follow-ups to #50 and #51. ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- Every `helm plugin` tool shells out to the helm CLI with a 5-minute context timeout. When that timeout fires, Go kills `helm`, but `cmd.Run()` keeps waiting until every process that still holds the stdout or stderr pipe exits. A plugin install hook that spawns a child, such as `git` or a downloader, therefore hung the tool with no end. ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- All helm CLI invocations now go through `helmengine.HelmCommand`, which sets `exec.Cmd.WaitDelay`. This covers install, list, update, uninstall, package and verify, on both v3 and v4. ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- A new test reproduces the hang with a child process that keeps the pipe open: ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- without `WaitDelay`, it hangs until the test binary times out; ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- with `WaitDelay`, it returns in 0.7s. ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- The Publish to MCP Registry job has failed on v0.2.1, v0.3.0 and v0.4.0 with this error: ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- > PyPI package 'helm-mcp' ownership validation failed. The server name 'io.github.SCGIS-Wales/helm-mcp' must appear as 'mcp-name: io.github.SCGIS-Wales/helm-mcp' in the package README ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- `python/README.md`, which is the PyPI long description, now carries the marker as an HTML comment. ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- The `server.json` CI check now fails if the marker is missing, so this cannot regress unnoticed until release time. ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+- The registry reads the README from the package already on PyPI, so v0.4.0 cannot be republished. Merging this PR produces v0.4.1, which should be the first release to reach the registry. ([#52](https://github.com/SCGIS-Wales/helm-mcp/pull/52))
+
 ## [0.4.0] - 2026-09-25
 
 ### Changed
@@ -394,7 +410,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.0...v0.2.1
