@@ -25,6 +25,9 @@ func HandleVerify(ctx context.Context, _ *mcp.CallToolRequest, input VerifyInput
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateFilePaths(input.Keyring); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 

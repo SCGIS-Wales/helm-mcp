@@ -1010,3 +1010,77 @@ def test_platform_binary_name_matches_wheel_layout():
     system, arch = name.removeprefix("helm-mcp-").removesuffix(".exe").split("-", 1)
     assert system in {"linux", "darwin", "windows"}
     assert arch in {"amd64", "arm64"} or arch
+
+
+# ---------------------------------------------------------------------------
+# CLI: unauthenticated HTTP is loopback-only unless explicitly allowed
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("host", "expected"),
+    [
+        ("127.0.0.1", True),
+        ("localhost", True),
+        ("::1", True),
+        ("[::1]", True),
+        ("0.0.0.0", False),
+        ("10.0.0.5", False),
+        ("example.com", False),
+    ],
+)
+def test_is_loopback_host(host, expected):
+    from helm_mcp.cli import is_loopback_host
+
+    assert is_loopback_host(host) is expected
+
+
+def _http_argv(tmp_path, *extra):
+    fake_binary = tmp_path / "helm-mcp"
+    fake_binary.write_text("#!/bin/sh\necho hello")
+    fake_binary.chmod(0o755)
+    return ["helm-mcp-python", "--binary", str(fake_binary), "--transport", "http", *extra]
+
+
+def test_cli_http_refuses_remote_host_without_opt_in(tmp_path):
+    from unittest.mock import MagicMock
+
+    from helm_mcp.cli import main
+
+    mock_server = MagicMock()
+    with (
+        patch("sys.argv", _http_argv(tmp_path, "--host", "0.0.0.0")),
+        patch("helm_mcp.server.create_server", return_value=mock_server),
+        pytest.raises(SystemExit) as exc,
+    ):
+        main()
+    assert exc.value.code == 2
+    mock_server.run.assert_not_called()
+
+
+def test_cli_http_allows_remote_host_with_opt_in(tmp_path):
+    from unittest.mock import MagicMock
+
+    from helm_mcp.cli import main
+
+    mock_server = MagicMock()
+    with (
+        patch("sys.argv", _http_argv(tmp_path, "--host", "0.0.0.0", "--allow-remote")),
+        patch("helm_mcp.server.create_server", return_value=mock_server),
+    ):
+        main()
+    mock_server.run.assert_called_once_with(transport="http", host="0.0.0.0", port=8080)
+
+
+def test_cli_http_defaults_to_loopback(tmp_path):
+    from unittest.mock import MagicMock
+
+    from helm_mcp.cli import main
+
+    mock_server = MagicMock()
+    with (
+        patch("sys.argv", _http_argv(tmp_path)),
+        patch("helm_mcp.server.create_server", return_value=mock_server),
+    ):
+        main()
+    mock_server.run.assert_called_once_with(transport="http", host="127.0.0.1", port=8080)

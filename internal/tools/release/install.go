@@ -58,6 +58,15 @@ func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInp
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateChartRef(input.Chart); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateValuesFiles(input.ValuesFiles); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateFilePaths(input.OutputDir); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 	if !input.GenerateName {
 		if err := tools.ValidateReleaseName(input.ReleaseName); err != nil {
 			return tools.ErrorResult(err), nil, nil

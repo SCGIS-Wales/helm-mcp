@@ -29,6 +29,12 @@ func HandlePush(ctx context.Context, _ *mcp.CallToolRequest, input PushInput) (*
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateChartRef(input.Remote); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateFilePaths(input.CAFile, input.CertFile, input.KeyFile); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()

@@ -33,6 +33,11 @@ GITHUB_RELEASE_URL = (
     "https://github.com/SCGIS-Wales/helm-mcp/releases/download/v{version}/{binary_name}"
 )
 
+# Bounds for the download: a stalled connection must not hang the CLI, and a
+# hostile or broken server must not fill the disk before the checksum fails.
+DOWNLOAD_TIMEOUT_SECONDS = 60
+MAX_BINARY_BYTES = 256 * 1024 * 1024
+
 
 def _load_checksums() -> dict[str, Any]:
     """Load embedded checksums from package data.
@@ -105,12 +110,45 @@ def _verify_checksum(file_path: Path, expected_sha256: str) -> bool:
     return sha256.hexdigest() == expected_sha256
 
 
+def _target_name(version: str) -> str:
+    """Return the versioned filename the downloaded binary is installed as.
+
+    It must not be ``helm-mcp``: that is the console script pip installs for
+    this package in the same directory, so the old name made ``ensure_binary``
+    return the Python wrapper, which then exec'd itself forever. The version
+    suffix also makes an upgrade fetch the matching binary instead of reusing
+    a stale one.
+    """
+    name = f"helm-mcp-go-v{version}"
+    return f"{name}.exe" if platform.system().lower() == "windows" else name
+
+
+def _download(url: str, dest: Path) -> None:
+    """Stream *url* to *dest* with a timeout and a size cap.
+
+    Raises:
+        RuntimeError: If the response exceeds ``MAX_BINARY_BYTES``.
+        urllib.error.URLError: If the download fails.
+    """
+    written = 0
+    with (
+        urllib.request.urlopen(url, timeout=DOWNLOAD_TIMEOUT_SECONDS) as response,  # noqa: S310 — URL is hardcoded HTTPS
+        dest.open("wb") as out,
+    ):
+        for chunk in iter(lambda: response.read(65536), b""):
+            written += len(chunk)
+            if written > MAX_BINARY_BYTES:
+                raise RuntimeError(f"Download exceeds {MAX_BINARY_BYTES} bytes; aborting")
+            out.write(chunk)
+
+
 def ensure_binary(version: str) -> str | None:
     """Ensure the helm-mcp binary is available, downloading if needed.
 
-    If the binary already exists in the install directory and is executable,
-    returns its path immediately. Otherwise downloads from GitHub Releases,
-    verifies the SHA256 checksum, and installs it.
+    If a binary for *version* already exists in the install directory and
+    still matches its embedded checksum, returns its path immediately.
+    Otherwise downloads from GitHub Releases, verifies the SHA256 checksum,
+    and installs it.
 
     Args:
         version: Package version (e.g. ``"0.1.5"``). Used to construct
@@ -126,13 +164,7 @@ def ensure_binary(version: str) -> str | None:
     """
     binary_name = _get_binary_name()
     install_dir = _get_install_dir()
-
-    target_name = "helm-mcp.exe" if platform.system().lower() == "windows" else "helm-mcp"
-    target = install_dir / target_name
-
-    # Already installed?
-    if target.exists() and os.access(str(target), os.X_OK):
-        return str(target)
+    target = install_dir / _target_name(version)
 
     # Load embedded checksums
     checksums = _load_checksums()
@@ -140,6 +172,12 @@ def ensure_binary(version: str) -> str | None:
     if not expected:
         logger.debug("No checksum for %s — skipping auto-download", binary_name)
         return None
+
+    # Already installed? Re-verify so a modified binary is never trusted.
+    if target.is_file() and os.access(str(target), os.X_OK):
+        if _verify_checksum(target, expected):
+            return str(target)
+        logger.warning("Cached binary %s failed checksum verification; re-downloading", target)
 
     url = GITHUB_RELEASE_URL.format(version=version, binary_name=binary_name)
     logger.info("Downloading helm-mcp binary from %s", url)
@@ -153,7 +191,7 @@ def ensure_binary(version: str) -> str | None:
     tmp_path = Path(tmp_name)
     try:
         os.close(fd)
-        urllib.request.urlretrieve(url, tmp_name)  # noqa: S310 — URL is hardcoded HTTPS
+        _download(url, tmp_path)
 
         if not _verify_checksum(tmp_path, expected):
             raise RuntimeError(

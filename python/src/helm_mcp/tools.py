@@ -58,6 +58,7 @@ from tenacity import (
 )
 
 from helm_mcp.client import create_client
+from helm_mcp.resilience import is_retry_safe
 
 logger = logging.getLogger("helm_mcp.tools")
 
@@ -359,7 +360,9 @@ class HelmClient:
     ) -> Any:
         """Execute a tool call with tenacity retry (exponential backoff + jitter)."""
         tc = self._config.tenacity
-        if tc.enabled:
+        # Mutating tools are never replayed: a transport error after the
+        # request was sent says nothing about whether Helm applied it.
+        if tc.enabled and is_retry_safe(tool_name):
             async for attempt in AsyncRetrying(
                 stop=stop_after_attempt(tc.max_attempts),
                 wait=wait_exponential_jitter(
@@ -428,6 +431,13 @@ class HelmClient:
 
             except (OSError, ConnectionError, BrokenPipeError) as exc:
                 self._connected = False
+                if not is_retry_safe(tool_name):
+                    # The next call reconnects; this one may already have
+                    # been applied, so it is reported rather than replayed.
+                    raise HelmConnectionError(
+                        f"Connection lost during {tool_name!r}; it was not retried because it "
+                        "changes state. Check the release before calling it again."
+                    ) from exc
                 attempts += 1
                 last_exc = exc
                 logger.warning(

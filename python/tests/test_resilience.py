@@ -6,6 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from helm_mcp.resilience import (
+    READ_ONLY_TOOLS,
     BulkheadConfig,
     CacheConfig,
     CircuitBreakerConfig,
@@ -20,6 +21,7 @@ from helm_mcp.resilience import (
     _env_float,
     _env_int,
     build_middleware,
+    is_retry_safe,
     setup_otel,
 )
 
@@ -328,3 +330,71 @@ class TestSetupOtel:
                 with caplog.at_level(logging.WARNING, logger="helm_mcp.resilience"):
                     setup_otel(config)
                 assert "opentelemetry-sdk is not installed" in caplog.text
+
+
+# ---------------------------------------------------------------------------
+# Mutating tools are never retried or cached
+# ---------------------------------------------------------------------------
+
+
+class TestReadOnlyRetryAndCache:
+    def test_read_only_catalogue(self):
+        assert len(READ_ONLY_TOOLS) == 25
+        assert is_retry_safe("helm_list")
+        for name in ("helm_install", "helm_upgrade", "helm_rollback", "helm_uninstall"):
+            assert not is_retry_safe(name)
+
+    def test_cache_only_includes_read_only_tools(self):
+        config = ResilienceConfig(
+            retry=RetryConfig(enabled=False),
+            cache=CacheConfig(enabled=True),
+            error_handling=ErrorHandlingConfig(enabled=False),
+            timing=TimingConfig(enabled=False),
+        )
+        (cache,) = build_middleware(config)
+        assert cache._call_tool_settings["included_tools"] == sorted(READ_ONLY_TOOLS)
+
+    @staticmethod
+    def _retry_middleware():
+        config = ResilienceConfig(
+            retry=RetryConfig(enabled=True, max_retries=2, base_delay=0.0, max_delay=0.0),
+            error_handling=ErrorHandlingConfig(enabled=False),
+            timing=TimingConfig(enabled=False),
+        )
+        (retry,) = build_middleware(config)
+        return retry
+
+    @staticmethod
+    def _context(tool_name):
+        import types
+
+        return types.SimpleNamespace(
+            method="tools/call", message=types.SimpleNamespace(name=tool_name)
+        )
+
+    async def test_retry_skips_mutating_tool(self):
+        retry = self._retry_middleware()
+        calls = 0
+
+        async def call_next(_ctx):
+            nonlocal calls
+            calls += 1
+            raise TimeoutError("slow upgrade")
+
+        with pytest.raises(TimeoutError):
+            await retry.on_request(self._context("helm_upgrade"), call_next)
+        assert calls == 1
+
+    async def test_retry_replays_read_only_tool(self):
+        retry = self._retry_middleware()
+        calls = 0
+
+        async def call_next(_ctx):
+            nonlocal calls
+            calls += 1
+            if calls < 3:
+                raise ConnectionError("blip")
+            return "ok"
+
+        assert await retry.on_request(self._context("helm_status"), call_next) == "ok"
+        assert calls == 3

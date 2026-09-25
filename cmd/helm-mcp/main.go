@@ -29,9 +29,19 @@ var version = "dev"
 // explicitly so the limit is visible and tunable rather than implicit.
 const defaultMaxRequestBytes = 4 << 20
 
+// defaultWriteTimeout bounds how long a single HTTP response may take. It
+// was 60s, so helm_install/helm_upgrade with wait and a longer timeout
+// finished on the cluster while the client only saw a dropped connection.
+const defaultWriteTimeout = 30 * time.Minute
+
 func main() {
 	mode := flag.String("mode", "stdio", "Transport mode: stdio or http")
-	addr := flag.String("addr", ":8080", "Listen address for http mode")
+	// Loopback by default: an unauthenticated server on every interface lets
+	// anyone on the network install plugins, which run arbitrary code.
+	addr := flag.String("addr", "127.0.0.1:8080",
+		"Listen address for http mode. Use 0.0.0.0:8080 (with authentication) to accept remote clients")
+	writeTimeout := flag.Duration("write-timeout", defaultWriteTimeout,
+		"Maximum time to write an HTTP response. Must exceed the longest helm --timeout a client uses")
 	stateless := flag.Bool("stateless", true,
 		"Run the HTTP transport without protocol-level sessions (MCP 2026-07-28). "+
 			"Set to false only for clients that require the legacy session behaviour.")
@@ -103,7 +113,11 @@ func main() {
 	// Build the authentication middleware from environment variables.
 	// Priority: OIDC > static bearer token > none.
 	// Stdio mode is unaffected — auth middleware only applies to HTTP.
-	authMiddleware, sessionCache := buildAuthMiddleware(logger)
+	// Audit events go to stderr at Info level regardless of --debug. They
+	// used to share the default logger, which discards everything unless
+	// --debug is set, so every auth_failure was silently dropped.
+	auditLogger := slog.New(slog.NewJSONHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo}))
+	authMiddleware, sessionCache := buildAuthMiddleware(auditLogger)
 	if sessionCache != nil {
 		defer sessionCache.Stop()
 	}
@@ -134,7 +148,7 @@ func main() {
 		// default; wrap the handler explicitly so browser-initiated
 		// cross-origin requests stay rejected. Non-browser MCP clients
 		// (no Origin / Sec-Fetch-Site headers) are unaffected.
-		httpServer := newHTTPServer(*addr, crossOriginProtected(authMiddleware(handler)))
+		httpServer := newHTTPServer(*addr, *writeTimeout, crossOriginProtected(authMiddleware(handler)))
 		printAuthStatus(*addr, *stateless)
 		slog.Info("starting HTTP server", "addr", *addr, "stateless", *stateless) //nolint:gosec // addr comes from a trusted CLI flag, not user input
 		gracefulShutdown(ctx, httpServer)
@@ -286,13 +300,14 @@ func crossOriginProtected(h http.Handler) http.Handler {
 	return protection.Handler(h)
 }
 
-func newHTTPServer(addr string, handler http.Handler) *http.Server {
+func newHTTPServer(addr string, writeTimeout time.Duration, handler http.Handler) *http.Server {
 	return &http.Server{
-		Addr:           addr,
-		Handler:        handler,
-		ReadTimeout:    30 * time.Second,
-		WriteTimeout:   60 * time.Second,
-		IdleTimeout:    120 * time.Second,
-		MaxHeaderBytes: 1 << 20, // 1 MB
+		Addr:              addr,
+		Handler:           handler,
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MB
 	}
 }

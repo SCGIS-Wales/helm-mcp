@@ -817,3 +817,67 @@ func TestJWKSCache_RefreshKeys(t *testing.T) {
 		t.Errorf("expected 2 calls after cache expiry, got %d", callCount)
 	}
 }
+
+func TestJWKSCache_RefreshKeysAfterRotationWithinTTL(t *testing.T) {
+	kp := generateTestKeyPair(t, "key-1")
+	callCount := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		jwks := map[string]interface{}{
+			"keys": []map[string]interface{}{kp.jwkJSON()},
+		}
+		_ = json.NewEncoder(w).Encode(jwks)
+	}))
+	defer server.Close()
+
+	cache := newJWKSCache()
+	ctx := context.Background()
+	_, _ = cache.GetKeys(ctx, server.URL, http.DefaultClient)
+
+	// Older than minRefresh but well inside the 1h TTL: a forced refresh
+	// after an unknown kid must refetch, or rotated keys stay rejected.
+	cache.mu.Lock()
+	cache.fetched = time.Now().Add(-5 * time.Minute)
+	cache.mu.Unlock()
+
+	if _, err := cache.RefreshKeys(ctx, server.URL, http.DefaultClient); err != nil {
+		t.Fatalf("RefreshKeys error: %v", err)
+	}
+	if callCount != 2 {
+		t.Errorf("expected forced refresh to refetch within TTL, got %d calls", callCount)
+	}
+
+	// GetKeys still honours the TTL.
+	_, _ = cache.GetKeys(ctx, server.URL, http.DefaultClient)
+	if callCount != 2 {
+		t.Errorf("expected GetKeys cache hit, got %d calls", callCount)
+	}
+}
+
+func TestOIDCValidator_CachesDiscovery(t *testing.T) {
+	discoveryCalls := 0
+	var srvURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/.well-known/openid-configuration" {
+			discoveryCalls++
+			_ = json.NewEncoder(w).Encode(map[string]string{"jwks_uri": srvURL + "/keys"})
+			return
+		}
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{"keys": []interface{}{}})
+	}))
+	defer server.Close()
+	srvURL = server.URL
+
+	v, err := NewOIDCValidator(OIDCConfig{IssuerURL: server.URL, Audience: "aud", HTTPClient: server.Client()})
+	if err != nil {
+		t.Fatalf("NewOIDCValidator: %v", err)
+	}
+	for range 3 {
+		if _, err := v.cachedJWKSURL(context.Background()); err != nil {
+			t.Fatalf("cachedJWKSURL: %v", err)
+		}
+	}
+	if discoveryCalls != 1 {
+		t.Errorf("expected 1 discovery call, got %d", discoveryCalls)
+	}
+}

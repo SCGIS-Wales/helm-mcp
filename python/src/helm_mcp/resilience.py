@@ -32,6 +32,46 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Tools the Go server annotates readOnlyHint=true. Only these are safe to
+# retry or cache: a timeout on helm_upgrade or helm_rollback does not mean
+# the operation failed, so replaying it can apply a change twice, and a
+# cached helm_install result would skip the install entirely. Keep in sync
+# with the tools.ReadOnly(...) annotations under internal/tools.
+READ_ONLY_TOOLS: frozenset[str] = frozenset(
+    {
+        "helm_dependency_list",
+        "helm_env",
+        "helm_get_all",
+        "helm_get_hooks",
+        "helm_get_manifest",
+        "helm_get_metadata",
+        "helm_get_notes",
+        "helm_get_values",
+        "helm_history",
+        "helm_lint",
+        "helm_list",
+        "helm_plugin_list",
+        "helm_plugin_verify",
+        "helm_repo_list",
+        "helm_search_hub",
+        "helm_search_repo",
+        "helm_show_all",
+        "helm_show_chart",
+        "helm_show_crds",
+        "helm_show_readme",
+        "helm_show_values",
+        "helm_status",
+        "helm_template",
+        "helm_verify",
+        "helm_version",
+    }
+)
+
+
+def is_retry_safe(tool_name: str) -> bool:
+    """Report whether *tool_name* is read-only and so safe to replay."""
+    return tool_name in READ_ONLY_TOOLS
+
 
 # ---------------------------------------------------------------------------
 # Environment variable helpers
@@ -333,10 +373,8 @@ def build_middleware(config: ResilienceConfig) -> list[Any]:
         )
 
     if config.retry.enabled:
-        from fastmcp.server.middleware.error_handling import RetryMiddleware
-
         middlewares.append(
-            RetryMiddleware(
+            _read_only_retry_middleware(
                 max_retries=config.retry.max_retries,
                 base_delay=config.retry.base_delay,
                 max_delay=config.retry.max_delay,
@@ -355,7 +393,11 @@ def build_middleware(config: ResilienceConfig) -> list[Any]:
 
         middlewares.append(
             ResponseCachingMiddleware(
-                call_tool_settings={"ttl": config.cache.tool_ttl, "enabled": True},
+                call_tool_settings={
+                    "ttl": config.cache.tool_ttl,
+                    "enabled": True,
+                    "included_tools": sorted(READ_ONLY_TOOLS),
+                },
                 list_tools_settings={"ttl": config.cache.list_ttl, "enabled": True},
             )
         )
@@ -366,6 +408,26 @@ def build_middleware(config: ResilienceConfig) -> list[Any]:
         )
 
     return middlewares
+
+
+def _read_only_retry_middleware(**kwargs: Any) -> Any:
+    """Build a RetryMiddleware that never replays a mutating tool call.
+
+    FastMCP's RetryMiddleware retries every request type. Tool calls are only
+    retried when :func:`is_retry_safe` allows it; list and other protocol
+    requests keep the default behaviour.
+    """
+    from fastmcp.server.middleware.error_handling import RetryMiddleware
+
+    class ReadOnlyRetryMiddleware(RetryMiddleware):
+        async def on_request(self, context: Any, call_next: Any) -> Any:
+            if context.method == "tools/call" and not is_retry_safe(
+                str(getattr(context.message, "name", ""))
+            ):
+                return await call_next(context)
+            return await super().on_request(context, call_next)
+
+    return ReadOnlyRetryMiddleware(**kwargs)
 
 
 # ---------------------------------------------------------------------------

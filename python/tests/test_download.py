@@ -193,17 +193,98 @@ def test_verify_checksum_empty_file(tmp_path):
 
 
 def test_ensure_binary_already_installed(tmp_path):
-    """Test ensure_binary returns existing binary path."""
-    target = tmp_path / "helm-mcp"
-    target.write_text("#!/bin/sh\necho hello")
+    """Test ensure_binary returns an existing binary whose checksum matches."""
+    content = b"#!/bin/sh\necho hello"
+    target = tmp_path / "helm-mcp-go-v1.0.0"
+    target.write_bytes(content)
     target.chmod(0o755)
+    checksums = {"binaries": {"helm-mcp-linux-amd64": hashlib.sha256(content).hexdigest()}}
 
     with (
         patch("helm_mcp.download._get_install_dir", return_value=tmp_path),
+        patch("helm_mcp.download._load_checksums", return_value=checksums),
+        patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-linux-amd64"),
         patch("helm_mcp.download.platform.system", return_value="Linux"),
+        patch("helm_mcp.download._download") as download,
     ):
         result = ensure_binary("1.0.0")
         assert result == str(target)
+        download.assert_not_called()
+
+
+def test_ensure_binary_ignores_console_script(tmp_path):
+    """The pip console script named helm-mcp must never be returned."""
+    script = tmp_path / "helm-mcp"
+    script.write_text("#!/usr/bin/python3\nfrom helm_mcp.cli import helm_mcp_main\n")
+    script.chmod(0o755)
+    binary_content = b"real binary"
+    checksums = {"binaries": {"helm-mcp-linux-amd64": hashlib.sha256(binary_content).hexdigest()}}
+
+    def fake_download(url, path):
+        Path(path).write_bytes(binary_content)
+
+    with (
+        patch("helm_mcp.download._get_install_dir", return_value=tmp_path),
+        patch("helm_mcp.download._load_checksums", return_value=checksums),
+        patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-linux-amd64"),
+        patch("helm_mcp.download.platform.system", return_value="Linux"),
+        patch("helm_mcp.download._download", side_effect=fake_download),
+    ):
+        result = ensure_binary("1.0.0")
+
+    assert result is not None
+    assert Path(result).name == "helm-mcp-go-v1.0.0"
+    assert script.read_text().startswith("#!/usr/bin/python3")
+
+
+def test_ensure_binary_redownloads_tampered_cache(tmp_path):
+    """A cached binary that fails its checksum is replaced."""
+    good = b"good binary"
+    target = tmp_path / "helm-mcp-go-v1.0.0"
+    target.write_bytes(b"tampered")
+    target.chmod(0o755)
+    checksums = {"binaries": {"helm-mcp-linux-amd64": hashlib.sha256(good).hexdigest()}}
+
+    def fake_download(url, path):
+        Path(path).write_bytes(good)
+
+    with (
+        patch("helm_mcp.download._get_install_dir", return_value=tmp_path),
+        patch("helm_mcp.download._load_checksums", return_value=checksums),
+        patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-linux-amd64"),
+        patch("helm_mcp.download.platform.system", return_value="Linux"),
+        patch("helm_mcp.download._download", side_effect=fake_download),
+    ):
+        result = ensure_binary("1.0.0")
+
+    assert result == str(target)
+    assert target.read_bytes() == good
+
+
+def test_download_enforces_size_cap(tmp_path):
+    """_download aborts once the response exceeds MAX_BINARY_BYTES."""
+    from helm_mcp import download as mod
+
+    class FakeResponse:
+        def __init__(self):
+            self.chunks = [b"x" * 10, b"x" * 10]
+
+        def read(self, _n):
+            return self.chunks.pop(0) if self.chunks else b""
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+    with (
+        patch.object(mod, "MAX_BINARY_BYTES", 15),
+        patch.object(mod.urllib.request, "urlopen", return_value=FakeResponse()) as urlopen,
+        pytest.raises(RuntimeError, match="exceeds"),
+    ):
+        mod._download("https://example.invalid/x", tmp_path / "out")
+    assert urlopen.call_args.kwargs["timeout"] == mod.DOWNLOAD_TIMEOUT_SECONDS
 
 
 def test_ensure_binary_no_checksums(tmp_path):
@@ -238,7 +319,7 @@ def test_ensure_binary_downloads_and_verifies(tmp_path):
 
     checksums = {"version": "1.0.0", "binaries": {"helm-mcp-linux-amd64": expected_sha}}
 
-    def fake_urlretrieve(url, path):
+    def fake_download(url, path):
         Path(path).write_bytes(binary_content)
 
     with (
@@ -246,14 +327,14 @@ def test_ensure_binary_downloads_and_verifies(tmp_path):
         patch("helm_mcp.download._load_checksums", return_value=checksums),
         patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-linux-amd64"),
         patch("helm_mcp.download.platform.system", return_value="Linux"),
-        patch("helm_mcp.download.urllib.request.urlretrieve", side_effect=fake_urlretrieve),
+        patch("helm_mcp.download._download", side_effect=fake_download),
     ):
         result = ensure_binary("1.0.0")
 
     assert result is not None
     target = Path(result)
     assert target.exists()
-    assert target.name == "helm-mcp"
+    assert target.name == "helm-mcp-go-v1.0.0"
     assert target.read_bytes() == binary_content
     assert os.access(str(target), os.X_OK)
 
@@ -262,7 +343,7 @@ def test_ensure_binary_checksum_mismatch_raises(tmp_path):
     """Test ensure_binary raises on checksum mismatch."""
     checksums = {"version": "1.0.0", "binaries": {"helm-mcp-linux-amd64": "expected_hash"}}
 
-    def fake_urlretrieve(url, path):
+    def fake_download(url, path):
         Path(path).write_bytes(b"tampered content")
 
     with (
@@ -270,7 +351,7 @@ def test_ensure_binary_checksum_mismatch_raises(tmp_path):
         patch("helm_mcp.download._load_checksums", return_value=checksums),
         patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-linux-amd64"),
         patch("helm_mcp.download.platform.system", return_value="Linux"),
-        patch("helm_mcp.download.urllib.request.urlretrieve", side_effect=fake_urlretrieve),
+        patch("helm_mcp.download._download", side_effect=fake_download),
         pytest.raises(RuntimeError, match="Checksum mismatch"),
     ):
         ensure_binary("1.0.0")
@@ -290,7 +371,7 @@ def test_ensure_binary_download_failure_cleans_up(tmp_path):
         patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-linux-amd64"),
         patch("helm_mcp.download.platform.system", return_value="Linux"),
         patch(
-            "helm_mcp.download.urllib.request.urlretrieve",
+            "helm_mcp.download._download",
             side_effect=ConnectionError("Network error"),
         ),
         pytest.raises(ConnectionError, match="Network error"),
@@ -310,7 +391,7 @@ def test_ensure_binary_url_format(tmp_path):
 
     captured_url = None
 
-    def fake_urlretrieve(url, path):
+    def fake_download(url, path):
         nonlocal captured_url
         captured_url = url
         Path(path).write_bytes(binary_content)
@@ -320,7 +401,7 @@ def test_ensure_binary_url_format(tmp_path):
         patch("helm_mcp.download._load_checksums", return_value=checksums),
         patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-darwin-arm64"),
         patch("helm_mcp.download.platform.system", return_value="Darwin"),
-        patch("helm_mcp.download.urllib.request.urlretrieve", side_effect=fake_urlretrieve),
+        patch("helm_mcp.download._download", side_effect=fake_download),
     ):
         ensure_binary("0.1.5")
 
@@ -331,12 +412,16 @@ def test_ensure_binary_url_format(tmp_path):
 
 def test_ensure_binary_windows_target_name(tmp_path):
     """Test ensure_binary uses .exe extension on Windows."""
-    target = tmp_path / "helm-mcp.exe"
-    target.write_text("fake binary")
+    content = b"fake binary"
+    target = tmp_path / "helm-mcp-go-v1.0.0.exe"
+    target.write_bytes(content)
     target.chmod(0o755)
+    checksums = {"binaries": {"helm-mcp-windows-amd64.exe": hashlib.sha256(content).hexdigest()}}
 
     with (
         patch("helm_mcp.download._get_install_dir", return_value=tmp_path),
+        patch("helm_mcp.download._load_checksums", return_value=checksums),
+        patch("helm_mcp.download._get_binary_name", return_value="helm-mcp-windows-amd64.exe"),
         patch("helm_mcp.download.platform.system", return_value="Windows"),
     ):
         result = ensure_binary("1.0.0")

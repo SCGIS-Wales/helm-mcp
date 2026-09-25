@@ -122,8 +122,12 @@ helm-mcp --mode stdio
 ### HTTP mode (Streamable HTTP)
 
 ```bash
-helm-mcp --mode http --addr :8080
+helm-mcp --mode http
 ```
+
+HTTP mode listens on `127.0.0.1:8080` by default. To accept remote clients,
+configure authentication (see [Authentication](#authentication-oidcoauth2))
+and bind explicitly, for example `--addr 0.0.0.0:8080`.
 
 HTTP mode is **stateless by default** (MCP `2026-07-28`): there is no
 `initialize` handshake and no `Mcp-Session-Id` header, so the server can sit
@@ -134,7 +138,7 @@ negotiates down automatically.
 If a client needs the legacy per-session behaviour:
 
 ```bash
-helm-mcp --mode http --addr :8080 --stateless=false
+helm-mcp --mode http --stateless=false
 ```
 
 > **Removed in v0.2.0: `--mode sse`.** The HTTP+SSE transport has been
@@ -183,7 +187,7 @@ Add to your MCP server configuration:
 Start the server in HTTP mode, then connect any MCP-compatible client to the endpoint:
 
 ```bash
-helm-mcp --mode http --addr :8080
+helm-mcp --mode http
 # MCP endpoint: http://localhost:8080/mcp
 ```
 
@@ -542,7 +546,7 @@ server.run()
 
 # HTTP mode
 server = create_server()
-server.run(transport="http", host="0.0.0.0", port=8080)
+server.run(transport="http", host="127.0.0.1", port=8080)
 ```
 
 ### Usage as a Client
@@ -578,8 +582,11 @@ asyncio.run(main())
 # stdio mode (for MCP clients like Claude Code)
 helm-mcp-python
 
-# HTTP mode
-helm-mcp-python --transport http --host 0.0.0.0 --port 8080
+# HTTP mode (loopback only by default; the Python proxy has no authentication)
+helm-mcp-python --transport http --port 8080
+
+# Bind to all interfaces only behind your own authenticating proxy
+helm-mcp-python --transport http --host 0.0.0.0 --allow-remote
 
 # Custom binary path
 helm-mcp-python --binary /usr/local/bin/helm-mcp
@@ -822,8 +829,9 @@ The security package provides validators for:
 - Release names (DNS-1123 compliant)
 - Namespace names
 - Kubeconfig file paths (path traversal prevention, symlink detection, sensitive path rejection — `/etc/shadow`, `/proc/`, `/dev/`, `/sys/` are blocked)
-- URLs (scheme validation + **SSRF protection**: DNS resolution with private IP blocking for `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, and IPv6 loopback/link-local ranges)
-- File paths (traversal prevention)
+- URLs (scheme validation + **SSRF protection**: DNS resolution with private IP blocking for `0.0.0.0/8`, `127.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, IPv4-mapped addresses, NAT64, and IPv6 unspecified/loopback/link-local/unique-local ranges). Applied to repository URLs, URL chart references, remote values files, and OCI push targets
+- File paths (traversal prevention, symlink rejection including symlinked parent directories, sensitive path rejection). Applied to values files, keyrings, CA/cert/key files, passphrase files, and output directories
+- Repository names (alphanumeric, dots, dashes, underscores; prevents cache path traversal)
 - Timeout durations (max 24h)
 - Plugin names (alphanumeric + dashes/underscores, no leading dash to prevent argument injection)
 
@@ -835,8 +843,9 @@ The security package provides validators for:
 ### HTTP Server Hardening
 
 When running in HTTP mode:
-- `ReadTimeout: 30s` — prevents slow client attacks
-- `WriteTimeout: 60s` — prevents connection exhaustion
+- Listens on `127.0.0.1:8080` unless `--addr` says otherwise
+- `ReadHeaderTimeout: 10s` and `ReadTimeout: 30s` — prevent slow client attacks
+- `WriteTimeout: 30m` (`--write-timeout`) — long enough for `helm_install`/`helm_upgrade` with `wait`; raise it if clients use longer Helm timeouts
 - `IdleTimeout: 120s` — reclaims idle connections
 - `MaxHeaderBytes: 1MB` — prevents header-based DoS
 - Graceful shutdown with 5-second timeout
@@ -862,8 +871,10 @@ export HELM_MCP_ALLOWED_CLIENTS="client-app-id-1,client-app-id-2"
 # Optional: explicit JWKS URL (auto-discovered from issuer if omitted)
 export HELM_MCP_OIDC_JWKS_URL="https://login.microsoftonline.com/{tenant-id}/discovery/v2.0/keys"
 
-helm-mcp --mode http --addr :8080
+helm-mcp --mode http --addr 0.0.0.0:8080
 ```
+
+Authentication events (`auth_success`, `auth_failure`) are written to stderr as JSON at Info level, independent of `--debug`.
 
 #### Environment Variables
 
