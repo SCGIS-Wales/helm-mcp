@@ -41,6 +41,10 @@ FROM alpine:3.24.2
 RUN apk add --no-cache ca-certificates tzdata git && \
     adduser -D -u 1000 helmuser
 
+# The MCP Registry verifies ownership of the OCI package by reading this
+# label from the published image; it must match the name in server.json.
+LABEL io.modelcontextprotocol.server.name="io.github.SCGIS-Wales/helm-mcp"
+
 COPY --from=builder /helm-mcp /usr/local/bin/helm-mcp
 COPY --from=builder /helm /usr/local/bin/helm
 

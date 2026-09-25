@@ -32,9 +32,7 @@
     },
     {
       "registryType": "oci",
-      "registryBaseUrl": "https://ghcr.io",
-      "identifier": "ghcr.io/scgis-wales/helm-mcp",
-      "version": "0.2.0",
+      "identifier": "ghcr.io/scgis-wales/helm-mcp:0.2.0",
       "transport": {
         "type": "stdio"
       }
