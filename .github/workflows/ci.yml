@@ -391,8 +391,23 @@ jobs:
       - name: Run integration tests
         run: python3 -m pytest tests/integration/ -v --timeout=600
 
+      # Only on failure: the pytest output says a release was not ready but
+      # not why, and the cluster is gone by the time anyone reads the log.
+      - name: Dump cluster diagnostics on failure
+        if: failure()
+        run: |
+          set +e
+          helm version
+          ./helm-mcp --version
+          kubectl get nodes -o wide
+          kubectl get all -A -o wide
+          kubectl describe deployments,replicasets,pods -n helm-mcp-integ
+          kubectl get events -A --sort-by=.lastTimestamp | tail -100
+          helm plugin list
+
       - name: Cleanup k3d cluster
         if: always()
+        timeout-minutes: 3
         run: k3d cluster delete helm-mcp-test 2>/dev/null || true
 
   # ---------- Auto-tag on merge to main ----------
