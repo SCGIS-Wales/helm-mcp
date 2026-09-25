@@ -248,6 +248,19 @@ jobs:
           set -eux
           docker run --rm --entrypoint helm-mcp helm-mcp:ci --version
 
+      # The MCP Registry reads this label to verify ownership of the OCI
+      # package; a missing or mismatched label fails only at publish time.
+      - name: Verify the MCP Registry ownership label
+        run: |
+          set -eu
+          LABEL=$(docker inspect --format '{{ index .Config.Labels "io.modelcontextprotocol.server.name" }}' helm-mcp:ci)
+          NAME=$(python3 -c 'import json; print(json.load(open("server.json"))["name"])')
+          echo "label=${LABEL} server.json=${NAME}"
+          if [ "$LABEL" != "$NAME" ]; then
+            echo "::error::image label io.modelcontextprotocol.server.name must equal server.json name"
+            exit 1
+          fi
+
   server-json:
     name: Validate server.json
     runs-on: ubuntu-latest
@@ -802,7 +815,13 @@ jobs:
               doc = json.load(fh)
           doc["version"] = version
           for package in doc.get("packages", []):
-              package["version"] = version
+              if package["registryType"] == "oci":
+                  # The registry rejects registryBaseUrl/version on OCI
+                  # packages; the tag in the canonical identifier is the version.
+                  image = package["identifier"].rsplit(":", 1)[0]
+                  package["identifier"] = f"{image}:{version}"
+              else:
+                  package["version"] = version
           with open("server.json", "w") as fh:
               json.dump(doc, fh, indent=2)
               fh.write("\n")
