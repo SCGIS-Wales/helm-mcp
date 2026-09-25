@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.4.2] - 2026-09-25
+
+### Fixed
+- v0.4.1 is the first release that passed the MCP Registry's PyPI ownership check, thanks to the `mcp-name` marker from #52. The registry then rejected the container package instead: ([#53](https://github.com/SCGIS-Wales/helm-mcp/pull/53))
+- > registry validation failed for package 1 (ghcr.io/scgis-wales/helm-mcp): OCI packages must not have 'registryBaseUrl' field - use canonical reference in 'identifier' instead (e.g., 'docker.io/owner/image:1.0.0') ([#53](https://github.com/SCGIS-Wales/helm-mcp/pull/53))
+
 ## [0.4.1] - 2026-09-25
 
 ### Fixed
@@ -410,7 +417,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.1...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.1...v0.3.0
