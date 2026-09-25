@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"os/exec"
 	"time"
 
 	helmengine "github.com/ssddgreg/helm-mcp/internal/helmengine"
@@ -26,7 +25,7 @@ func (e *V3Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginIns
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", args...)
+	cmd := helmengine.HelmCommand(execCtx, args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -61,7 +60,7 @@ func (e *V3Engine) PluginUninstall(ctx context.Context, opts *helmengine.PluginU
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", "plugin", "uninstall", "--", opts.Name)
+	cmd := helmengine.HelmCommand(execCtx, "plugin", "uninstall", "--", opts.Name)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -77,7 +76,7 @@ func (e *V3Engine) PluginUpdate(ctx context.Context, opts *helmengine.PluginUpda
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()
 
-	cmd := exec.CommandContext(execCtx, "helm", "plugin", "update", "--", opts.Name)
+	cmd := helmengine.HelmCommand(execCtx, "plugin", "update", "--", opts.Name)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

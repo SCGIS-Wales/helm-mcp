@@ -285,6 +285,14 @@ jobs:
                   f"accept the namespace {expected}* for this repository. "
                   "The owner segment is case-sensitive."
               )
+
+          # The registry verifies PyPI ownership by looking for this marker in
+          # the package README. Without it every publish is rejected with a
+          # 400, which is only visible after a release has gone out.
+          marker = f"mcp-name: {doc['name']}"
+          with open("python/README.md") as fh:
+              if marker not in fh.read():
+                  sys.exit(f"python/README.md must contain '{marker}' for the MCP Registry.")
           print(f"server.json is valid: {doc['name']} {doc['version']}")
           PY
 

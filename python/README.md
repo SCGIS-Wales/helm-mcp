@@ -1,5 +1,7 @@
 # helm-mcp (Python)
 
+<!-- mcp-name: io.github.SCGIS-Wales/helm-mcp -->
+
 [![CI/CD Pipeline](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/SCGIS-Wales/helm-mcp/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/helm-mcp)](https://pypi.org/project/helm-mcp/)
 [![Python versions](https://img.shields.io/pypi/pyversions/helm-mcp)](https://pypi.org/project/helm-mcp/)
