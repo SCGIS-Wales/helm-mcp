@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.4.0] - 2026-09-25
+
+### Changed
+- The dependency upgrades split out of #50, which has merged. This PR now targets `main`. ([#51](https://github.com/SCGIS-Wales/helm-mcp/pull/51))
+
 ## [0.3.0] - 2026-09-25
 
 ### Fixed
@@ -388,7 +394,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.1.38...v0.2.0
