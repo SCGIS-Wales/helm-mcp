@@ -405,6 +405,23 @@ class TestChartManagement:
         assert not result.is_error, f"template failed: {text}"
         assert "kind:" in text
 
+    async def test_template_show_only(self, mcp_client, bitnami_repo):
+        """helm_template show_only keeps only the named template."""
+        result = await call_tool(
+            mcp_client,
+            "helm_template",
+            {
+                "release_name": "template-show-only",
+                "chart": "bitnami/nginx",
+                "namespace": TEST_NAMESPACE,
+                "show_only": ["templates/deployment.yaml"],
+            },
+        )
+        text = extract_text(result)
+        assert not result.is_error, f"template show_only failed: {text}"
+        assert "kind: Deployment" in text
+        assert "kind: Service" not in text
+
     async def test_template_with_values(self, mcp_client, bitnami_repo):
         """helm_template with custom values override."""
         result = await call_tool(
@@ -523,6 +540,8 @@ class TestReleaseLifecycle:
         )
         text = extract_text(result)
         assert not result.is_error, f"install failed: {text}"
+        # Helm 4 installs with server-side apply unless told otherwise.
+        assert '"apply_method": "ssa"' in text, f"expected server-side apply: {text}"
 
     async def test_02_list(self, mcp_client):
         """helm_list shows the installed release."""
@@ -577,7 +596,12 @@ class TestReleaseLifecycle:
                 "show_resources": True,
             },
         )
-        assert not result.is_error
+        text = extract_text(result)
+        assert not result.is_error, f"status show_resources failed: {text}"
+        # Resources used to be fetched and then dropped from the result.
+        assert '"kind": "Deployment"' in text, (
+            f"expected the release's resources: {text}"
+        )
 
     async def test_07_get_values(self, mcp_client):
         """helm_get_values returns user-supplied values."""
@@ -750,6 +774,23 @@ class TestReleaseLifecycle:
         assert not result.is_error
         assert TEST_RELEASE not in text
 
+    async def test_22_upgrade_install_missing_release(self, mcp_client, bitnami_repo):
+        """helm_upgrade with install creates a release that does not exist yet."""
+        result = await call_tool(
+            mcp_client,
+            "helm_upgrade",
+            {
+                "release_name": "integ-upsert",
+                "chart": self.CHART,
+                "namespace": TEST_NAMESPACE,
+                "install": True,
+                "dry_run": "client",
+            },
+        )
+        text = extract_text(result)
+        assert not result.is_error, f"upgrade --install failed: {text}"
+        assert '"name": "integ-upsert"' in text
+
 
 # ---------------------------------------------------------------------------
 # 8. Plugin Management Tools
@@ -759,10 +800,10 @@ class TestReleaseLifecycle:
 class TestPluginTools:
     """Tests for helm_plugin_list, helm_plugin_install, helm_plugin_uninstall, helm_plugin_update.
 
-    Plugin operations shell out to the system ``helm`` CLI.  Helm v4 requires
-    ``--verify=false`` for unsigned plugins, which the MCP tool does not yet
-    expose.  We therefore pre-install the test plugin via subprocess and
-    exercise only the MCP list/update/uninstall tools.
+    Plugin operations shell out to the system ``helm`` CLI.  Helm v4 verifies
+    plugin signatures by default and helm-diff is unsigned, so the install
+    test passes ``verify: false``.  The other tests pre-install the plugin via
+    subprocess if it is missing, so they do not depend on test order.
     """
 
     @staticmethod
@@ -790,20 +831,17 @@ class TestPluginTools:
         assert not result.is_error
 
     async def test_plugin_install(self, mcp_client):
-        """helm_plugin_install invokes plugin install (may fail on unsigned sources)."""
+        """helm_plugin_install installs an unsigned plugin with verify: false."""
         result = await call_tool(
             mcp_client,
             "helm_plugin_install",
-            {"url_or_path": "https://github.com/databus23/helm-diff"},
+            {"url_or_path": "https://github.com/databus23/helm-diff", "verify": False},
         )
         text = extract_text(result)
-        # Accept success, "already exists", or verification error
         if result.is_error:
-            assert (
-                "already exists" in text.lower()
-                or "verification" in text.lower()
-                or "verify" in text.lower()
-            ), f"plugin_install unexpected error: {text}"
+            assert "already exists" in text.lower(), (
+                f"plugin_install unexpected error: {text}"
+            )
 
     async def test_plugin_list_after_install(self, mcp_client):
         """helm_plugin_list shows the diff plugin (pre-installed via CLI)."""

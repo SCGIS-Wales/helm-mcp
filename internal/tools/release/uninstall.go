@@ -29,7 +29,7 @@ var UninstallTool = &mcp.Tool{
 	Annotations: tools.Destructive("Uninstall a release"),
 }
 
-func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {
+func HandleUninstall(ctx context.Context, req *mcp.CallToolRequest, input UninstallInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -44,7 +44,7 @@ func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input Uninstal
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
 
-	result, err := engine.Uninstall(ctx, cfg, &helmengine.UninstallOptions{
+	opts := &helmengine.UninstallOptions{
 		ReleaseName:  input.ReleaseName,
 		KeepHistory:  input.KeepHistory,
 		DryRun:       input.DryRun,
@@ -56,6 +56,9 @@ func HandleUninstall(ctx context.Context, _ *mcp.CallToolRequest, input Uninstal
 		IgnoreNotFound: input.IgnoreNotFound,
 		Description:    input.Description,
 		WaitStrategy:   input.WaitStrategy,
+	}
+	result, err := tools.WithProgress(ctx, req, "helm uninstall", func() (*helmengine.UninstallResult, error) {
+		return engine.Uninstall(ctx, cfg, opts)
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

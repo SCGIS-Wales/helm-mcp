@@ -15,6 +15,57 @@ type ReleaseInfo struct {
 	Updated      time.Time         `json:"updated"`
 	Notes        string            `json:"notes,omitempty"`
 	Labels       map[string]string `json:"labels,omitempty"`
+	// ApplyMethod is how Helm v4 applied the release: "ssa" (server-side)
+	// or "csa" (client-side). Empty for Helm v3 releases.
+	ApplyMethod string `json:"apply_method,omitempty"`
+	// Resources lists the live objects of the release (helm_status with
+	// show_resources).
+	Resources []ResourceRef `json:"resources,omitempty"`
+	// TestLogs carries the test pod logs (helm_test with logs).
+	TestLogs string `json:"test_logs,omitempty"`
+}
+
+// ResourceRef identifies one Kubernetes object belonging to a release.
+type ResourceRef struct {
+	APIVersion string `json:"api_version,omitempty"`
+	Kind       string `json:"kind,omitempty"`
+	Name       string `json:"name,omitempty"`
+	Namespace  string `json:"namespace,omitempty"`
+}
+
+// ChartSourceOptions mirrors Helm's ChartPathOptions: where a chart is
+// fetched from, how that fetch authenticates, and whether the chart's
+// provenance is verified. It backs --repo, --username, --password,
+// --ca-file, --cert-file, --key-file, --insecure-skip-tls-verify,
+// --plain-http, --pass-credentials, --verify and --keyring.
+type ChartSourceOptions struct {
+	Repo                  string `json:"repo,omitempty"`
+	Username              string `json:"username,omitempty"`
+	Password              string `json:"password,omitempty"`
+	CAFile                string `json:"ca_file,omitempty"`
+	CertFile              string `json:"cert_file,omitempty"`
+	KeyFile               string `json:"key_file,omitempty"`
+	InsecureSkipTLSVerify bool   `json:"insecure_skip_tls_verify,omitempty"`
+	PlainHTTP             bool   `json:"plain_http,omitempty"`
+	PassCredentialsAll    bool   `json:"pass_credentials_all,omitempty"`
+	Verify                bool   `json:"verify,omitempty"`
+	Keyring               string `json:"keyring,omitempty"`
+}
+
+// ValueSetOptions carries the --set-string, --set-file and --set-literal
+// forms. They are applied after values files and inline values, in the
+// order Helm applies them.
+type ValueSetOptions struct {
+	SetString  []string `json:"set_string,omitempty"`
+	SetFile    []string `json:"set_file,omitempty"`
+	SetLiteral []string `json:"set_literal,omitempty"`
+}
+
+// PostRenderOptions selects a post-renderer. Helm v4 post-renderers are
+// installed plugins, referenced by name.
+type PostRenderOptions struct {
+	PostRenderer     string   `json:"post_renderer,omitempty"`
+	PostRendererArgs []string `json:"post_renderer_args,omitempty"`
 }
 
 // ReleaseDetail contains full information for a release (used by get all).
@@ -89,6 +140,9 @@ type VersionInfo struct {
 
 // InstallOptions contains options for helm install.
 type InstallOptions struct {
+	ChartSourceOptions
+	ValueSetOptions
+	PostRenderOptions
 	ReleaseName      string                 `json:"release_name"`
 	Chart            string                 `json:"chart"`
 	Version          string                 `json:"version,omitempty"`
@@ -118,8 +172,12 @@ type InstallOptions struct {
 	EnableDNS                bool   `json:"enable_dns,omitempty"`
 	OutputDir                string `json:"output_dir,omitempty"`
 	UseReleaseName           bool   `json:"use_release_name,omitempty"`
-	// v4-specific
-	ServerSideApply bool   `json:"server_side_apply,omitempty"`
+	// v3 calls this Force; v4 calls it ForceReplace.
+	ForceReplace bool `json:"force_replace,omitempty"`
+	// v4-specific. ServerSideApply is a pointer so that "not set" keeps
+	// Helm's own default: true for v4 install, "auto" (reuse the previous
+	// release's apply method) for v4 upgrade and rollback.
+	ServerSideApply *bool  `json:"server_side_apply,omitempty"`
 	TakeOwnership   bool   `json:"take_ownership,omitempty"`
 	HideSecret      bool   `json:"hide_secret,omitempty"`
 	ForceConflicts  bool   `json:"force_conflicts,omitempty"`
@@ -128,27 +186,32 @@ type InstallOptions struct {
 
 // UpgradeOptions contains options for helm upgrade.
 type UpgradeOptions struct {
-	ReleaseName          string                 `json:"release_name"`
-	Chart                string                 `json:"chart"`
-	Version              string                 `json:"version,omitempty"`
-	Values               map[string]interface{} `json:"values,omitempty"`
-	ValuesFiles          []string               `json:"values_files,omitempty"`
-	Install              bool                   `json:"install,omitempty"`
-	Force                bool                   `json:"force,omitempty"`
-	ResetValues          bool                   `json:"reset_values,omitempty"`
-	ReuseValues          bool                   `json:"reuse_values,omitempty"`
-	Wait                 bool                   `json:"wait,omitempty"`
-	WaitForJobs          bool                   `json:"wait_for_jobs,omitempty"`
-	Timeout              string                 `json:"timeout,omitempty"`
-	DryRun               string                 `json:"dry_run,omitempty"`
-	Description          string                 `json:"description,omitempty"`
-	DisableHooks         bool                   `json:"disable_hooks,omitempty"`
-	SkipCRDs             bool                   `json:"skip_crds,omitempty"`
-	CleanupOnFail        bool                   `json:"cleanup_on_fail,omitempty"`
-	DependencyUpdate     bool                   `json:"dependency_update,omitempty"`
-	Labels               map[string]string      `json:"labels,omitempty"`
-	MaxHistory           int                    `json:"max_history,omitempty"`
-	ResetThenReuseValues bool                   `json:"reset_then_reuse_values,omitempty"`
+	ChartSourceOptions
+	ValueSetOptions
+	PostRenderOptions
+	ReleaseName string                 `json:"release_name"`
+	Chart       string                 `json:"chart"`
+	Version     string                 `json:"version,omitempty"`
+	Values      map[string]interface{} `json:"values,omitempty"`
+	ValuesFiles []string               `json:"values_files,omitempty"`
+	Install     bool                   `json:"install,omitempty"`
+	// CreateNamespace applies when install creates the release.
+	CreateNamespace      bool              `json:"create_namespace,omitempty"`
+	Force                bool              `json:"force,omitempty"`
+	ResetValues          bool              `json:"reset_values,omitempty"`
+	ReuseValues          bool              `json:"reuse_values,omitempty"`
+	Wait                 bool              `json:"wait,omitempty"`
+	WaitForJobs          bool              `json:"wait_for_jobs,omitempty"`
+	Timeout              string            `json:"timeout,omitempty"`
+	DryRun               string            `json:"dry_run,omitempty"`
+	Description          string            `json:"description,omitempty"`
+	DisableHooks         bool              `json:"disable_hooks,omitempty"`
+	SkipCRDs             bool              `json:"skip_crds,omitempty"`
+	CleanupOnFail        bool              `json:"cleanup_on_fail,omitempty"`
+	DependencyUpdate     bool              `json:"dependency_update,omitempty"`
+	Labels               map[string]string `json:"labels,omitempty"`
+	MaxHistory           int               `json:"max_history,omitempty"`
+	ResetThenReuseValues bool              `json:"reset_then_reuse_values,omitempty"`
 	// v3 calls this Atomic; v4 calls it RollbackOnFailure. Supported by both.
 	RollbackOnFailure        bool `json:"rollback_on_failure,omitempty"`
 	Devel                    bool `json:"devel,omitempty"`
@@ -157,8 +220,10 @@ type UpgradeOptions struct {
 	SkipSchemaValidation     bool `json:"skip_schema_validation,omitempty"`
 	DisableOpenAPIValidation bool `json:"disable_openapi_validation,omitempty"`
 	EnableDNS                bool `json:"enable_dns,omitempty"`
-	// v4-specific
-	ServerSideApply bool   `json:"server_side_apply,omitempty"`
+	// v4-specific. ServerSideApply is a pointer so that "not set" keeps
+	// Helm's own default: true for v4 install, "auto" (reuse the previous
+	// release's apply method) for v4 upgrade and rollback.
+	ServerSideApply *bool  `json:"server_side_apply,omitempty"`
 	TakeOwnership   bool   `json:"take_ownership,omitempty"`
 	HideSecret      bool   `json:"hide_secret,omitempty"`
 	ForceConflicts  bool   `json:"force_conflicts,omitempty"`
@@ -191,8 +256,9 @@ type RollbackOptions struct {
 	DisableHooks  bool   `json:"disable_hooks,omitempty"`
 	CleanupOnFail bool   `json:"cleanup_on_fail,omitempty"`
 	MaxHistory    int    `json:"max_history,omitempty"`
-	// v4-specific
-	ServerSideApply bool   `json:"server_side_apply,omitempty"`
+	Description   string `json:"description,omitempty"` // v4 only
+	// v4-specific. nil keeps Helm's "auto" default (see InstallOptions).
+	ServerSideApply *bool  `json:"server_side_apply,omitempty"`
 	ForceConflicts  bool   `json:"force_conflicts,omitempty"`
 	WaitStrategy    string `json:"wait_strategy,omitempty"` // v4 only
 }
@@ -201,7 +267,7 @@ type RollbackOptions struct {
 type ListOptions struct {
 	AllNamespaces bool   `json:"all_namespaces,omitempty"`
 	Filter        string `json:"filter,omitempty"`
-	Selector      string `json:"selector,omitempty"` // v4 only
+	Selector      string `json:"selector,omitempty"`
 	SortBy        string `json:"sort_by,omitempty"`
 	SortReverse   bool   `json:"sort_reverse,omitempty"`
 	Limit         int    `json:"limit,omitempty"`
@@ -220,7 +286,7 @@ type ListOptions struct {
 type StatusOptions struct {
 	ReleaseName   string `json:"release_name"`
 	Revision      int    `json:"revision,omitempty"`
-	ShowResources bool   `json:"show_resources,omitempty"` // v4 only
+	ShowResources bool   `json:"show_resources,omitempty"`
 }
 
 // HistoryOptions contains options for helm history.
@@ -234,6 +300,7 @@ type TestOptions struct {
 	ReleaseName string   `json:"release_name"`
 	Timeout     string   `json:"timeout,omitempty"`
 	Filters     []string `json:"filters,omitempty"`
+	Logs        bool     `json:"logs,omitempty"`
 }
 
 // GetOptions contains options for helm get subcommands.
@@ -265,10 +332,15 @@ type LintOptions struct {
 	Quiet         bool                   `json:"quiet,omitempty"`
 	Namespace     string                 `json:"namespace,omitempty"`
 	KubeVersion   string                 `json:"kube_version,omitempty"`
+	// SkipSchemaValidation skips values.schema.json validation.
+	SkipSchemaValidation bool `json:"skip_schema_validation,omitempty"`
 }
 
 // TemplateOptions contains options for helm template.
 type TemplateOptions struct {
+	ChartSourceOptions
+	ValueSetOptions
+	PostRenderOptions
 	ReleaseName      string                 `json:"release_name"`
 	Chart            string                 `json:"chart"`
 	Version          string                 `json:"version,omitempty"`
@@ -281,6 +353,8 @@ type TemplateOptions struct {
 	IncludeCRDs      bool                   `json:"include_crds,omitempty"`
 	SkipCRDs         bool                   `json:"skip_crds,omitempty"`
 	NoHooks          bool                   `json:"no_hooks,omitempty"`
+	SkipTests        bool                   `json:"skip_tests,omitempty"`
+	IsUpgrade        bool                   `json:"is_upgrade,omitempty"`
 	DependencyUpdate bool                   `json:"dependency_update,omitempty"`
 }
 
@@ -299,18 +373,14 @@ type PackageOptions struct {
 
 // PullOptions contains options for helm pull.
 type PullOptions struct {
-	Chart                 string `json:"chart"`
-	Version               string `json:"version,omitempty"`
-	Repo                  string `json:"repo,omitempty"`
-	Destination           string `json:"destination,omitempty"`
-	Untar                 bool   `json:"untar,omitempty"`
-	UntarDir              string `json:"untar_dir,omitempty"`
-	Verify                bool   `json:"verify,omitempty"`
-	Keyring               string `json:"keyring,omitempty"`
-	Username              string `json:"username,omitempty"`
-	Password              string `json:"password,omitempty"`
-	PlainHTTP             bool   `json:"plain_http,omitempty"`
-	InsecureSkipTLSVerify bool   `json:"insecure_skip_tls_verify,omitempty"`
+	ChartSourceOptions
+	Chart       string `json:"chart"`
+	Version     string `json:"version,omitempty"`
+	Destination string `json:"destination,omitempty"`
+	Untar       bool   `json:"untar,omitempty"`
+	UntarDir    string `json:"untar_dir,omitempty"`
+	// Prov downloads the provenance file without verifying it (helm pull --prov).
+	Prov bool `json:"prov,omitempty"`
 }
 
 // PushOptions contains options for helm push.
@@ -332,11 +402,11 @@ type VerifyOptions struct {
 
 // ShowOptions contains options for helm show subcommands.
 type ShowOptions struct {
+	ChartSourceOptions
 	Chart    string `json:"chart"`
 	Version  string `json:"version,omitempty"`
-	Repo     string `json:"repo,omitempty"`
 	Devel    bool   `json:"devel,omitempty"`
-	JSONPath string `json:"jsonpath,omitempty"` // v4 only
+	JSONPath string `json:"jsonpath,omitempty"`
 }
 
 // DependencyOptions contains options for helm dependency subcommands.
@@ -418,6 +488,10 @@ type SearchRepoOptions struct {
 type PluginInstallOptions struct {
 	URLOrPath string `json:"url_or_path"`
 	Version   string `json:"version,omitempty"`
+	// Verify is a pointer so that unset keeps Helm v4's default of verifying
+	// the plugin signature. false installs unsigned plugins (--verify=false).
+	Verify  *bool  `json:"verify,omitempty"`
+	Keyring string `json:"keyring,omitempty"`
 }
 
 // PluginUninstallOptions contains options for helm plugin uninstall.
@@ -447,7 +521,7 @@ type PluginVerifyOptions struct {
 }
 
 // ZeroPassword zeroes the Password field after use.
-func (o *PullOptions) ZeroPassword() {
+func (o *ChartSourceOptions) ZeroPassword() {
 	if o != nil {
 		zeroString(&o.Password)
 	}

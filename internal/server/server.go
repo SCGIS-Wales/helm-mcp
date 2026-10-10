@@ -1,8 +1,14 @@
 package server
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
+	"runtime/debug"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ssddgreg/helm-mcp/internal/tools"
 	"github.com/ssddgreg/helm-mcp/internal/tools/chart"
 	"github.com/ssddgreg/helm-mcp/internal/tools/env"
 	"github.com/ssddgreg/helm-mcp/internal/tools/plugin"
@@ -15,11 +21,12 @@ import (
 const ServerName = "helm-mcp"
 
 // ServerVersion is the fallback version reported to clients when the binary
-// was built without -ldflags "-X main.version=...".
+// was built without -ldflags "-X main.version=...". It matches the default
+// in main rather than naming a release, which it would soon misreport.
 //
 // This is a var rather than a const so that a build can override it; -X only
 // patches string variables.
-var ServerVersion = "0.2.0"
+var ServerVersion = "dev"
 
 // instructions is sent to clients during discovery and is the server's only
 // chance to explain itself outside of individual tool descriptions.
@@ -81,69 +88,103 @@ func NewServer(version string) *mcp.Server {
 	return server
 }
 
+// addTool registers a tool with Tool.Title set from its annotation title, so
+// clients that read the top-level title (the field the specification now
+// prefers for display) show a readable name.
+//
+// The definition is copied: tools are shared package variables and the HTTP
+// transport calls NewServer once per request, so mutating them in place
+// would race. The schema cache is keyed by type, so copies cost nothing.
+//
+// The handler is also wrapped so that a panic becomes a tool error instead of
+// killing the process: neither the SDK nor the transports recover, and some
+// Helm SDK options panic on bad input (registry TLS options on an unreadable
+// file, for example), which would take the server down for every client.
+func addTool[In, Out any](s *mcp.Server, t *mcp.Tool, h mcp.ToolHandlerFor[In, Out]) {
+	tool := *t
+	if tool.Title == "" && tool.Annotations != nil {
+		tool.Title = tool.Annotations.Title
+	}
+	mcp.AddTool(s, &tool, recoverHandler(tool.Name, h))
+}
+
+// recoverHandler converts a panic in h into an error result.
+func recoverHandler[In, Out any](name string, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (res *mcp.CallToolResult, out Out, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("tool handler panicked", "tool", name, "panic", r, "stack", string(debug.Stack()))
+				var zero Out
+				res, out, err = tools.ErrorResult(fmt.Errorf("internal error in %s: %v", name, r)), zero, nil
+			}
+		}()
+		return h(ctx, req, in)
+	}
+}
+
 func registerReleaseTools(s *mcp.Server) {
-	mcp.AddTool(s, release.ListTool, release.HandleList)
-	mcp.AddTool(s, release.InstallTool, release.HandleInstall)
-	mcp.AddTool(s, release.UpgradeTool, release.HandleUpgrade)
-	mcp.AddTool(s, release.UninstallTool, release.HandleUninstall)
-	mcp.AddTool(s, release.RollbackTool, release.HandleRollback)
-	mcp.AddTool(s, release.StatusTool, release.HandleStatus)
-	mcp.AddTool(s, release.HistoryTool, release.HandleHistory)
-	mcp.AddTool(s, release.TestTool, release.HandleTest)
-	mcp.AddTool(s, release.GetAllTool, release.HandleGetAll)
-	mcp.AddTool(s, release.GetHooksTool, release.HandleGetHooks)
-	mcp.AddTool(s, release.GetManifestTool, release.HandleGetManifest)
-	mcp.AddTool(s, release.GetMetadataTool, release.HandleGetMetadata)
-	mcp.AddTool(s, release.GetNotesTool, release.HandleGetNotes)
-	mcp.AddTool(s, release.GetValuesTool, release.HandleGetValues)
+	addTool(s, release.ListTool, release.HandleList)
+	addTool(s, release.InstallTool, release.HandleInstall)
+	addTool(s, release.UpgradeTool, release.HandleUpgrade)
+	addTool(s, release.UninstallTool, release.HandleUninstall)
+	addTool(s, release.RollbackTool, release.HandleRollback)
+	addTool(s, release.StatusTool, release.HandleStatus)
+	addTool(s, release.HistoryTool, release.HandleHistory)
+	addTool(s, release.TestTool, release.HandleTest)
+	addTool(s, release.GetAllTool, release.HandleGetAll)
+	addTool(s, release.GetHooksTool, release.HandleGetHooks)
+	addTool(s, release.GetManifestTool, release.HandleGetManifest)
+	addTool(s, release.GetMetadataTool, release.HandleGetMetadata)
+	addTool(s, release.GetNotesTool, release.HandleGetNotes)
+	addTool(s, release.GetValuesTool, release.HandleGetValues)
 }
 
 func registerChartTools(s *mcp.Server) {
-	mcp.AddTool(s, chart.CreateTool, chart.HandleCreate)
-	mcp.AddTool(s, chart.LintTool, chart.HandleLint)
-	mcp.AddTool(s, chart.TemplateTool, chart.HandleTemplate)
-	mcp.AddTool(s, chart.PackageTool, chart.HandlePackage)
-	mcp.AddTool(s, chart.PullTool, chart.HandlePull)
-	mcp.AddTool(s, chart.PushTool, chart.HandlePush)
-	mcp.AddTool(s, chart.VerifyTool, chart.HandleVerify)
-	mcp.AddTool(s, chart.ShowAllTool, chart.HandleShowAll)
-	mcp.AddTool(s, chart.ShowChartTool, chart.HandleShowChart)
-	mcp.AddTool(s, chart.ShowCRDsTool, chart.HandleShowCRDs)
-	mcp.AddTool(s, chart.ShowReadmeTool, chart.HandleShowReadme)
-	mcp.AddTool(s, chart.ShowValuesTool, chart.HandleShowValues)
-	mcp.AddTool(s, chart.DependencyBuildTool, chart.HandleDependencyBuild)
-	mcp.AddTool(s, chart.DependencyListTool, chart.HandleDependencyList)
-	mcp.AddTool(s, chart.DependencyUpdateTool, chart.HandleDependencyUpdate)
+	addTool(s, chart.CreateTool, chart.HandleCreate)
+	addTool(s, chart.LintTool, chart.HandleLint)
+	addTool(s, chart.TemplateTool, chart.HandleTemplate)
+	addTool(s, chart.PackageTool, chart.HandlePackage)
+	addTool(s, chart.PullTool, chart.HandlePull)
+	addTool(s, chart.PushTool, chart.HandlePush)
+	addTool(s, chart.VerifyTool, chart.HandleVerify)
+	addTool(s, chart.ShowAllTool, chart.HandleShowAll)
+	addTool(s, chart.ShowChartTool, chart.HandleShowChart)
+	addTool(s, chart.ShowCRDsTool, chart.HandleShowCRDs)
+	addTool(s, chart.ShowReadmeTool, chart.HandleShowReadme)
+	addTool(s, chart.ShowValuesTool, chart.HandleShowValues)
+	addTool(s, chart.DependencyBuildTool, chart.HandleDependencyBuild)
+	addTool(s, chart.DependencyListTool, chart.HandleDependencyList)
+	addTool(s, chart.DependencyUpdateTool, chart.HandleDependencyUpdate)
 }
 
 func registerRepoTools(s *mcp.Server) {
-	mcp.AddTool(s, repo.AddTool, repo.HandleAdd)
-	mcp.AddTool(s, repo.ListTool, repo.HandleList)
-	mcp.AddTool(s, repo.UpdateTool, repo.HandleUpdate)
-	mcp.AddTool(s, repo.RemoveTool, repo.HandleRemove)
-	mcp.AddTool(s, repo.IndexTool, repo.HandleIndex)
+	addTool(s, repo.AddTool, repo.HandleAdd)
+	addTool(s, repo.ListTool, repo.HandleList)
+	addTool(s, repo.UpdateTool, repo.HandleUpdate)
+	addTool(s, repo.RemoveTool, repo.HandleRemove)
+	addTool(s, repo.IndexTool, repo.HandleIndex)
 }
 
 func registerRegistryTools(s *mcp.Server) {
-	mcp.AddTool(s, registry.LoginTool, registry.HandleLogin)
-	mcp.AddTool(s, registry.LogoutTool, registry.HandleLogout)
+	addTool(s, registry.LoginTool, registry.HandleLogin)
+	addTool(s, registry.LogoutTool, registry.HandleLogout)
 }
 
 func registerSearchTools(s *mcp.Server) {
-	mcp.AddTool(s, search.HubTool, search.HandleHub)
-	mcp.AddTool(s, search.RepoTool, search.HandleRepo)
+	addTool(s, search.HubTool, search.HandleHub)
+	addTool(s, search.RepoTool, search.HandleRepo)
 }
 
 func registerPluginTools(s *mcp.Server) {
-	mcp.AddTool(s, plugin.InstallTool, plugin.HandleInstall)
-	mcp.AddTool(s, plugin.ListTool, plugin.HandleList)
-	mcp.AddTool(s, plugin.UninstallTool, plugin.HandleUninstall)
-	mcp.AddTool(s, plugin.UpdateTool, plugin.HandleUpdate)
-	mcp.AddTool(s, plugin.PackageTool, plugin.HandlePackage)
-	mcp.AddTool(s, plugin.VerifyTool, plugin.HandleVerify)
+	addTool(s, plugin.InstallTool, plugin.HandleInstall)
+	addTool(s, plugin.ListTool, plugin.HandleList)
+	addTool(s, plugin.UninstallTool, plugin.HandleUninstall)
+	addTool(s, plugin.UpdateTool, plugin.HandleUpdate)
+	addTool(s, plugin.PackageTool, plugin.HandlePackage)
+	addTool(s, plugin.VerifyTool, plugin.HandleVerify)
 }
 
 func registerEnvTools(s *mcp.Server) {
-	mcp.AddTool(s, env.EnvTool, env.HandleEnv)
-	mcp.AddTool(s, env.VersionTool, env.HandleVersion)
+	addTool(s, env.EnvTool, env.HandleEnv)
+	addTool(s, env.VersionTool, env.HandleVersion)
 }

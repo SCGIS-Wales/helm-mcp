@@ -15,6 +15,8 @@ type InstallInput struct {
 	tools.GlobalInput
 	URLOrPath string `json:"url_or_path" jsonschema:"Plugin URL or local path"`
 	Version   string `json:"version,omitempty" jsonschema:"Plugin version"`
+	Verify    *bool  `json:"verify,omitempty" jsonschema:"Verify the plugin signature before installing. Defaults to true on v4; set false for unsigned plugins such as helm-diff. v4 only"`
+	Keyring   string `json:"keyring,omitempty" jsonschema:"Public keyring used to verify the plugin signature (v4 only)"`
 }
 
 var InstallTool = &mcp.Tool{
@@ -38,11 +40,17 @@ func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInp
 		}
 	}
 
+	if err := tools.ValidateFilePaths(input.Keyring); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+
 	engine := tools.SelectEngine(input.HelmVersion)
 
 	err := engine.PluginInstall(ctx, &helmengine.PluginInstallOptions{
 		URLOrPath: input.URLOrPath,
 		Version:   input.Version,
+		Verify:    input.Verify,
+		Keyring:   input.Keyring,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

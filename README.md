@@ -88,7 +88,7 @@ sudo mv helm-mcp-linux-arm64 /usr/local/bin/helm-mcp
 
 ### Build from Source
 
-Requires Go 1.27+.
+Requires Go 1.27.2+.
 
 ```bash
 git clone https://github.com/SCGIS-Wales/helm-mcp.git
@@ -199,7 +199,9 @@ clients, so upgrading the server does not require upgrading your client.
 
 | Feature | Status |
 |---|---|
-| Tools | Supported — 46 tools, with titles, annotations and output schemas |
+| Tools | Supported: 46 tools, each with a top level `title`, annotations and (where the result has a stable shape) an output schema |
+| Progress | Supported. `helm_install`, `helm_upgrade`, `helm_uninstall`, `helm_rollback` and `helm_test` send `notifications/progress` heartbeats every 10 seconds when the request carries a progress token, so clients that reset their timeout on progress keep waiting for long `wait` operations |
+| Cancellation | Supported. In HTTP mode a dropped request cancels the running tool call, as Ctrl+C cancels the `helm` CLI (`--propagate-cancellation=false` to let it finish) |
 | Stateless transport | Supported and the default for `--mode http` (`--stateless=false` to opt out) |
 | `server/discover` | Supported |
 | Deterministic `tools/list` order | Supported — tools are returned sorted by name so clients and prompt caches keep hitting |
@@ -235,9 +237,9 @@ clients, so upgrading the server does not require upgrading your client.
 
 | Tool | Description |
 |------|-------------|
-| `helm_create` | Create a new chart with the given name |
+| `helm_create` | Create a new chart, optionally from a starter |
 | `helm_lint` | Lint a chart for issues and best practices |
-| `helm_template` | Render templates locally without installing |
+| `helm_template` | Render templates and hooks locally without installing |
 | `helm_package` | Package a chart directory into an archive (.tgz) |
 | `helm_pull` | Download a chart from a repository or OCI registry |
 | `helm_push` | Push a chart archive to an OCI registry |
@@ -402,6 +404,23 @@ Complete mapping of every `helm` CLI command to its helm-mcp MCP tool equivalent
 
 `helm plugin package` and `helm plugin verify` were introduced in Helm v4 alongside signed plugin distribution, so they require `helm_version: "v4"`.
 
+### Flag coverage
+
+Commands are covered with their flags, not just their names. Every argument a
+tool accepts reaches the Helm SDK, and the arguments that change rendering or
+apply behaviour are covered by tests that render or dry run real charts. The
+flags below are deliberately not exposed:
+
+| Flag | Reason |
+|---|---|
+| `--post-renderer` on Helm v3 | A v3 post-renderer executes any binary on the server host. Helm v4 post-renderers are installed plugins and are exposed as `post_renderer` |
+| `--set` and `--set-json` | Covered by the inline `values` object, which is deep merged like `--set` |
+| `template --output-dir` | `helm_template` is read only; use `helm_install` with `output_dir` |
+| `create --chart-api-version v3` | Experimental in Helm 4.3 and behind a feature gate |
+| `history --show-rollback-revision`, `get --template`, `version --template` | Presentation only; the structured results already carry the data |
+| `search hub --endpoint`, `search --fail-on-no-result`, `repo index --json` | Low value for agents; may be added on request |
+| `push --username/--password`, `plugin install` TLS and registry auth | Use `helm_registry_login` first, which stores credentials for later calls |
+
 ## Kubernetes Authentication
 
 Every tool accepts these authentication fields via the `GlobalInput`:
@@ -469,25 +488,38 @@ Every tool supports a `helm_version` field to select between Helm v3 and v4:
 }
 ```
 
-- `"v4"` (default) — Uses Helm v4 SDK with Server-Side Apply, WASM plugins, label selectors
-- `"v3"` — Uses Helm v3 SDK for backward compatibility
+- `"v4"` (default): the Helm v4 SDK, with server side apply, plugin based post-renderers and signed plugins
+- `"v3"`: the Helm v3 SDK, for backward compatibility
 
-### v4-Only Features
+### v4 only features
 
-These fields are only available when using `helm_version: "v4"`. Passing one
-with `"v3"` is an error rather than a silent no-op.
+These fields need `helm_version: "v4"`. Passing one with `"v3"` is an error
+rather than a silent no-op.
 
-- `server_side_apply` — Use Kubernetes server-side apply
-- `take_ownership` — Skip Helm annotation checks
-- `hide_secret` — Hide secrets in dry-run output
-- `force_conflicts` — Force conflict resolution
-- `selector` — Label selector for list operations
-- `show_resources` — Show resources table in status
-- `reset_then_reuse_values` — Reset then reuse values in upgrade
-- `wait_strategy` — See below
+| Field | Tools | Notes |
+|---|---|---|
+| `server_side_apply` | install, upgrade, rollback | See [Server side apply](#server-side-apply). `false` is accepted on v3, which always applies client side |
+| `force_conflicts` | install, upgrade, rollback | Take ownership of fields owned by other field managers |
+| `wait_strategy` | install, upgrade, rollback, uninstall | See below |
+| `post_renderer`, `post_renderer_args` | install, upgrade, template | The name of an installed post-renderer plugin |
+| `description` | rollback | Description recorded on the rollback revision |
+| `verify`, `keyring` | plugin install | `verify: false` installs unsigned plugins such as helm-diff |
 
-Two tools are v4-only in their entirety: `helm_plugin_package` and
+Two tools are v4 only in their entirety: `helm_plugin_package` and
 `helm_plugin_verify`.
+
+### Server side apply
+
+Helm 4 applies with Kubernetes server side apply by default. `helm_install`
+follows that: leave `server_side_apply` unset for server side apply, or set it
+to `false` for client side apply. On `helm_upgrade` and `helm_rollback` an
+unset value keeps Helm's `auto` mode, which reuses the apply method recorded
+on the previous release. Release results report it as `apply_method`
+(`"ssa"` or `"csa"`).
+
+> Before v0.5.0 the v4 engine forced client side apply on every install and
+> rollback unless `server_side_apply` was true. If you depend on client side
+> apply, pass `server_side_apply: false`.
 
 ### Waiting: `wait` and `wait_strategy`
 
@@ -512,10 +544,46 @@ Helm v4 replaced v3's boolean `--wait` with a strategy enum, so
 
 `rollback_on_failure` (Helm's `--atomic`) is supported by both engines, and is
 available on `helm_install` and `helm_upgrade`. So are `devel`, `sub_notes`,
-`hide_notes`, `skip_schema_validation`, `disable_openapi_validation` and
-`enable_dns`; `output_dir` and `use_release_name` on `helm_install`;
-`ignore_not_found` and `description` on `helm_uninstall`; and `all`,
-`uninstalling` and `time_format` on `helm_list`.
+`hide_notes`, `skip_schema_validation`, `disable_openapi_validation`,
+`enable_dns`, `take_ownership` and `hide_secret`; `output_dir`,
+`use_release_name` and `force_replace` on `helm_install`;
+`reset_then_reuse_values` on `helm_upgrade`; `ignore_not_found` and
+`description` on `helm_uninstall`; `all`, `uninstalling`, `time_format` and
+`selector` on `helm_list`; `show_resources` on `helm_status`; `logs` on
+`helm_test`; and `jsonpath` on the `helm_show_*` tools.
+
+### Chart sources
+
+`helm_install`, `helm_upgrade`, `helm_template`, `helm_pull` and the
+`helm_show_*` tools accept Helm's chart location flags: `repo`, `username`,
+`password`, `ca_file`, `cert_file`, `key_file`, `insecure_skip_tls_verify`,
+`plain_http`, `pass_credentials`, `verify` and `keyring`. TLS and credential
+options also apply to `oci://` charts.
+
+`verify` checks the chart provenance against the keyring, which defaults to
+`$GNUPGHOME/pubring.gpg` (or `~/.gnupg`) as in the CLI. On `helm_pull`, `prov`
+downloads the provenance file without verifying it (`helm pull --prov`).
+
+### Upgrade or install
+
+`helm_upgrade` with `install: true` installs the release when it does not
+exist, or replaces it when its last revision was uninstalled, exactly like
+`helm upgrade --install`. `create_namespace` applies to that install.
+
+### Values
+
+Values are combined in the order Helm uses: `values_files`, then the inline
+`values` object (deep merged, like `--set`), then `set_string`, `set_file` and
+`set_literal`, each a list of `key=value` strings. `set_file` reads local files
+only, and every path it would read is validated, including paths inside
+`{a,b}` lists and further comma separated pairs.
+
+### Chart dependencies
+
+`dependency_update` on `helm_install`, `helm_upgrade` and `helm_template`
+fetches missing dependencies before rendering, as the CLI flag does. Without
+it, a chart whose dependencies are not vendored is reported as an error
+instead of rendering without its subcharts.
 
 ## Python Package
 
@@ -652,8 +720,8 @@ The Python package includes a comprehensive resilience stack built on [FastMCP](
 | `HELM_MCP_RETRY_MAX_DELAY` | float | `30.0` | Maximum backoff delay (seconds) |
 | `HELM_MCP_RETRY_BACKOFF_MULTIPLIER` | float | `2.0` | Backoff multiplier |
 | `HELM_MCP_RATE_LIMIT_ENABLED` | bool | `false` | Enable token-bucket rate limiting |
-| `HELM_MCP_RATE_LIMIT_MAX_RPS` | float | `10.0` | Maximum requests per second |
-| `HELM_MCP_RATE_LIMIT_BURST` | int | `20` | Burst capacity |
+| `HELM_MCP_RATE_LIMIT_MAX_RPS` | float | `10.0` | Maximum requests per second (must be greater than 0) |
+| `HELM_MCP_RATE_LIMIT_BURST` | int | `20` | Burst capacity (at least 1; invalid values fail at startup) |
 | `HELM_MCP_CACHE_ENABLED` | bool | `false` | Enable TTL-based response caching |
 | `HELM_MCP_CACHE_TOOL_TTL` | int | `300` | Tool call cache TTL (seconds) |
 | `HELM_MCP_CACHE_LIST_TTL` | int | `60` | Tool list cache TTL (seconds) |
@@ -771,17 +839,18 @@ The `internal/resilience` package provides additional production resilience patt
 
 ## Known Limitations
 
-### Plugin Verification Required (Helm v4 CLI)
+### Plugin tools use the Helm CLI
 
 All six plugin tools shell out to the system `helm` CLI, which is the only part
-of helm-mcp that does not go through the Helm Go SDK — Helm's plugin packages
-are internal and not importable. Helm v4 requires plugin source verification by
-default, and plugins that do not support it (like `helm-diff`) need
-`--verify=false`, which the MCP tools do not yet expose.
+of helm-mcp that does not go through the Helm Go SDK, because Helm's plugin
+packages are internal and not importable.
 
-- **Workaround**: install those plugins directly via `helm plugin install <url> --verify=false`
+- Helm v4 verifies plugin signatures by default. Plugins that are not signed,
+  such as `helm-diff`, install with `helm_plugin_install` and `verify: false`.
 - The published container image ships a pinned `helm` CLI, so plugin tools work
-  there. If you run the binary directly, `helm` must be on `PATH`.
+  there. If you run the binary directly, `helm` must be on `PATH`, and with the
+  default `helm_version: "v4"` it must be a Helm v4 CLI: a v3 CLI rejects v4
+  flags such as `--verify=false`.
 
 ## Security
 
@@ -830,7 +899,7 @@ The security package provides validators for:
 - Namespace names
 - Kubeconfig file paths (path traversal prevention, symlink detection, sensitive path rejection — `/etc/shadow`, `/proc/`, `/dev/`, `/sys/` are blocked)
 - URLs (scheme validation + **SSRF protection**: DNS resolution with private IP blocking for `0.0.0.0/8`, `127.0.0.0/8`, `10.0.0.0/8`, `100.64.0.0/10`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, IPv4-mapped addresses, NAT64, and IPv6 unspecified/loopback/link-local/unique-local ranges). Applied to repository URLs, URL chart references, remote values files, and OCI push targets
-- File paths (traversal prevention, symlink rejection including symlinked parent directories, sensitive path rejection). Applied to values files, keyrings, CA/cert/key files, passphrase files, and output directories
+- File paths (traversal prevention, symlink rejection including symlinked parent directories, sensitive path rejection). Applied to values files, `set_file` entries, keyrings, CA/cert/key files, passphrase files, output and untar directories, chart paths for `helm_lint` and `helm_package`, and the chart name and starter for `helm_create`
 - Repository names (alphanumeric, dots, dashes, underscores; prevents cache path traversal)
 - Timeout durations (max 24h)
 - Plugin names (alphanumeric + dashes/underscores, no leading dash to prevent argument injection)
@@ -846,6 +915,7 @@ When running in HTTP mode:
 - Listens on `127.0.0.1:8080` unless `--addr` says otherwise
 - `ReadHeaderTimeout: 10s` and `ReadTimeout: 30s` — prevent slow client attacks
 - `WriteTimeout: 30m` (`--write-timeout`) — long enough for `helm_install`/`helm_upgrade` with `wait`; raise it if clients use longer Helm timeouts
+- A dropped request cancels its tool call (`--propagate-cancellation`, on by default), so abandoned operations do not run until the write timeout
 - `IdleTimeout: 120s` — reclaims idle connections
 - `MaxHeaderBytes: 1MB` — prevents header-based DoS
 - Graceful shutdown with 5-second timeout
@@ -1009,7 +1079,7 @@ export NO_PROXY=localhost,127.0.0.1,.internal.company.com
 
 ### Prerequisites
 
-- Go 1.27+
+- Go 1.27.2+
 - Python 3.12+ (for the Python package)
 - golangci-lint v2 (optional, for linting)
 
@@ -1028,7 +1098,7 @@ make build-all    # Cross-compile for Linux/macOS (amd64/arm64)
 make test         # Run all tests with race detection and coverage
 make test-short   # Run tests without integration tests
 
-# Python tests (33 tests)
+# Python tests
 cd python && pip install -e ".[dev]" && pytest -v tests/
 ```
 
@@ -1065,7 +1135,7 @@ internal/
     repo/               Add, list, update, remove, index
     registry/           Login, logout
     search/             Hub, repo
-    plugin/             Install, list, uninstall, update
+    plugin/             Install, list, uninstall, update, package, verify
     env/                Env, version
   security/             Process hardening, input validation, credential scrubbing
   resilience/           Response budget, circuit breaker, retry, timeouts, manifest sanitisation

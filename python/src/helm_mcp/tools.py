@@ -366,7 +366,7 @@ class HelmClient:
             async for attempt in AsyncRetrying(
                 stop=stop_after_attempt(tc.max_attempts),
                 wait=wait_exponential_jitter(
-                    initial=tc.min_wait,
+                    multiplier=tc.min_wait,
                     max=tc.max_wait,
                     exp_base=tc.multiplier,
                 ),

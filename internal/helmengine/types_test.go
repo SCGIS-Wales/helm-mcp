@@ -172,7 +172,7 @@ func TestUpgradeOptionsJSON(t *testing.T) {
 		ReuseValues:     true,
 		Wait:            true,
 		Timeout:         "10m",
-		ServerSideApply: true,
+		ServerSideApply: boolPtr(true),
 	}
 
 	b, err := json.Marshal(opts)
@@ -191,7 +191,7 @@ func TestUpgradeOptionsJSON(t *testing.T) {
 	if !decoded.Force {
 		t.Error("expected Force=true")
 	}
-	if !decoded.ServerSideApply {
+	if decoded.ServerSideApply == nil || !*decoded.ServerSideApply {
 		t.Error("expected ServerSideApply=true")
 	}
 }
@@ -274,5 +274,32 @@ func TestSearchRepoOptionsJSON(t *testing.T) {
 	}
 	if !decoded.Versions {
 		t.Error("expected Versions=true")
+	}
+}
+
+func boolPtr(v bool) *bool { return &v }
+
+func TestInstallOptionsForUpgrade(t *testing.T) {
+	ssa := false
+	u := &UpgradeOptions{
+		ChartSourceOptions: ChartSourceOptions{Repo: "https://charts.example.com"},
+		ValueSetOptions:    ValueSetOptions{SetString: []string{"a=1"}},
+		ReleaseName:        "app",
+		Chart:              "repo/app",
+		CreateNamespace:    true,
+		Force:              true,
+		RollbackOnFailure:  true,
+		ServerSideApply:    &ssa,
+		WaitStrategy:       "watcher",
+		DryRun:             "server",
+	}
+	got := InstallOptionsForUpgrade(u, true)
+	if got.ReleaseName != "app" || got.Chart != "repo/app" || got.Repo != "https://charts.example.com" ||
+		len(got.SetString) != 1 || !got.CreateNamespace || !got.ForceReplace || !got.RollbackOnFailure ||
+		got.ServerSideApply != &ssa || got.WaitStrategy != "watcher" || got.DryRun != "server" || !got.Replace {
+		t.Errorf("fields not carried over: %+v", got)
+	}
+	if InstallOptionsForUpgrade(u, false).Replace {
+		t.Error("replace should only be set for an uninstalled release")
 	}
 }

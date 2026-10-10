@@ -59,8 +59,10 @@ Every authentication and authorization decision produces a structured `slog` eve
 
 - Release names validated against DNS-1123
 - Kubeconfig paths checked for path traversal, symlinks, and sensitive paths
+- Every file argument (values files, `set_file` entries, keyrings, CA, certificate and key files, chart and output paths) gets the same path checks
 - URLs validated with SSRF protection (private IP blocking)
-- Plugin names restricted to prevent argument injection
+- Plugin and post-renderer names restricted to prevent argument injection
+- Helm v3 post-renderers, which execute an arbitrary binary, are refused; Helm v4 post-renderers must be installed plugins
 - Timeout durations capped at 24 hours
 
 ### Credential Protection

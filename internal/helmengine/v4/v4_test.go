@@ -2,6 +2,7 @@ package v4
 
 import (
 	"context"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -672,3 +673,35 @@ func TestPluginArgsSeparatePath(t *testing.T) {
 // test would add nothing: New() returns a concrete type, so the check either
 // holds at compile time or the package does not build.
 var _ helmengine.Engine = New()
+
+func TestPluginInstallArgs(t *testing.T) {
+	tr, f := true, false
+	tests := []struct {
+		name string
+		opts *helmengine.PluginInstallOptions
+		want []string
+	}{
+		{
+			name: "verification left to the CLI default",
+			opts: &helmengine.PluginInstallOptions{URLOrPath: "https://example.com/p"},
+			want: []string{"plugin", "install", "--", "https://example.com/p"},
+		},
+		{
+			name: "explicit verify true adds nothing",
+			opts: &helmengine.PluginInstallOptions{URLOrPath: "p", Verify: &tr},
+			want: []string{"plugin", "install", "--", "p"},
+		},
+		{
+			name: "unsigned plugin",
+			opts: &helmengine.PluginInstallOptions{URLOrPath: "p", Version: "3.9.0", Verify: &f, Keyring: "k.gpg"},
+			want: []string{"plugin", "install", "--version", "3.9.0", "--verify=false", "--keyring", "k.gpg", "--", "p"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := pluginInstallArgs(tt.opts); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

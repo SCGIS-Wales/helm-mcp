@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
-	"github.com/ssddgreg/helm-mcp/internal/security"
 	"github.com/ssddgreg/helm-mcp/internal/tools"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
@@ -12,11 +11,11 @@ import (
 
 type ShowInput struct {
 	tools.GlobalInput
+	tools.ChartSourceInput
 	Chart    string `json:"chart" jsonschema:"Chart reference"`
 	Version  string `json:"version,omitempty" jsonschema:"Chart version"`
-	Repo     string `json:"repo,omitempty" jsonschema:"Repository URL"`
 	Devel    bool   `json:"devel,omitempty" jsonschema:"Include development versions"`
-	JSONPath string `json:"jsonpath,omitempty" jsonschema:"JSONPath template for values (v4 only)"`
+	JSONPath string `json:"jsonpath,omitempty" jsonschema:"JSONPath template applied to the chart values (helm show values --jsonpath)"`
 }
 
 var ShowAllTool = &mcp.Tool{
@@ -126,11 +125,11 @@ func HandleShowValues(ctx context.Context, _ *mcp.CallToolRequest, input ShowInp
 
 func toShowOpts(input *ShowInput) *helmengine.ShowOptions {
 	return &helmengine.ShowOptions{
-		Chart:    input.Chart,
-		Version:  input.Version,
-		Repo:     input.Repo,
-		Devel:    input.Devel,
-		JSONPath: input.JSONPath,
+		ChartSourceOptions: input.ToOptions(),
+		Chart:              input.Chart,
+		Version:            input.Version,
+		Devel:              input.Devel,
+		JSONPath:           input.JSONPath,
 	}
 }
 
@@ -143,10 +142,5 @@ func validateShowInput(input *ShowInput) error {
 	if err := tools.ValidateChartRef(input.Chart); err != nil {
 		return err
 	}
-	if input.Repo != "" {
-		if err := security.ValidateURL(input.Repo); err != nil {
-			return err
-		}
-	}
-	return nil
+	return input.Validate()
 }

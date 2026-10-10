@@ -71,6 +71,12 @@ type MockEngine struct {
 	LastRepoAddOpts       *RepoAddOptions
 	LastRegistryLoginOpts *RegistryLoginOptions
 	LastPullOpts          *PullOptions
+	LastTemplateOpts      *TemplateOptions
+	LastLintOpts          *LintOptions
+	LastCreateOpts        *CreateOptions
+	LastPackageOpts       *PackageOptions
+	LastShowOpts          *ShowOptions
+	LastPluginInstallOpts *PluginInstallOptions
 }
 
 // copyConfig creates a shallow copy of a GlobalConfig so that
@@ -277,6 +283,7 @@ func (m *MockEngine) GetNotes(ctx context.Context, cfg *GlobalConfig, opts *GetO
 }
 
 func (m *MockEngine) Create(ctx context.Context, opts *CreateOptions) (string, error) {
+	m.LastCreateOpts = opts
 	if m.CreateFn != nil {
 		return m.CreateFn(ctx, opts)
 	}
@@ -284,6 +291,7 @@ func (m *MockEngine) Create(ctx context.Context, opts *CreateOptions) (string, e
 }
 
 func (m *MockEngine) Lint(ctx context.Context, opts *LintOptions) (*LintResult, error) {
+	m.LastLintOpts = opts
 	if m.LintFn != nil {
 		return m.LintFn(ctx, opts)
 	}
@@ -292,6 +300,7 @@ func (m *MockEngine) Lint(ctx context.Context, opts *LintOptions) (*LintResult, 
 
 func (m *MockEngine) Template(ctx context.Context, cfg *GlobalConfig, opts *TemplateOptions) (string, error) {
 	m.LastConfig = copyConfig(cfg)
+	m.LastTemplateOpts = opts
 	if m.TemplateFn != nil {
 		return m.TemplateFn(ctx, cfg, opts)
 	}
@@ -299,6 +308,7 @@ func (m *MockEngine) Template(ctx context.Context, cfg *GlobalConfig, opts *Temp
 }
 
 func (m *MockEngine) Package(ctx context.Context, opts *PackageOptions) (string, error) {
+	m.LastPackageOpts = opts
 	if m.PackageFn != nil {
 		return m.PackageFn(ctx, opts)
 	}
@@ -347,6 +357,7 @@ func (m *MockEngine) ShowChart(ctx context.Context, cfg *GlobalConfig, opts *Sho
 
 func (m *MockEngine) ShowValues(ctx context.Context, cfg *GlobalConfig, opts *ShowOptions) (string, error) {
 	m.LastConfig = copyConfig(cfg)
+	m.LastShowOpts = opts
 	if m.ShowValuesFn != nil {
 		return m.ShowValuesFn(ctx, cfg, opts)
 	}
@@ -466,6 +477,7 @@ func (m *MockEngine) SearchRepo(ctx context.Context, opts *SearchRepoOptions) ([
 }
 
 func (m *MockEngine) PluginInstall(ctx context.Context, opts *PluginInstallOptions) error {
+	m.LastPluginInstallOpts = opts
 	if m.PluginInstallFn != nil {
 		return m.PluginInstallFn(ctx, opts)
 	}

@@ -308,3 +308,22 @@ func TestHandleVerify_Error(t *testing.T) {
 		t.Fatal("expected an error result")
 	}
 }
+
+func TestHandleInstall_VerifyAndKeyring(t *testing.T) {
+	mock := setup(t)
+	f := false
+	_, _, _ = HandleInstall(context.Background(), nil, InstallInput{
+		URLOrPath: "https://github.com/databus23/helm-diff",
+		Verify:    &f,
+		Keyring:   "pubring.gpg",
+	})
+	got := mock.LastPluginInstallOpts
+	if got.Verify == nil || *got.Verify || got.Keyring != "pubring.gpg" {
+		t.Errorf("verify and keyring not passed: %+v", got)
+	}
+
+	_, _, _ = HandleInstall(context.Background(), nil, InstallInput{URLOrPath: "https://github.com/databus23/helm-diff"})
+	if mock.LastPluginInstallOpts.Verify != nil {
+		t.Error("unset verify must stay nil so Helm's default (verify) applies")
+	}
+}

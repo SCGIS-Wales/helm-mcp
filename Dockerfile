@@ -1,7 +1,7 @@
 # Build stage — pinned to the build host's platform so the compiler always
 # runs natively; the target platform is reached via Go cross-compilation
 # (CGO is disabled) instead of QEMU-emulating the whole toolchain.
-FROM --platform=$BUILDPLATFORM golang:1.27.1-alpine3.24 AS builder
+FROM --platform=$BUILDPLATFORM golang:1.27.2-alpine3.24 AS builder
 
 ARG VERSION=dev
 ARG TARGETOS

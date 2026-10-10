@@ -3,6 +3,7 @@ package v3
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,6 +17,9 @@ import (
 const pluginExecTimeout = 5 * time.Minute
 
 func (e *V3Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginInstallOptions) error {
+	if opts.Verify != nil || opts.Keyring != "" {
+		return errors.New("plugin signature verification (verify, keyring) is only supported in Helm v4")
+	}
 	args := []string{"plugin", "install"}
 	if opts.Version != "" {
 		args = append(args, "--version", opts.Version)

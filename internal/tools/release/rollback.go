@@ -21,8 +21,9 @@ type RollbackInput struct {
 	DisableHooks    bool   `json:"disable_hooks,omitempty" jsonschema:"Disable hooks"`
 	CleanupOnFail   bool   `json:"cleanup_on_fail,omitempty" jsonschema:"Cleanup on failure"`
 	MaxHistory      int    `json:"max_history,omitempty" jsonschema:"Max history revisions"`
-	ServerSideApply bool   `json:"server_side_apply,omitempty" jsonschema:"Server-side apply (v4 only)"`
-	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema:"Force conflicts (v4 only)"`
+	Description     string `json:"description,omitempty" jsonschema:"Custom description for the rollback revision (v4 only)"`
+	ServerSideApply *bool  `json:"server_side_apply,omitempty" jsonschema:"Apply with Kubernetes server-side apply. Unset reuses the target revision's apply method (Helm's auto). v4 only"`
+	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema:"Take ownership of fields owned by other managers during server-side apply (v4 only)"`
 	WaitStrategy    string `json:"wait_strategy,omitempty" jsonschema:"How to wait for resources: watcher (kstatus), legacy, or hookOnly. Overrides wait. v4 only"`
 }
 
@@ -32,7 +33,7 @@ var RollbackTool = &mcp.Tool{
 	Annotations: tools.Destructive("Roll back a release"),
 }
 
-func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
+func HandleRollback(ctx context.Context, req *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -47,7 +48,7 @@ func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackI
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
 
-	err := engine.Rollback(ctx, cfg, &helmengine.RollbackOptions{
+	opts := &helmengine.RollbackOptions{
 		ReleaseName:     input.ReleaseName,
 		Revision:        input.Revision,
 		Wait:            input.Wait,
@@ -58,9 +59,13 @@ func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackI
 		DisableHooks:    input.DisableHooks,
 		CleanupOnFail:   input.CleanupOnFail,
 		MaxHistory:      input.MaxHistory,
+		Description:     input.Description,
 		ServerSideApply: input.ServerSideApply,
 		ForceConflicts:  input.ForceConflicts,
 		WaitStrategy:    input.WaitStrategy,
+	}
+	_, err := tools.WithProgress(ctx, req, "helm rollback", func() (struct{}, error) {
+		return struct{}{}, engine.Rollback(ctx, cfg, opts)
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

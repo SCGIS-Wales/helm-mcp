@@ -13,16 +13,13 @@ import (
 
 type PullInput struct {
 	tools.GlobalInput
+	tools.ChartSourceInput
 	Chart       string `json:"chart" jsonschema:"Chart reference to pull"`
 	Version     string `json:"version,omitempty" jsonschema:"Chart version"`
-	Repo        string `json:"repo,omitempty" jsonschema:"Repository URL"`
 	Destination string `json:"destination,omitempty" jsonschema:"Output directory"`
 	Untar       bool   `json:"untar,omitempty" jsonschema:"Untar the chart after download"`
 	UntarDir    string `json:"untar_dir,omitempty" jsonschema:"Directory to untar into"`
-	Verify      bool   `json:"verify,omitempty" jsonschema:"Verify the chart"`
-	Keyring     string `json:"keyring,omitempty" jsonschema:"Keyring path"`
-	Username    string `json:"username,omitempty" jsonschema:"Repository username"`
-	Password    string `json:"password,omitempty" jsonschema:"Repository password"`
+	Prov        bool   `json:"prov,omitempty" jsonschema:"Also download the provenance (.prov) file without verifying it (helm pull --prov)"`
 }
 
 var PullTool = &mcp.Tool{
@@ -35,16 +32,14 @@ func HandlePull(ctx context.Context, _ *mcp.CallToolRequest, input PullInput) (*
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
-	if err := tools.ValidateFilePaths(input.Destination, input.Keyring); err != nil {
+	if err := tools.ValidateFilePaths(input.Destination, input.UntarDir); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := input.Validate(); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
-	// Validate URL-like chart references and repo URLs for SSRF protection.
-	if input.Repo != "" {
-		if err := security.ValidateURL(input.Repo); err != nil {
-			return tools.ErrorResult(err), nil, nil
-		}
-	}
+	// Validate URL-like chart references for SSRF protection.
 	if strings.Contains(input.Chart, "://") {
 		if err := security.ValidateURL(input.Chart); err != nil {
 			return tools.ErrorResult(err), nil, nil
@@ -57,16 +52,13 @@ func HandlePull(ctx context.Context, _ *mcp.CallToolRequest, input PullInput) (*
 	defer input.ZeroBearerToken()
 
 	opts := &helmengine.PullOptions{
-		Chart:       input.Chart,
-		Version:     input.Version,
-		Repo:        input.Repo,
-		Destination: input.Destination,
-		Untar:       input.Untar,
-		UntarDir:    input.UntarDir,
-		Verify:      input.Verify,
-		Keyring:     input.Keyring,
-		Username:    input.Username,
-		Password:    input.Password,
+		ChartSourceOptions: input.ToOptions(),
+		Chart:              input.Chart,
+		Version:            input.Version,
+		Destination:        input.Destination,
+		Untar:              input.Untar,
+		UntarDir:           input.UntarDir,
+		Prov:               input.Prov,
 	}
 	defer opts.ZeroPassword()
 

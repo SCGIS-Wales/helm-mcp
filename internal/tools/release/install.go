@@ -11,10 +11,13 @@ import (
 
 type InstallInput struct {
 	tools.GlobalInput
+	tools.ChartSourceInput
+	tools.ValueSetInput
+	tools.PostRenderInput
 	ReleaseName      string                 `json:"release_name" jsonschema:"Name of the release"`
 	Chart            string                 `json:"chart" jsonschema:"Chart reference (name or path or URL)"`
 	Version          string                 `json:"version,omitempty" jsonschema:"Chart version constraint"`
-	Values           map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values (equivalent to --set)"`
+	Values           map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values, deep-merged over values_files (equivalent to --set)"`
 	ValuesFiles      []string               `json:"values_files,omitempty" jsonschema:"Paths to values files"`
 	CreateNamespace  bool                   `json:"create_namespace,omitempty" jsonschema:"Create namespace if not present"`
 	Wait             bool                   `json:"wait,omitempty" jsonschema:"Wait for resources to be ready"`
@@ -40,11 +43,12 @@ type InstallInput struct {
 	EnableDNS                bool   `json:"enable_dns,omitempty" jsonschema:"Allow DNS lookups from templates via the getHostByName function"`
 	OutputDir                string `json:"output_dir,omitempty" jsonschema:"Write rendered manifests to this directory instead of only applying them"`
 	UseReleaseName           bool   `json:"use_release_name,omitempty" jsonschema:"Prefix files written to output_dir with the release name"`
+	ForceReplace             bool   `json:"force_replace,omitempty" jsonschema:"Replace resources by delete and recreate when an update is needed (helm --force-replace; --force on v3)"`
+	TakeOwnership            bool   `json:"take_ownership,omitempty" jsonschema:"Adopt existing resources that lack Helm ownership annotations"`
+	HideSecret               bool   `json:"hide_secret,omitempty" jsonschema:"Hide Secret contents in dry-run output; requires dry_run"`
 	// v4-specific
-	ServerSideApply bool   `json:"server_side_apply,omitempty" jsonschema:"Use Kubernetes server-side apply (v4 only)"`
-	TakeOwnership   bool   `json:"take_ownership,omitempty" jsonschema:"Skip helm annotation checks (v4 only)"`
-	HideSecret      bool   `json:"hide_secret,omitempty" jsonschema:"Hide secrets in dry-run output (v4 only)"`
-	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema:"Force conflict resolution (v4 only)"`
+	ServerSideApply *bool  `json:"server_side_apply,omitempty" jsonschema:"Apply with Kubernetes server-side apply. Defaults to true on v4, as in helm install; false forces client-side apply. v4 only"`
+	ForceConflicts  bool   `json:"force_conflicts,omitempty" jsonschema:"Take ownership of fields owned by other managers during server-side apply (v4 only)"`
 	WaitStrategy    string `json:"wait_strategy,omitempty" jsonschema:"How to wait for resources: watcher (kstatus), legacy, or hookOnly. Overrides wait. v4 only"`
 }
 
@@ -54,7 +58,7 @@ var InstallTool = &mcp.Tool{
 	Annotations: tools.Mutating("Install a release", false),
 }
 
-func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
+func HandleInstall(ctx context.Context, req *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -65,6 +69,9 @@ func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInp
 		return tools.ErrorResult(err), nil, nil
 	}
 	if err := tools.ValidateFilePaths(input.OutputDir); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
+	if err := tools.ValidateReleaseInputs(&input.ChartSourceInput, &input.ValueSetInput, &input.PostRenderInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 	if !input.GenerateName {
@@ -80,31 +87,34 @@ func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInp
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
 
-	result, err := engine.Install(ctx, cfg, &helmengine.InstallOptions{
-		ReleaseName:       input.ReleaseName,
-		Chart:             input.Chart,
-		Version:           input.Version,
-		Values:            input.Values,
-		ValuesFiles:       input.ValuesFiles,
-		CreateNamespace:   input.CreateNamespace,
-		Wait:              input.Wait,
-		WaitForJobs:       input.WaitForJobs,
-		Timeout:           input.Timeout,
-		DryRun:            input.DryRun,
-		Description:       input.Description,
-		DisableHooks:      input.DisableHooks,
-		Replace:           input.Replace,
-		SkipCRDs:          input.SkipCRDs,
-		IncludeCRDs:       input.IncludeCRDs,
-		DependencyUpdate:  input.DependencyUpdate,
-		GenerateName:      input.GenerateName,
-		NameTemplate:      input.NameTemplate,
-		Labels:            input.Labels,
-		ServerSideApply:   input.ServerSideApply,
-		TakeOwnership:     input.TakeOwnership,
-		RollbackOnFailure: input.RollbackOnFailure,
-		HideSecret:        input.HideSecret,
-		ForceConflicts:    input.ForceConflicts,
+	opts := &helmengine.InstallOptions{
+		ChartSourceOptions: input.ChartSourceInput.ToOptions(),
+		ValueSetOptions:    input.ValueSetInput.ToOptions(),
+		PostRenderOptions:  input.PostRenderInput.ToOptions(),
+		ReleaseName:        input.ReleaseName,
+		Chart:              input.Chart,
+		Version:            input.Version,
+		Values:             input.Values,
+		ValuesFiles:        input.ValuesFiles,
+		CreateNamespace:    input.CreateNamespace,
+		Wait:               input.Wait,
+		WaitForJobs:        input.WaitForJobs,
+		Timeout:            input.Timeout,
+		DryRun:             input.DryRun,
+		Description:        input.Description,
+		DisableHooks:       input.DisableHooks,
+		Replace:            input.Replace,
+		SkipCRDs:           input.SkipCRDs,
+		IncludeCRDs:        input.IncludeCRDs,
+		DependencyUpdate:   input.DependencyUpdate,
+		GenerateName:       input.GenerateName,
+		NameTemplate:       input.NameTemplate,
+		Labels:             input.Labels,
+		ServerSideApply:    input.ServerSideApply,
+		TakeOwnership:      input.TakeOwnership,
+		RollbackOnFailure:  input.RollbackOnFailure,
+		HideSecret:         input.HideSecret,
+		ForceConflicts:     input.ForceConflicts,
 
 		Devel:                    input.Devel,
 		SubNotes:                 input.SubNotes,
@@ -114,7 +124,13 @@ func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInp
 		EnableDNS:                input.EnableDNS,
 		OutputDir:                input.OutputDir,
 		UseReleaseName:           input.UseReleaseName,
+		ForceReplace:             input.ForceReplace,
 		WaitStrategy:             input.WaitStrategy,
+	}
+	defer opts.ZeroPassword()
+
+	result, err := tools.WithProgress(ctx, req, "helm install", func() (*helmengine.ReleaseInfo, error) {
+		return engine.Install(ctx, cfg, opts)
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
