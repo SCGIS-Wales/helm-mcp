@@ -380,6 +380,23 @@ jobs:
       - name: Build helm-mcp binary
         run: go build -o helm-mcp ./cmd/helm-mcp/
 
+      # The helm_plugin_* tools shell out to the helm CLI. The runner image
+      # ships a Helm v3 CLI, which rejects v4-only flags such as
+      # `plugin install --verify=false`; the published container ships the v4
+      # CLI. Build that CLI at the SDK version in go.mod (verified by the Go
+      # checksum database) and put it first on PATH.
+      - name: Install the Helm v4 CLI
+        run: |
+          set -eu
+          HELM_VERSION=$(awk '/^\thelm.sh\/helm\/v4 /{print $2}' go.mod)
+          GOBIN="$HOME/helm-v4/bin" go install "helm.sh/helm/v4/cmd/helm@${HELM_VERSION}"
+          echo "$HOME/helm-v4/bin" >> "$GITHUB_PATH"
+          "$HOME/helm-v4/bin/helm" version
+          case "$("$HOME/helm-v4/bin/helm" version --template '{{.Version}}')" in
+            v4.*) ;;
+            *) echo "::error::expected a Helm v4 CLI"; exit 1 ;;
+          esac
+
       # Pinned release binary with a verified checksum rather than piping an
       # unpinned install script from a moving branch into bash.
       - name: Install k3d
@@ -418,7 +435,7 @@ jobs:
           helm repo update
 
       - name: Install Python test dependencies
-        run: pip install "fastmcp>=4.0.10,<5" pytest pytest-asyncio pytest-timeout
+        run: pip install "fastmcp>=4.1.0,<5" pytest pytest-asyncio pytest-timeout
 
       - name: Run integration tests
         run: python3 -m pytest tests/integration/ -v --timeout=600

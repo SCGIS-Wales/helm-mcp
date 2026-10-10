@@ -848,7 +848,9 @@ packages are internal and not importable.
 - Helm v4 verifies plugin signatures by default. Plugins that are not signed,
   such as `helm-diff`, install with `helm_plugin_install` and `verify: false`.
 - The published container image ships a pinned `helm` CLI, so plugin tools work
-  there. If you run the binary directly, `helm` must be on `PATH`.
+  there. If you run the binary directly, `helm` must be on `PATH`, and with the
+  default `helm_version: "v4"` it must be a Helm v4 CLI: a v3 CLI rejects v4
+  flags such as `--verify=false`.
 
 ## Security
 
