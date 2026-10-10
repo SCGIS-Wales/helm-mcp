@@ -146,6 +146,20 @@ class RateLimitConfig:
     )
     burst_capacity: int = field(default_factory=lambda: _env_int("HELM_MCP_RATE_LIMIT_BURST", 20))
 
+    def __post_init__(self) -> None:
+        # FastMCP 4.1 deprecates a burst below 1 (a ValueError from v5) and a
+        # non-positive rate would reject every request. Fail at startup, with
+        # the variable name, rather than at the first tool call.
+        if self.burst_capacity < 1:
+            raise ValueError(
+                f"HELM_MCP_RATE_LIMIT_BURST must be at least 1 (got {self.burst_capacity})"
+            )
+        if self.max_requests_per_second <= 0:
+            raise ValueError(
+                "HELM_MCP_RATE_LIMIT_MAX_RPS must be greater than 0 "
+                f"(got {self.max_requests_per_second})"
+            )
+
 
 @dataclass(frozen=True)
 class CacheConfig:

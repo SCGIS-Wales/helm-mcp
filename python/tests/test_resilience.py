@@ -150,6 +150,18 @@ class TestResilienceConfig:
             assert config.max_requests_per_second == 50.0
             assert config.burst_capacity == 100
 
+    @pytest.mark.parametrize(
+        ("env", "message"),
+        [
+            ({"HELM_MCP_RATE_LIMIT_BURST": "0"}, "HELM_MCP_RATE_LIMIT_BURST"),
+            ({"HELM_MCP_RATE_LIMIT_MAX_RPS": "0"}, "HELM_MCP_RATE_LIMIT_MAX_RPS"),
+            ({"HELM_MCP_RATE_LIMIT_MAX_RPS": "-1.5"}, "HELM_MCP_RATE_LIMIT_MAX_RPS"),
+        ],
+    )
+    def test_rate_limit_rejects_invalid_values(self, env, message):
+        with patch.dict(os.environ, env, clear=True), pytest.raises(ValueError, match=message):
+            RateLimitConfig()
+
     def test_circuit_breaker_env_override(self):
         env = {
             "HELM_MCP_CIRCUIT_BREAKER_ENABLED": "false",
