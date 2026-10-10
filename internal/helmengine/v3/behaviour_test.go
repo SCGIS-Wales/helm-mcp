@@ -399,3 +399,14 @@ func TestRejectsV4OnlyArguments(t *testing.T) {
 		}
 	}
 }
+
+func TestRegistryLogin_BadTLSFileIsAnError(t *testing.T) {
+	isolateHelm(t)
+	err := New().RegistryLogin(context.Background(), &helmengine.RegistryLoginOptions{
+		Hostname: "registry.example.com",
+		CAFile:   "/nonexistent/ca.pem",
+	})
+	if err == nil || !strings.Contains(err.Error(), "CA file") {
+		t.Fatalf("expected a CA file error rather than a panic, got %v", err)
+	}
+}

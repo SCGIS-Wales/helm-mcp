@@ -774,6 +774,23 @@ class TestReleaseLifecycle:
         assert not result.is_error
         assert TEST_RELEASE not in text
 
+    async def test_22_upgrade_install_missing_release(self, mcp_client, bitnami_repo):
+        """helm_upgrade with install creates a release that does not exist yet."""
+        result = await call_tool(
+            mcp_client,
+            "helm_upgrade",
+            {
+                "release_name": "integ-upsert",
+                "chart": self.CHART,
+                "namespace": TEST_NAMESPACE,
+                "install": True,
+                "dry_run": "client",
+            },
+        )
+        text = extract_text(result)
+        assert not result.is_error, f"upgrade --install failed: {text}"
+        assert '"name": "integ-upsert"' in text
+
 
 # ---------------------------------------------------------------------------
 # 8. Plugin Management Tools

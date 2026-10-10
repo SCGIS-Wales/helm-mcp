@@ -125,14 +125,6 @@ func TestApplySetValues_Errors(t *testing.T) {
 	}
 }
 
-func TestSetFilePaths(t *testing.T) {
-	got := SetFilePaths([]string{"a=/tmp/x", "b.c=rel/y", "broken"})
-	want := []string{"/tmp/x", "rel/y"}
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("got %v, want %v", got, want)
-	}
-}
-
 func TestResourceRefs(t *testing.T) {
 	svc := &corev1.Service{
 		TypeMeta:   metav1.TypeMeta{APIVersion: "v1", Kind: "Service"},

@@ -26,7 +26,13 @@ func (e *V3Engine) RegistryLogin(_ context.Context, opts *helmengine.RegistryLog
 		registry.LoginOptPlainText(opts.PlainHTTP),
 	}
 	// ca_file, cert_file and key_file used to be accepted and dropped.
+	// LoginOptTLSClientConfig panics on an unreadable or invalid file, which
+	// would take the whole server down, so load them first and return an
+	// error instead.
 	if opts.CAFile != "" || opts.CertFile != "" || opts.KeyFile != "" {
+		if _, err := helmengine.NewClientTLSConfig(opts.CertFile, opts.KeyFile, opts.CAFile, opts.Insecure); err != nil {
+			return fmt.Errorf("helm registry login: %w", err)
+		}
 		loginOpts = append(loginOpts, registry.LoginOptTLSClientConfig(opts.CertFile, opts.KeyFile, opts.CAFile))
 	}
 	err = client.Login(opts.Hostname, loginOpts...)

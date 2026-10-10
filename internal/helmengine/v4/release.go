@@ -3,6 +3,7 @@ package v4
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -17,7 +18,9 @@ import (
 	"helm.sh/helm/v4/pkg/getter"
 	"helm.sh/helm/v4/pkg/kube"
 	"helm.sh/helm/v4/pkg/release"
+	"helm.sh/helm/v4/pkg/release/common"
 	v1release "helm.sh/helm/v4/pkg/release/v1"
+	"helm.sh/helm/v4/pkg/storage/driver"
 )
 
 // Error format strings used across multiple release operations.
@@ -275,6 +278,16 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		return nil, err
 	}
 
+	if opts.Install {
+		install, replace, err := upgradeShouldInstall(actionConfig, opts.ReleaseName)
+		if err != nil {
+			return nil, err
+		}
+		if install {
+			return e.Install(ctx, cfg, helmengine.InstallOptionsForUpgrade(opts, replace))
+		}
+	}
+
 	client := action.NewUpgrade(actionConfig)
 	client.Namespace = cfg.Namespace
 	client.Install = opts.Install
@@ -360,6 +373,36 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	}
 
 	return releaserToInfo(rel), nil
+}
+
+// upgradeShouldInstall reports whether `upgrade --install` has to install,
+// as the Helm CLI decides it: the release has no history, or its last
+// revision was uninstalled (then the install replaces it).
+func upgradeShouldInstall(actionConfig *action.Configuration, name string) (install, replace bool, err error) {
+	h := action.NewHistory(actionConfig)
+	h.Max = 1
+	versions, err := h.Run(name)
+	if errors.Is(err, driver.ErrReleaseNotFound) {
+		return true, false, nil
+	}
+	if err != nil {
+		return false, false, fmt.Errorf("helm upgrade: failed to read release history: %w", err)
+	}
+	// Storage does not promise an order, so find the latest revision.
+	var latest release.Accessor
+	for _, v := range versions {
+		acc, err := release.NewAccessor(v)
+		if err != nil {
+			continue
+		}
+		if latest == nil || acc.Version() > latest.Version() {
+			latest = acc
+		}
+	}
+	if latest != nil && latest.Status() == string(common.StatusUninstalled) {
+		return true, true, nil
+	}
+	return false, false, nil
 }
 
 func (e *V4Engine) Uninstall(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.UninstallOptions) (*helmengine.UninstallResult, error) {

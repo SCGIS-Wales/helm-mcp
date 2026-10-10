@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path/filepath"
 
 	helmengine "github.com/ssddgreg/helm-mcp/internal/helmengine"
 
@@ -11,6 +12,11 @@ import (
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/registry"
 )
+
+// defaultKeyring mirrors the Helm v3 CLI default for --keyring.
+func defaultKeyring() string {
+	return filepath.Join(helmengine.GnuPGHome(), "pubring.gpg")
+}
 
 // registryClientSetter is implemented by every action that locates charts
 // (Install, Upgrade, Show, Pull).
@@ -34,6 +40,9 @@ func applyChartSource(cpo *action.ChartPathOptions, setter registryClientSetter,
 	cpo.PassCredentialsAll = src.PassCredentialsAll
 	cpo.Verify = src.Verify
 	cpo.Keyring = src.Keyring
+	if cpo.Verify && cpo.Keyring == "" {
+		cpo.Keyring = defaultKeyring()
+	}
 
 	if src.Username == "" && src.Password == "" && src.CAFile == "" && src.CertFile == "" &&
 		src.KeyFile == "" && !src.InsecureSkipTLSVerify && !src.PlainHTTP {

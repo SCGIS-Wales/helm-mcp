@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"sort"
-	"strings"
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -68,18 +67,6 @@ func ApplySetValues(base map[string]interface{}, opts ValueSetOptions) (map[stri
 		}
 	}
 	return base, nil
-}
-
-// SetFilePaths returns the file path of every key=path entry, so the tool
-// layer can validate them before any file is read.
-func SetFilePaths(entries []string) []string {
-	paths := make([]string, 0, len(entries))
-	for _, e := range entries {
-		if _, path, ok := strings.Cut(e, "="); ok {
-			paths = append(paths, path)
-		}
-	}
-	return paths
 }
 
 // ResourceRefs flattens the resources Helm attaches to a release status

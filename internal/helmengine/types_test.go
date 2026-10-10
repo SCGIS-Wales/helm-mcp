@@ -278,3 +278,28 @@ func TestSearchRepoOptionsJSON(t *testing.T) {
 }
 
 func boolPtr(v bool) *bool { return &v }
+
+func TestInstallOptionsForUpgrade(t *testing.T) {
+	ssa := false
+	u := &UpgradeOptions{
+		ChartSourceOptions: ChartSourceOptions{Repo: "https://charts.example.com"},
+		ValueSetOptions:    ValueSetOptions{SetString: []string{"a=1"}},
+		ReleaseName:        "app",
+		Chart:              "repo/app",
+		CreateNamespace:    true,
+		Force:              true,
+		RollbackOnFailure:  true,
+		ServerSideApply:    &ssa,
+		WaitStrategy:       "watcher",
+		DryRun:             "server",
+	}
+	got := InstallOptionsForUpgrade(u, true)
+	if got.ReleaseName != "app" || got.Chart != "repo/app" || got.Repo != "https://charts.example.com" ||
+		len(got.SetString) != 1 || !got.CreateNamespace || !got.ForceReplace || !got.RollbackOnFailure ||
+		got.ServerSideApply != &ssa || got.WaitStrategy != "watcher" || got.DryRun != "server" || !got.Replace {
+		t.Errorf("fields not carried over: %+v", got)
+	}
+	if InstallOptionsForUpgrade(u, false).Replace {
+		t.Error("replace should only be set for an uninstalled release")
+	}
+}

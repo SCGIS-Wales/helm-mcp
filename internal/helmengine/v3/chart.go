@@ -197,6 +197,9 @@ func (e *V3Engine) Package(_ context.Context, opts *helmengine.PackageOptions) (
 	client.Sign = opts.Sign
 	client.Key = opts.Key
 	client.Keyring = opts.Keyring
+	if client.Sign && client.Keyring == "" {
+		client.Keyring = defaultKeyring()
+	}
 	client.PassphraseFile = opts.PassphraseFile
 	client.DependencyUpdate = opts.DependencyUpdate
 
@@ -250,8 +253,9 @@ func (e *V3Engine) Push(_ context.Context, _ *helmengine.GlobalConfig, opts *hel
 
 func (e *V3Engine) Verify(_ context.Context, opts *helmengine.VerifyOptions) (string, error) {
 	client := action.NewVerify()
-	if opts.Keyring != "" {
-		client.Keyring = opts.Keyring
+	client.Keyring = opts.Keyring
+	if client.Keyring == "" {
+		client.Keyring = defaultKeyring()
 	}
 	if err := client.Run(opts.ChartFile); err != nil {
 		return "", fmt.Errorf("helm verify failed: %w", err)

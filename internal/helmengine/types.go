@@ -189,27 +189,29 @@ type UpgradeOptions struct {
 	ChartSourceOptions
 	ValueSetOptions
 	PostRenderOptions
-	ReleaseName          string                 `json:"release_name"`
-	Chart                string                 `json:"chart"`
-	Version              string                 `json:"version,omitempty"`
-	Values               map[string]interface{} `json:"values,omitempty"`
-	ValuesFiles          []string               `json:"values_files,omitempty"`
-	Install              bool                   `json:"install,omitempty"`
-	Force                bool                   `json:"force,omitempty"`
-	ResetValues          bool                   `json:"reset_values,omitempty"`
-	ReuseValues          bool                   `json:"reuse_values,omitempty"`
-	Wait                 bool                   `json:"wait,omitempty"`
-	WaitForJobs          bool                   `json:"wait_for_jobs,omitempty"`
-	Timeout              string                 `json:"timeout,omitempty"`
-	DryRun               string                 `json:"dry_run,omitempty"`
-	Description          string                 `json:"description,omitempty"`
-	DisableHooks         bool                   `json:"disable_hooks,omitempty"`
-	SkipCRDs             bool                   `json:"skip_crds,omitempty"`
-	CleanupOnFail        bool                   `json:"cleanup_on_fail,omitempty"`
-	DependencyUpdate     bool                   `json:"dependency_update,omitempty"`
-	Labels               map[string]string      `json:"labels,omitempty"`
-	MaxHistory           int                    `json:"max_history,omitempty"`
-	ResetThenReuseValues bool                   `json:"reset_then_reuse_values,omitempty"`
+	ReleaseName string                 `json:"release_name"`
+	Chart       string                 `json:"chart"`
+	Version     string                 `json:"version,omitempty"`
+	Values      map[string]interface{} `json:"values,omitempty"`
+	ValuesFiles []string               `json:"values_files,omitempty"`
+	Install     bool                   `json:"install,omitempty"`
+	// CreateNamespace applies when install creates the release.
+	CreateNamespace      bool              `json:"create_namespace,omitempty"`
+	Force                bool              `json:"force,omitempty"`
+	ResetValues          bool              `json:"reset_values,omitempty"`
+	ReuseValues          bool              `json:"reuse_values,omitempty"`
+	Wait                 bool              `json:"wait,omitempty"`
+	WaitForJobs          bool              `json:"wait_for_jobs,omitempty"`
+	Timeout              string            `json:"timeout,omitempty"`
+	DryRun               string            `json:"dry_run,omitempty"`
+	Description          string            `json:"description,omitempty"`
+	DisableHooks         bool              `json:"disable_hooks,omitempty"`
+	SkipCRDs             bool              `json:"skip_crds,omitempty"`
+	CleanupOnFail        bool              `json:"cleanup_on_fail,omitempty"`
+	DependencyUpdate     bool              `json:"dependency_update,omitempty"`
+	Labels               map[string]string `json:"labels,omitempty"`
+	MaxHistory           int               `json:"max_history,omitempty"`
+	ResetThenReuseValues bool              `json:"reset_then_reuse_values,omitempty"`
 	// v3 calls this Atomic; v4 calls it RollbackOnFailure. Supported by both.
 	RollbackOnFailure        bool `json:"rollback_on_failure,omitempty"`
 	Devel                    bool `json:"devel,omitempty"`

@@ -2,9 +2,12 @@ package tools
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/ssddgreg/helm-mcp/internal/helmengine"
 	"github.com/ssddgreg/helm-mcp/internal/security"
+
+	"helm.sh/helm/v4/pkg/strvals"
 )
 
 // ChartSourceInput carries the chart location and authentication flags that
@@ -60,15 +63,25 @@ type ValueSetInput struct {
 	SetLiteral []string `json:"set_literal,omitempty" jsonschema:"Values as key=value pairs, taken literally with no escaping or splitting (helm --set-literal)"`
 }
 
-// Validate checks every set_file path. Only local files are read, so URLs
-// are rejected rather than fetched.
+// Validate checks every path a set_file entry would read. The entries are
+// parsed with Helm's own strvals parser, with a reader that validates
+// instead of reading, so lists ({a,b}) and comma-separated pairs are checked
+// exactly as Helm will read them. Only local files are read, so URLs are
+// rejected rather than fetched.
 func (v *ValueSetInput) Validate() error {
-	for _, p := range helmengine.SetFilePaths(v.SetFile) {
+	validate := func(rs []rune) (any, error) {
+		p := string(rs)
 		if isRemoteRef(p) {
-			return errors.New("set_file only reads local files; use values_files for URLs")
+			return nil, errors.New("set_file only reads local files; use values_files for URLs")
 		}
 		if err := ValidateFilePaths(p); err != nil {
-			return err
+			return nil, err
+		}
+		return "", nil
+	}
+	for _, entry := range v.SetFile {
+		if err := strvals.ParseIntoFile(entry, map[string]any{}, validate); err != nil {
+			return fmt.Errorf("invalid set_file entry: %w", err)
 		}
 	}
 	return nil

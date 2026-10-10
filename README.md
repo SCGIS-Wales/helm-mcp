@@ -560,15 +560,23 @@ available on `helm_install` and `helm_upgrade`. So are `devel`, `sub_notes`,
 `plain_http`, `pass_credentials`, `verify` and `keyring`. TLS and credential
 options also apply to `oci://` charts.
 
-`verify` checks the chart provenance against the keyring. On `helm_pull`,
-`prov` downloads the provenance file without verifying it (`helm pull --prov`).
+`verify` checks the chart provenance against the keyring, which defaults to
+`$GNUPGHOME/pubring.gpg` (or `~/.gnupg`) as in the CLI. On `helm_pull`, `prov`
+downloads the provenance file without verifying it (`helm pull --prov`).
+
+### Upgrade or install
+
+`helm_upgrade` with `install: true` installs the release when it does not
+exist, or replaces it when its last revision was uninstalled, exactly like
+`helm upgrade --install`. `create_namespace` applies to that install.
 
 ### Values
 
 Values are combined in the order Helm uses: `values_files`, then the inline
 `values` object (deep merged, like `--set`), then `set_string`, `set_file` and
 `set_literal`, each a list of `key=value` strings. `set_file` reads local files
-only and validates each path.
+only, and every path it would read is validated, including paths inside
+`{a,b}` lists and further comma separated pairs.
 
 ### Chart dependencies
 

@@ -19,6 +19,9 @@ import (
 // fmt.Fprintf, which panics on a nil writer as soon as a dependency is
 // downloaded. The registry client lets oci:// dependencies resolve.
 func newDependencyManager(chartPath, keyring string, skipUpdate bool, settings *cli.EnvSettings, rc *registry.Client) *downloader.Manager {
+	if keyring == "" {
+		keyring = defaultKeyring()
+	}
 	return &downloader.Manager{
 		Out:              io.Discard,
 		ChartPath:        chartPath,

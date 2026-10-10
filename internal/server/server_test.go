@@ -329,3 +329,25 @@ func TestToolsHaveTitles(t *testing.T) {
 		}
 	}
 }
+
+// TestRecoverHandler checks a panicking handler yields a tool error instead
+// of crashing the server.
+func TestRecoverHandler(t *testing.T) {
+	h := recoverHandler("boom", func(context.Context, *mcp.CallToolRequest, struct{}) (*mcp.CallToolResult, any, error) {
+		panic("kaboom")
+	})
+	res, out, err := h(context.Background(), nil, struct{}{})
+	if err != nil {
+		t.Fatalf("expected a tool error result, got protocol error %v", err)
+	}
+	if out != nil {
+		t.Errorf("expected a zero output, got %v", out)
+	}
+	if res == nil || !res.IsError {
+		t.Fatalf("expected IsError result, got %+v", res)
+	}
+	text := res.Content[0].(*mcp.TextContent).Text
+	if !strings.Contains(text, "internal error in boom") || !strings.Contains(text, "kaboom") {
+		t.Errorf("unexpected error text %q", text)
+	}
+}

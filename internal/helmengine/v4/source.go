@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	helmengine "github.com/ssddgreg/helm-mcp/internal/helmengine"
 
@@ -39,6 +42,9 @@ func applyChartSource(cpo *action.ChartPathOptions, setter registryClientSetter,
 	cpo.PassCredentialsAll = src.PassCredentialsAll
 	cpo.Verify = src.Verify
 	cpo.Keyring = src.Keyring
+	if cpo.Verify && cpo.Keyring == "" {
+		cpo.Keyring = defaultKeyring()
+	}
 
 	if !needsCustomRegistryClient(src) {
 		return current, nil
@@ -49,6 +55,21 @@ func applyChartSource(cpo *action.ChartPathOptions, setter registryClientSetter,
 	}
 	setter.SetRegistryClient(rc)
 	return rc, nil
+}
+
+// defaultKeyring mirrors the Helm v4 CLI default for --keyring: the legacy
+// pubring.gpg if present, else a pubring.kbx keybox, else pubring.gpg.
+func defaultKeyring() string {
+	home := helmengine.GnuPGHome()
+	legacy := filepath.Join(home, "pubring.gpg")
+	if _, err := os.Stat(legacy); !errors.Is(err, fs.ErrNotExist) {
+		return legacy
+	}
+	keybox := filepath.Join(home, "pubring.kbx")
+	if _, err := os.Stat(keybox); !errors.Is(err, fs.ErrNotExist) {
+		return keybox
+	}
+	return legacy
 }
 
 func needsCustomRegistryClient(src *helmengine.ChartSourceOptions) bool {

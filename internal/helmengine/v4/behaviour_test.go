@@ -382,3 +382,26 @@ func TestNewPostRenderer(t *testing.T) {
 		t.Error("an unknown post-renderer plugin should be rejected")
 	}
 }
+
+func TestRegistryLogin_BadTLSFileIsAnError(t *testing.T) {
+	isolateHelm(t)
+	err := New().RegistryLogin(context.Background(), &helmengine.RegistryLoginOptions{
+		Hostname: "registry.example.com",
+		CAFile:   "/nonexistent/ca.pem",
+	})
+	if err == nil || !strings.Contains(err.Error(), "CA file") {
+		t.Fatalf("expected a CA file error rather than a panic, got %v", err)
+	}
+}
+
+func TestDefaultKeyring(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("GNUPGHOME", home)
+	if got := defaultKeyring(); got != filepath.Join(home, "pubring.gpg") {
+		t.Errorf("no keyring should default to pubring.gpg, got %s", got)
+	}
+	writeFiles(t, home, map[string]string{"pubring.kbx": "x"})
+	if got := defaultKeyring(); got != filepath.Join(home, "pubring.kbx") {
+		t.Errorf("a keybox should be used when pubring.gpg is absent, got %s", got)
+	}
+}

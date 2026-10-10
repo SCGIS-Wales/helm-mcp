@@ -1,8 +1,14 @@
 package server
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
+	"runtime/debug"
+
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
+	"github.com/ssddgreg/helm-mcp/internal/tools"
 	"github.com/ssddgreg/helm-mcp/internal/tools/chart"
 	"github.com/ssddgreg/helm-mcp/internal/tools/env"
 	"github.com/ssddgreg/helm-mcp/internal/tools/plugin"
@@ -89,12 +95,31 @@ func NewServer(version string) *mcp.Server {
 // The definition is copied: tools are shared package variables and the HTTP
 // transport calls NewServer once per request, so mutating them in place
 // would race. The schema cache is keyed by type, so copies cost nothing.
+//
+// The handler is also wrapped so that a panic becomes a tool error instead of
+// killing the process: neither the SDK nor the transports recover, and some
+// Helm SDK options panic on bad input (registry TLS options on an unreadable
+// file, for example), which would take the server down for every client.
 func addTool[In, Out any](s *mcp.Server, t *mcp.Tool, h mcp.ToolHandlerFor[In, Out]) {
 	tool := *t
 	if tool.Title == "" && tool.Annotations != nil {
 		tool.Title = tool.Annotations.Title
 	}
-	mcp.AddTool(s, &tool, h)
+	mcp.AddTool(s, &tool, recoverHandler(tool.Name, h))
+}
+
+// recoverHandler converts a panic in h into an error result.
+func recoverHandler[In, Out any](name string, h mcp.ToolHandlerFor[In, Out]) mcp.ToolHandlerFor[In, Out] {
+	return func(ctx context.Context, req *mcp.CallToolRequest, in In) (res *mcp.CallToolResult, out Out, err error) {
+		defer func() {
+			if r := recover(); r != nil {
+				slog.Error("tool handler panicked", "tool", name, "panic", r, "stack", string(debug.Stack()))
+				var zero Out
+				res, out, err = tools.ErrorResult(fmt.Errorf("internal error in %s: %v", name, r)), zero, nil
+			}
+		}()
+		return h(ctx, req, in)
+	}
 }
 
 func registerReleaseTools(s *mcp.Server) {

@@ -20,6 +20,7 @@ type UpgradeInput struct {
 	Values               map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values, deep-merged over values_files (equivalent to --set)"`
 	ValuesFiles          []string               `json:"values_files,omitempty" jsonschema:"Paths to values files"`
 	Install              bool                   `json:"install,omitempty" jsonschema:"If release does not exist install it"`
+	CreateNamespace      bool                   `json:"create_namespace,omitempty" jsonschema:"Create the namespace when install creates the release"`
 	Force                bool                   `json:"force,omitempty" jsonschema:"Replace resources by delete and recreate when an update is needed (helm --force-replace; --force on v3)"`
 	ResetValues          bool                   `json:"reset_values,omitempty" jsonschema:"Reset values to chart defaults"`
 	ReuseValues          bool                   `json:"reuse_values,omitempty" jsonschema:"Reuse last release values"`
@@ -90,6 +91,7 @@ func HandleUpgrade(ctx context.Context, req *mcp.CallToolRequest, input UpgradeI
 		Values:               input.Values,
 		ValuesFiles:          input.ValuesFiles,
 		Install:              input.Install,
+		CreateNamespace:      input.CreateNamespace,
 		Force:                input.Force,
 		ResetValues:          input.ResetValues,
 		ReuseValues:          input.ReuseValues,
