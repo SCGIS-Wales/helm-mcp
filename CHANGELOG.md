@@ -12,6 +12,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [0.5.0] - 2026-10-10
+
+### Fixed
+- Refreshes dependencies and brings the MCP tools in line with what the Helm v4.3.0 and v3.22.0 SDKs, the latest releases, actually support. A review of every tool against the SDK and CLI found many arguments that were **accepted and silently ignored**, plus a panic. Those are fixed and each fix is covered by a test that renders, lints or dry runs a real chart. ([#54](https://github.com/SCGIS-Wales/helm-mcp/pull/54))
+
 ## [0.4.2] - 2026-09-25
 
 ### Fixed
@@ -417,7 +423,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Simplified embedded field selectors in v3 and v4 release/chart methods (staticcheck QF1008) ([#3](https://github.com/SCGIS-Wales/helm-mcp/pull/3), [#4](https://github.com/SCGIS-Wales/helm-mcp/pull/4))
 - Auto-tag version bump no longer fails when version files already match the target version ([#7](https://github.com/SCGIS-Wales/helm-mcp/pull/7))
 
-[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.2...v0.5.0
 [0.4.2]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/SCGIS-Wales/helm-mcp/compare/v0.3.0...v0.4.0
