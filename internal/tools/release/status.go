@@ -13,7 +13,7 @@ type StatusInput struct {
 	tools.GlobalInput
 	ReleaseName   string `json:"release_name" jsonschema:"Name of the release"`
 	Revision      int    `json:"revision,omitempty" jsonschema:"Show status for a specific revision"`
-	ShowResources bool   `json:"show_resources,omitempty" jsonschema:"Show resources table (v4 only)"`
+	ShowResources bool   `json:"show_resources,omitempty" jsonschema:"Include the release's live resources (kind, name, namespace)"`
 }
 
 var StatusTool = &mcp.Tool{

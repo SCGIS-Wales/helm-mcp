@@ -11,13 +11,16 @@ import (
 
 type UpgradeInput struct {
 	tools.GlobalInput
+	tools.ChartSourceInput
+	tools.ValueSetInput
+	tools.PostRenderInput
 	ReleaseName          string                 `json:"release_name" jsonschema:"Name of the release"`
 	Chart                string                 `json:"chart" jsonschema:"Chart reference"`
 	Version              string                 `json:"version,omitempty" jsonschema:"Chart version constraint"`
-	Values               map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values"`
+	Values               map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values, deep-merged over values_files (equivalent to --set)"`
 	ValuesFiles          []string               `json:"values_files,omitempty" jsonschema:"Paths to values files"`
 	Install              bool                   `json:"install,omitempty" jsonschema:"If release does not exist install it"`
-	Force                bool                   `json:"force,omitempty" jsonschema:"Force resource updates"`
+	Force                bool                   `json:"force,omitempty" jsonschema:"Replace resources by delete and recreate when an update is needed (helm --force-replace; --force on v3)"`
 	ResetValues          bool                   `json:"reset_values,omitempty" jsonschema:"Reset values to chart defaults"`
 	ReuseValues          bool                   `json:"reuse_values,omitempty" jsonschema:"Reuse last release values"`
 	Wait                 bool                   `json:"wait,omitempty" jsonschema:"Wait for resources to be ready"`
@@ -31,11 +34,11 @@ type UpgradeInput struct {
 	DependencyUpdate     bool                   `json:"dependency_update,omitempty" jsonschema:"Update dependencies"`
 	Labels               map[string]string      `json:"labels,omitempty" jsonschema:"Labels"`
 	MaxHistory           int                    `json:"max_history,omitempty" jsonschema:"Max history revisions"`
-	ResetThenReuseValues bool                   `json:"reset_then_reuse_values,omitempty" jsonschema:"Reset then reuse values (v4 only)"`
-	ServerSideApply      bool                   `json:"server_side_apply,omitempty" jsonschema:"Server-side apply (v4 only)"`
-	TakeOwnership        bool                   `json:"take_ownership,omitempty" jsonschema:"Take ownership (v4 only)"`
-	HideSecret           bool                   `json:"hide_secret,omitempty" jsonschema:"Hide secrets (v4 only)"`
-	ForceConflicts       bool                   `json:"force_conflicts,omitempty" jsonschema:"Force conflicts (v4 only)"`
+	ResetThenReuseValues bool                   `json:"reset_then_reuse_values,omitempty" jsonschema:"Reset to the new chart's defaults, then reapply the last release's user values"`
+	TakeOwnership        bool                   `json:"take_ownership,omitempty" jsonschema:"Adopt existing resources that lack Helm ownership annotations"`
+	HideSecret           bool                   `json:"hide_secret,omitempty" jsonschema:"Hide Secret contents in dry-run output; requires dry_run"`
+	ServerSideApply      *bool                  `json:"server_side_apply,omitempty" jsonschema:"Apply with Kubernetes server-side apply. Unset reuses the previous release's apply method (Helm's auto). v4 only"`
+	ForceConflicts       bool                   `json:"force_conflicts,omitempty" jsonschema:"Take ownership of fields owned by other managers during server-side apply (v4 only)"`
 	// Supported by both v3 (as --atomic) and v4 (as --rollback-on-failure).
 	RollbackOnFailure        bool   `json:"rollback_on_failure,omitempty" jsonschema:"Roll the release back automatically if the upgrade fails (helm --atomic)"`
 	Devel                    bool   `json:"devel,omitempty" jsonschema:"Allow development chart versions (alpha/beta/rc) to satisfy the version constraint"`
@@ -69,12 +72,18 @@ func HandleUpgrade(ctx context.Context, _ *mcp.CallToolRequest, input UpgradeInp
 	if err := tools.ValidateTimeout(input.Timeout); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateReleaseInputs(&input.ChartSourceInput, &input.ValueSetInput, &input.PostRenderInput); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
 
-	result, err := engine.Upgrade(ctx, cfg, &helmengine.UpgradeOptions{
+	opts := &helmengine.UpgradeOptions{
+		ChartSourceOptions:   input.ChartSourceInput.ToOptions(),
+		ValueSetOptions:      input.ValueSetInput.ToOptions(),
+		PostRenderOptions:    input.PostRenderInput.ToOptions(),
 		ReleaseName:          input.ReleaseName,
 		Chart:                input.Chart,
 		Version:              input.Version,
@@ -109,7 +118,10 @@ func HandleUpgrade(ctx context.Context, _ *mcp.CallToolRequest, input UpgradeInp
 		DisableOpenAPIValidation: input.DisableOpenAPIValidation,
 		EnableDNS:                input.EnableDNS,
 		WaitStrategy:             input.WaitStrategy,
-	})
+	}
+	defer opts.ZeroPassword()
+
+	result, err := engine.Upgrade(ctx, cfg, opts)
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

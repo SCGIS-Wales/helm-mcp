@@ -172,7 +172,7 @@ func TestUpgradeOptionsJSON(t *testing.T) {
 		ReuseValues:     true,
 		Wait:            true,
 		Timeout:         "10m",
-		ServerSideApply: true,
+		ServerSideApply: boolPtr(true),
 	}
 
 	b, err := json.Marshal(opts)
@@ -191,7 +191,7 @@ func TestUpgradeOptionsJSON(t *testing.T) {
 	if !decoded.Force {
 		t.Error("expected Force=true")
 	}
-	if !decoded.ServerSideApply {
+	if decoded.ServerSideApply == nil || !*decoded.ServerSideApply {
 		t.Error("expected ServerSideApply=true")
 	}
 }
@@ -276,3 +276,5 @@ func TestSearchRepoOptionsJSON(t *testing.T) {
 		t.Error("expected Versions=true")
 	}
 }
+
+func boolPtr(v bool) *bool { return &v }

@@ -14,6 +14,7 @@ type TestInput struct {
 	ReleaseName string   `json:"release_name" jsonschema:"Name of the release to test"`
 	Timeout     string   `json:"timeout,omitempty" jsonschema:"Timeout for test execution"`
 	Filters     []string `json:"filters,omitempty" jsonschema:"Filter tests by name"`
+	Logs        bool     `json:"logs,omitempty" jsonschema:"Include the test pod logs in the result (helm test --logs)"`
 }
 
 var TestTool = &mcp.Tool{
@@ -41,6 +42,7 @@ func HandleTest(ctx context.Context, _ *mcp.CallToolRequest, input TestInput) (*
 		ReleaseName: input.ReleaseName,
 		Timeout:     input.Timeout,
 		Filters:     input.Filters,
+		Logs:        input.Logs,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

@@ -1,6 +1,7 @@
 package v3
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -12,7 +13,6 @@ import (
 	helmengine "github.com/ssddgreg/helm-mcp/internal/helmengine"
 
 	"helm.sh/helm/v3/pkg/action"
-	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/cli/values"
 	"helm.sh/helm/v3/pkg/getter"
@@ -21,7 +21,9 @@ import (
 
 // Error format strings used across multiple release operations.
 const (
-	errInvalidTimeout        = "invalid timeout: %w"
+	errInvalidTimeout = "invalid timeout: %w"
+	// Helm v3 always applies client-side. Asking for client-side explicitly
+	// (server_side_apply: false) is therefore accepted; only true is refused.
 	errServerSideApplyV4Only = "server_side_apply is only supported in Helm v4"
 	errForceConflictsV4Only  = "force_conflicts is only supported in Helm v4"
 	// wait_strategy exposes Helm v4's kube.WaitStrategy enum. v3 only has a
@@ -96,10 +98,7 @@ func (e *V3Engine) List(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	client.Uninstalling = opts.Uninstalling
 	client.All = opts.All
 	client.TimeFormat = opts.TimeFormat
-
-	if opts.Selector != "" {
-		return nil, fmt.Errorf("selector is only supported in Helm v4; set helm_version to v4 or remove this field")
-	}
+	client.Selector = opts.Selector
 
 	if strings.ToLower(opts.SortBy) == "date" {
 		client.ByDate = true
@@ -126,17 +125,14 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	if opts.WaitStrategy != "" {
 		return nil, errors.New(errWaitStrategyV4Only)
 	}
-	if opts.ServerSideApply {
+	if opts.ServerSideApply != nil && *opts.ServerSideApply {
 		return nil, errors.New(errServerSideApplyV4Only)
-	}
-	if opts.TakeOwnership {
-		return nil, fmt.Errorf("take_ownership is only supported in Helm v4")
 	}
 	if opts.ForceConflicts {
 		return nil, errors.New(errForceConflictsV4Only)
 	}
-	if opts.HideSecret {
-		return nil, fmt.Errorf("hide_secret is only supported in Helm v4")
+	if opts.PostRenderer != "" || len(opts.PostRendererArgs) > 0 {
+		return nil, errPostRendererV3
 	}
 
 	actionConfig, settings, err := newActionConfig(cfg)
@@ -169,6 +165,15 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.EnableDNS = opts.EnableDNS
 	client.OutputDir = opts.OutputDir
 	client.UseReleaseName = opts.UseReleaseName
+	client.TakeOwnership = opts.TakeOwnership
+	client.HideSecret = opts.HideSecret
+	// v3 names this Force; v4 names it ForceReplace.
+	client.Force = opts.ForceReplace
+
+	rc, err := applyChartSource(&client.ChartPathOptions, client, &opts.ChartSourceOptions, settings, actionConfig.RegistryClient)
+	if err != nil {
+		return nil, err
+	}
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
@@ -196,12 +201,12 @@ func (e *V3Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		return nil, fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
 
-	chartObj, err := loader.Load(chartPath)
+	chartObj, err := loadChartWithDependencies(chartPath, opts.DependencyUpdate, client.Keyring, settings, rc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load chart %q: %w", chartPath, err)
+		return nil, err
 	}
 
-	vals, err := mergeValues(opts.Values, opts.ValuesFiles, settings)
+	vals, err := mergeValues(opts.Values, opts.ValuesFiles, opts.ValueSetOptions, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -217,20 +222,14 @@ func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	if opts.WaitStrategy != "" {
 		return nil, errors.New(errWaitStrategyV4Only)
 	}
-	if opts.ServerSideApply {
+	if opts.ServerSideApply != nil && *opts.ServerSideApply {
 		return nil, errors.New(errServerSideApplyV4Only)
-	}
-	if opts.TakeOwnership {
-		return nil, fmt.Errorf("take_ownership is only supported in Helm v4")
 	}
 	if opts.ForceConflicts {
 		return nil, errors.New(errForceConflictsV4Only)
 	}
-	if opts.HideSecret {
-		return nil, fmt.Errorf("hide_secret is only supported in Helm v4")
-	}
-	if opts.ResetThenReuseValues {
-		return nil, fmt.Errorf("reset_then_reuse_values is only supported in Helm v4")
+	if opts.PostRenderer != "" || len(opts.PostRendererArgs) > 0 {
+		return nil, errPostRendererV3
 	}
 
 	actionConfig, settings, err := newActionConfig(cfg)
@@ -244,6 +243,9 @@ func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.Force = opts.Force
 	client.ResetValues = opts.ResetValues
 	client.ReuseValues = opts.ReuseValues
+	client.ResetThenReuseValues = opts.ResetThenReuseValues
+	client.TakeOwnership = opts.TakeOwnership
+	client.HideSecret = opts.HideSecret
 	client.Wait = opts.Wait
 	client.WaitForJobs = opts.WaitForJobs
 	client.DisableHooks = opts.DisableHooks
@@ -261,6 +263,11 @@ func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.SkipSchemaValidation = opts.SkipSchemaValidation
 	client.DisableOpenAPIValidation = opts.DisableOpenAPIValidation
 	client.EnableDNS = opts.EnableDNS
+
+	rc, err := applyChartSource(&client.ChartPathOptions, client, &opts.ChartSourceOptions, settings, actionConfig.RegistryClient)
+	if err != nil {
+		return nil, err
+	}
 
 	timeout, err := parseDuration(opts.Timeout)
 	if err != nil {
@@ -286,12 +293,12 @@ func (e *V3Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		return nil, fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
 
-	chartObj, err := loader.Load(chartPath)
+	chartObj, err := loadChartWithDependencies(chartPath, opts.DependencyUpdate, client.Keyring, settings, rc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load chart %q: %w", chartPath, err)
+		return nil, err
 	}
 
-	vals, err := mergeValues(opts.Values, opts.ValuesFiles, settings)
+	vals, err := mergeValues(opts.Values, opts.ValuesFiles, opts.ValueSetOptions, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -346,11 +353,14 @@ func (e *V3Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 	if opts.WaitStrategy != "" {
 		return errors.New(errWaitStrategyV4Only)
 	}
-	if opts.ServerSideApply {
+	if opts.ServerSideApply != nil && *opts.ServerSideApply {
 		return errors.New(errServerSideApplyV4Only)
 	}
 	if opts.ForceConflicts {
 		return errors.New(errForceConflictsV4Only)
+	}
+	if opts.Description != "" {
+		return errors.New("description is only supported for rollback in Helm v4")
 	}
 
 	actionConfig, _, err := newActionConfig(cfg)
@@ -379,20 +389,22 @@ func (e *V3Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 }
 
 func (e *V3Engine) Status(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.StatusOptions) (*helmengine.ReleaseInfo, error) {
-	if opts.ShowResources {
-		return nil, fmt.Errorf("show_resources is only supported in Helm v4")
-	}
 	actionConfig, _, err := newActionConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 	client := action.NewStatus(actionConfig)
 	client.Version = opts.Revision
+	client.ShowResources = opts.ShowResources
 	rel, err := client.Run(opts.ReleaseName)
 	if err != nil {
 		return nil, fmt.Errorf("helm status failed: %w", err)
 	}
-	return releaseToInfo(rel), nil
+	info := releaseToInfo(rel)
+	if opts.ShowResources && rel.Info != nil {
+		info.Resources = helmengine.ResourceRefs(rel.Info.Resources)
+	}
+	return info, nil
 }
 
 func (e *V3Engine) History(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.HistoryOptions) ([]*helmengine.ReleaseInfo, error) {
@@ -436,7 +448,15 @@ func (e *V3Engine) Test(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	if err != nil {
 		return nil, fmt.Errorf("helm test failed: %w", err)
 	}
-	return releaseToInfo(rel), nil
+	info := releaseToInfo(rel)
+	if opts.Logs {
+		var logs bytes.Buffer
+		if err := client.GetPodLogs(&logs, rel); err != nil {
+			return nil, fmt.Errorf("helm test: failed to fetch pod logs: %w", err)
+		}
+		info.TestLogs = logs.String()
+	}
+	return info, nil
 }
 
 func (e *V3Engine) GetAll(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetOptions) (*helmengine.ReleaseDetail, error) {
@@ -564,7 +584,10 @@ func (e *V3Engine) GetNotes(_ context.Context, cfg *helmengine.GlobalConfig, opt
 	return "", nil
 }
 
-func mergeValues(inline map[string]interface{}, valuesFiles []string, settings *cli.EnvSettings) (map[string]interface{}, error) {
+// mergeValues combines values the way Helm does: values files, then inline
+// values (the --set equivalent, deep-merged), then --set-string, --set-file
+// and --set-literal.
+func mergeValues(inline map[string]interface{}, valuesFiles []string, sets helmengine.ValueSetOptions, settings *cli.EnvSettings) (map[string]interface{}, error) {
 	// Validate that values files actually exist before passing them to the
 	// Helm SDK, which produces opaque errors for missing files.
 	for _, f := range valuesFiles {
@@ -579,8 +602,5 @@ func mergeValues(inline map[string]interface{}, valuesFiles []string, settings *
 	if err != nil {
 		return nil, fmt.Errorf("failed to merge values files: %w", err)
 	}
-	for k, v := range inline {
-		merged[k] = v
-	}
-	return merged, nil
+	return helmengine.ApplySetValues(helmengine.MergeInlineValues(merged, inline), sets)
 }

@@ -20,11 +20,16 @@ func (e *V3Engine) RegistryLogin(_ context.Context, opts *helmengine.RegistryLog
 		return fmt.Errorf("failed to create registry client: %w", err)
 	}
 
-	err = client.Login(
-		opts.Hostname,
+	loginOpts := []registry.LoginOption{
 		registry.LoginOptBasicAuth(opts.Username, opts.Password),
 		registry.LoginOptInsecure(opts.Insecure),
-	)
+		registry.LoginOptPlainText(opts.PlainHTTP),
+	}
+	// ca_file, cert_file and key_file used to be accepted and dropped.
+	if opts.CAFile != "" || opts.CertFile != "" || opts.KeyFile != "" {
+		loginOpts = append(loginOpts, registry.LoginOptTLSClientConfig(opts.CertFile, opts.KeyFile, opts.CAFile))
+	}
+	err = client.Login(opts.Hostname, loginOpts...)
 	if err != nil {
 		return fmt.Errorf("helm registry login failed: %w", err)
 	}

@@ -16,12 +16,26 @@ import (
 // pluginExecTimeout is the maximum duration for plugin CLI operations.
 const pluginExecTimeout = 5 * time.Minute
 
-func (e *V4Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginInstallOptions) error {
+// pluginInstallArgs builds the helm CLI arguments for plugin install.
+func pluginInstallArgs(opts *helmengine.PluginInstallOptions) []string {
 	args := []string{"plugin", "install"}
 	if opts.Version != "" {
 		args = append(args, "--version", opts.Version)
 	}
-	args = append(args, "--", opts.URLOrPath)
+	// Helm v4 verifies plugin signatures by default; only an explicit
+	// verify: false turns that off (needed for unsigned plugins such as
+	// helm-diff).
+	if opts.Verify != nil && !*opts.Verify {
+		args = append(args, "--verify=false")
+	}
+	if opts.Keyring != "" {
+		args = append(args, "--keyring", opts.Keyring)
+	}
+	return append(args, "--", opts.URLOrPath)
+}
+
+func (e *V4Engine) PluginInstall(ctx context.Context, opts *helmengine.PluginInstallOptions) error {
+	args := pluginInstallArgs(opts)
 
 	execCtx, cancel := context.WithTimeout(ctx, pluginExecTimeout)
 	defer cancel()

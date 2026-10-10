@@ -18,6 +18,7 @@ type PackageInput struct {
 	Sign             bool   `json:"sign,omitempty" jsonschema:"Sign the package"`
 	Key              string `json:"key,omitempty" jsonschema:"Signing key name"`
 	Keyring          string `json:"keyring,omitempty" jsonschema:"Keyring path"`
+	PassphraseFile   string `json:"passphrase_file,omitempty" jsonschema:"File holding the signing key passphrase"`
 	DependencyUpdate bool   `json:"dependency_update,omitempty" jsonschema:"Update dependencies before packaging"`
 }
 
@@ -31,7 +32,10 @@ func HandlePackage(ctx context.Context, _ *mcp.CallToolRequest, input PackageInp
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
-	if err := tools.ValidateFilePaths(input.Destination, input.Keyring); err != nil {
+	if r := tools.ValidateRequired("path", input.Path); r != nil {
+		return r, nil, nil
+	}
+	if err := tools.ValidateFilePaths(input.Path, input.Destination, input.Keyring, input.PassphraseFile); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 
@@ -45,6 +49,7 @@ func HandlePackage(ctx context.Context, _ *mcp.CallToolRequest, input PackageInp
 		Sign:             input.Sign,
 		Key:              input.Key,
 		Keyring:          input.Keyring,
+		PassphraseFile:   input.PassphraseFile,
 		DependencyUpdate: input.DependencyUpdate,
 	})
 	if err != nil {

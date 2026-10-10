@@ -12,11 +12,14 @@ import (
 type LintInput struct {
 	tools.GlobalInput
 	Paths         []string               `json:"paths,omitempty" jsonschema:"Chart paths to lint (default: current directory)"`
-	Values        map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values"`
+	Values        map[string]interface{} `json:"values,omitempty" jsonschema:"Inline values, deep-merged over values_files"`
 	ValuesFiles   []string               `json:"values_files,omitempty" jsonschema:"Values files"`
 	Strict        bool                   `json:"strict,omitempty" jsonschema:"Treat warnings as errors"`
-	WithSubcharts bool                   `json:"with_subcharts,omitempty" jsonschema:"Lint subcharts"`
+	WithSubcharts bool                   `json:"with_subcharts,omitempty" jsonschema:"Also lint the subcharts under each chart's charts/ directory"`
 	Quiet         bool                   `json:"quiet,omitempty" jsonschema:"Only show warnings and errors"`
+	KubeVersion   string                 `json:"kube_version,omitempty" jsonschema:"Kubernetes version to lint against (e.g. 1.34.0)"`
+	// SkipSchemaValidation mirrors helm lint --skip-schema-validation.
+	SkipSchemaValidation bool `json:"skip_schema_validation,omitempty" jsonschema:"Skip validation of values against the chart's values.schema.json"`
 }
 
 var LintTool = &mcp.Tool{
@@ -32,6 +35,9 @@ func HandleLint(ctx context.Context, _ *mcp.CallToolRequest, input LintInput) (*
 	if err := tools.ValidateValuesFiles(input.ValuesFiles); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
+	if err := tools.ValidateFilePaths(input.Paths...); err != nil {
+		return tools.ErrorResult(err), nil, nil
+	}
 
 	engine := tools.SelectEngine(input.HelmVersion)
 
@@ -43,6 +49,9 @@ func HandleLint(ctx context.Context, _ *mcp.CallToolRequest, input LintInput) (*
 		WithSubcharts: input.WithSubcharts,
 		Quiet:         input.Quiet,
 		Namespace:     input.Namespace,
+		KubeVersion:   input.KubeVersion,
+
+		SkipSchemaValidation: input.SkipSchemaValidation,
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

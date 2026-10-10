@@ -18,7 +18,10 @@ type AddInput struct {
 	Password        string `json:"password,omitempty" jsonschema:"Repository password"`
 	ForceUpdate     bool   `json:"force_update,omitempty" jsonschema:"Replace existing entry"`
 	CAFile          string `json:"ca_file,omitempty" jsonschema:"CA bundle file"`
+	CertFile        string `json:"cert_file,omitempty" jsonschema:"Client certificate for mutual TLS"`
+	KeyFile         string `json:"key_file,omitempty" jsonschema:"Client key for mutual TLS"`
 	InsecureSkipTLS bool   `json:"insecure_skip_tls,omitempty" jsonschema:"Skip TLS verification"`
+	PassCredentials bool   `json:"pass_credentials,omitempty" jsonschema:"Send the credentials to every domain the repository redirects to"`
 }
 
 var AddTool = &mcp.Tool{
@@ -34,7 +37,7 @@ func HandleAdd(ctx context.Context, _ *mcp.CallToolRequest, input AddInput) (*mc
 	if err := security.ValidateRepoName(input.Name); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
-	if err := tools.ValidateFilePaths(input.CAFile); err != nil {
+	if err := tools.ValidateFilePaths(input.CAFile, input.CertFile, input.KeyFile); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
 	if err := security.ValidateURL(input.URL); err != nil {
@@ -51,7 +54,10 @@ func HandleAdd(ctx context.Context, _ *mcp.CallToolRequest, input AddInput) (*mc
 		Password:              input.Password,
 		ForceUpdate:           input.ForceUpdate,
 		CAFile:                input.CAFile,
+		CertFile:              input.CertFile,
+		KeyFile:               input.KeyFile,
 		InsecureSkipTLSVerify: input.InsecureSkipTLS,
+		PassCredentialsAll:    input.PassCredentials,
 	}
 	defer opts.ZeroPassword()
 

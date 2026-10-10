@@ -3,16 +3,20 @@ package v3
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"slices"
 
 	helmengine "github.com/ssddgreg/helm-mcp/internal/helmengine"
 
 	"helm.sh/helm/v3/pkg/action"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chart/loader"
 	"helm.sh/helm/v3/pkg/chartutil"
-	"helm.sh/helm/v3/pkg/cli/values"
+	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/downloader"
-	"helm.sh/helm/v3/pkg/getter"
+	"helm.sh/helm/v3/pkg/helmpath"
 	"helm.sh/helm/v3/pkg/lint/support"
+	"helm.sh/helm/v3/pkg/release"
 )
 
 func severityToString(sev int) string {
@@ -29,11 +33,37 @@ func severityToString(sev int) string {
 }
 
 func (e *V3Engine) Create(_ context.Context, opts *helmengine.CreateOptions) (string, error) {
-	path, err := chartutil.Create(opts.Name, ".")
-	if err != nil {
-		return "", fmt.Errorf("helm create failed: %w", err)
+	// Mirror `helm create`: the last path element is the chart name and the
+	// rest is the directory the chart is created in.
+	chartName := filepath.Base(opts.Name)
+	dest := filepath.Dir(opts.Name)
+
+	if opts.Starter == "" {
+		path, err := chartutil.Create(chartName, dest)
+		if err != nil {
+			return "", fmt.Errorf("helm create failed: %w", err)
+		}
+		return path, nil
 	}
-	return path, nil
+
+	// A bare starter name resolves under $HELM_DATA_HOME/starters; an
+	// absolute path is used as-is, as with `helm create --starter`.
+	starter := opts.Starter
+	if !filepath.IsAbs(starter) {
+		starter = filepath.Join(helmpath.DataPath("starters"), starter)
+	}
+	md := &chart.Metadata{
+		Name:        chartName,
+		Description: "A Helm chart for Kubernetes",
+		Type:        "application",
+		Version:     "0.1.0",
+		AppVersion:  "0.1.0",
+		APIVersion:  chart.APIVersionV2,
+	}
+	if err := chartutil.CreateFrom(md, dest, starter); err != nil {
+		return "", fmt.Errorf("helm create from starter %q failed: %w", opts.Starter, err)
+	}
+	return filepath.Join(dest, chartName), nil
 }
 
 func (e *V3Engine) Lint(_ context.Context, opts *helmengine.LintOptions) (*helmengine.LintResult, error) {
@@ -42,15 +72,29 @@ func (e *V3Engine) Lint(_ context.Context, opts *helmengine.LintOptions) (*helme
 	client.WithSubcharts = opts.WithSubcharts
 	client.Quiet = opts.Quiet
 	client.Namespace = opts.Namespace
+	client.SkipSchemaValidation = opts.SkipSchemaValidation
+
+	if opts.KubeVersion != "" {
+		kv, err := chartutil.ParseKubeVersion(opts.KubeVersion)
+		if err != nil {
+			return nil, fmt.Errorf("invalid kube_version: %w", err)
+		}
+		client.KubeVersion = kv
+	}
 
 	paths := opts.Paths
 	if len(paths) == 0 {
 		paths = []string{"."}
 	}
+	// The lint action does not read WithSubcharts; `helm lint` finds the
+	// subcharts itself, so the engine must too.
+	if opts.WithSubcharts {
+		paths = helmengine.ExpandSubchartPaths(paths)
+	}
 
-	vals := make(map[string]interface{})
-	if opts.Values != nil {
-		vals = opts.Values
+	vals, err := mergeValues(opts.Values, opts.ValuesFiles, helmengine.ValueSetOptions{}, cli.New())
+	if err != nil {
+		return nil, err
 	}
 
 	result := client.Run(paths, vals)
@@ -74,6 +118,10 @@ func (e *V3Engine) Lint(_ context.Context, opts *helmengine.LintOptions) (*helme
 }
 
 func (e *V3Engine) Template(ctx context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.TemplateOptions) (string, error) {
+	if opts.PostRenderer != "" || len(opts.PostRendererArgs) > 0 {
+		return "", errPostRendererV3
+	}
+
 	actionConfig, settings, err := newActionConfig(cfg)
 	if err != nil {
 		actionConfig, settings = newActionConfigNoCluster(cfg)
@@ -86,7 +134,9 @@ func (e *V3Engine) Template(ctx context.Context, cfg *helmengine.GlobalConfig, o
 	client.ClientOnly = !opts.Validate
 	client.IncludeCRDs = opts.IncludeCRDs
 	client.SkipCRDs = opts.SkipCRDs
-	client.IsUpgrade = false
+	client.DisableHooks = opts.NoHooks
+	client.IsUpgrade = opts.IsUpgrade
+	client.APIVersions = chartutil.VersionSet(opts.APIVersions)
 	client.Namespace = cfg.Namespace
 
 	if opts.KubeVersion != "" {
@@ -100,30 +150,39 @@ func (e *V3Engine) Template(ctx context.Context, cfg *helmengine.GlobalConfig, o
 		client.Version = opts.Version
 	}
 
+	rc, err := applyChartSource(&client.ChartPathOptions, client, &opts.ChartSourceOptions, settings, actionConfig.RegistryClient)
+	if err != nil {
+		return "", err
+	}
+
 	chartPath, err := client.LocateChart(opts.Chart, settings)
 	if err != nil {
 		return "", fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
-	chartObj, err := loader.Load(chartPath)
+	chartObj, err := loadChartWithDependencies(chartPath, opts.DependencyUpdate, client.Keyring, settings, rc)
 	if err != nil {
-		return "", fmt.Errorf("failed to load chart %q: %w", chartPath, err)
+		return "", err
 	}
 
-	providers := getter.All(settings)
-	valueOpts := &values.Options{ValueFiles: opts.ValuesFiles}
-	vals, err := valueOpts.MergeValues(providers)
+	vals, err := mergeValues(opts.Values, opts.ValuesFiles, opts.ValueSetOptions, settings)
 	if err != nil {
-		return "", fmt.Errorf("failed to merge values: %w", err)
-	}
-	for k, v := range opts.Values {
-		vals[k] = v
+		return "", err
 	}
 
 	rel, err := client.RunWithContext(ctx, chartObj, vals)
 	if err != nil {
 		return "", fmt.Errorf("helm template failed: %w", err)
 	}
-	return rel.Manifest, nil
+
+	hooks := make([]helmengine.HookManifest, 0, len(rel.Hooks))
+	for _, h := range rel.Hooks {
+		hooks = append(hooks, helmengine.HookManifest{
+			Path:     h.Path,
+			Manifest: h.Manifest,
+			IsTest:   slices.Contains(h.Events, release.HookTest),
+		})
+	}
+	return helmengine.RenderTemplateOutput(rel.Manifest, hooks, opts)
 }
 
 func (e *V3Engine) Package(_ context.Context, opts *helmengine.PackageOptions) (string, error) {
@@ -155,21 +214,15 @@ func (e *V3Engine) Pull(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 	client.Untar = opts.Untar
 	client.UntarDir = opts.UntarDir
 	client.DestDir = opts.Destination
-	client.VerifyLater = opts.Verify
+	// verify checks provenance (helm pull --verify); prov only downloads it
+	// (--prov). verify used to be mapped onto --prov, so charts were never
+	// actually verified.
+	client.VerifyLater = opts.Prov
 	if opts.Version != "" {
 		client.Version = opts.Version
 	}
-	if opts.Repo != "" {
-		client.RepoURL = opts.Repo
-	}
-	if opts.Username != "" {
-		client.Username = opts.Username
-	}
-	if opts.Password != "" {
-		client.Password = opts.Password
-	}
-	if opts.Keyring != "" {
-		client.Keyring = opts.Keyring
+	if _, err := applyChartSource(&client.ChartPathOptions, client, &opts.ChartSourceOptions, settings, actionConfig.RegistryClient); err != nil {
+		return "", err
 	}
 	output, err := client.Run(opts.Chart)
 	if err != nil {
@@ -223,17 +276,15 @@ func (e *V3Engine) ShowCRDs(_ context.Context, cfg *helmengine.GlobalConfig, opt
 }
 
 func (e *V3Engine) showChart(cfg *helmengine.GlobalConfig, opts *helmengine.ShowOptions, outputFormat action.ShowOutputFormat) (string, error) {
-	if opts.JSONPath != "" {
-		return "", fmt.Errorf("jsonpath is only supported in Helm v4")
-	}
 	actionConfig, settings := newActionConfigNoCluster(cfg)
 	client := action.NewShowWithConfig(outputFormat, actionConfig)
 	client.Devel = opts.Devel
+	client.JSONPathTemplate = opts.JSONPath
 	if opts.Version != "" {
 		client.Version = opts.Version
 	}
-	if opts.Repo != "" {
-		client.RepoURL = opts.Repo
+	if _, err := applyChartSource(&client.ChartPathOptions, client, &opts.ChartSourceOptions, settings, actionConfig.RegistryClient); err != nil {
+		return "", err
 	}
 	cp, err := client.LocateChart(opts.Chart, settings)
 	if err != nil {
@@ -247,15 +298,8 @@ func (e *V3Engine) showChart(cfg *helmengine.GlobalConfig, opts *helmengine.Show
 }
 
 func (e *V3Engine) DependencyBuild(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.DependencyOptions) error {
-	_, settings := newActionConfigNoCluster(cfg)
-	man := &downloader.Manager{
-		ChartPath:        opts.ChartPath,
-		Keyring:          opts.Keyring,
-		SkipUpdate:       opts.SkipRefresh,
-		Getters:          getter.All(settings),
-		RepositoryConfig: settings.RepositoryConfig,
-		RepositoryCache:  settings.RepositoryCache,
-	}
+	actionConfig, settings := newActionConfigNoCluster(cfg)
+	man := newDependencyManager(opts.ChartPath, opts.Keyring, opts.SkipRefresh, settings, actionConfig.RegistryClient)
 	if opts.Verify {
 		man.Verify = downloader.VerifyAlways
 	}
@@ -281,15 +325,8 @@ func (e *V3Engine) DependencyList(_ context.Context, _ *helmengine.GlobalConfig,
 }
 
 func (e *V3Engine) DependencyUpdate(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.DependencyOptions) error {
-	_, settings := newActionConfigNoCluster(cfg)
-	man := &downloader.Manager{
-		ChartPath:        opts.ChartPath,
-		Keyring:          opts.Keyring,
-		SkipUpdate:       opts.SkipRefresh,
-		Getters:          getter.All(settings),
-		RepositoryConfig: settings.RepositoryConfig,
-		RepositoryCache:  settings.RepositoryCache,
-	}
+	actionConfig, settings := newActionConfigNoCluster(cfg)
+	man := newDependencyManager(opts.ChartPath, opts.Keyring, opts.SkipRefresh, settings, actionConfig.RegistryClient)
 	if opts.Verify {
 		man.Verify = downloader.VerifyAlways
 	}

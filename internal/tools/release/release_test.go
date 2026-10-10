@@ -186,7 +186,7 @@ func TestHandleInstall_V4Options(t *testing.T) {
 	input := InstallInput{
 		ReleaseName:       "test",
 		Chart:             "mychart",
-		ServerSideApply:   true,
+		ServerSideApply:   boolPtr(true),
 		TakeOwnership:     true,
 		RollbackOnFailure: true,
 		HideSecret:        true,
@@ -194,7 +194,7 @@ func TestHandleInstall_V4Options(t *testing.T) {
 		Labels:            map[string]string{"team": "platform"},
 	}
 	_, _, _ = HandleInstall(context.Background(), nil, input)
-	if !mock.LastInstallOpts.ServerSideApply {
+	if ssa := mock.LastInstallOpts.ServerSideApply; ssa == nil || !*ssa {
 		t.Error("expected ServerSideApply=true")
 	}
 	if !mock.LastInstallOpts.TakeOwnership {
@@ -287,14 +287,14 @@ func TestHandleUpgrade_V4Options(t *testing.T) {
 	input := UpgradeInput{
 		ReleaseName:          "test",
 		Chart:                "mychart",
-		ServerSideApply:      true,
+		ServerSideApply:      boolPtr(true),
 		TakeOwnership:        true,
 		HideSecret:           true,
 		ForceConflicts:       true,
 		ResetThenReuseValues: true,
 	}
 	_, _, _ = HandleUpgrade(context.Background(), nil, input)
-	if !mock.LastUpgradeOpts.ServerSideApply {
+	if ssa := mock.LastUpgradeOpts.ServerSideApply; ssa == nil || !*ssa {
 		t.Error("expected ServerSideApply=true")
 	}
 	if !mock.LastUpgradeOpts.ResetThenReuseValues {
@@ -371,7 +371,7 @@ func TestHandleRollback_Success(t *testing.T) {
 		DryRun:          true,
 		CleanupOnFail:   true,
 		MaxHistory:      5,
-		ServerSideApply: true,
+		ServerSideApply: boolPtr(true),
 		ForceConflicts:  true,
 	}
 	result, _, err := HandleRollback(context.Background(), nil, input)
@@ -388,7 +388,7 @@ func TestHandleRollback_Success(t *testing.T) {
 	if mock.LastRollbackOpts.Revision != 2 {
 		t.Errorf("expected revision 2, got %d", mock.LastRollbackOpts.Revision)
 	}
-	if !mock.LastRollbackOpts.ServerSideApply {
+	if ssa := mock.LastRollbackOpts.ServerSideApply; ssa == nil || !*ssa {
 		t.Error("expected ServerSideApply=true")
 	}
 	if !mock.LastRollbackOpts.ForceConflicts {
@@ -804,3 +804,5 @@ func TestHandleGetValues_Error(t *testing.T) {
 		t.Error("expected error result")
 	}
 }
+
+func boolPtr(v bool) *bool { return &v }

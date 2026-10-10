@@ -1,6 +1,7 @@
 package v4
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -11,7 +12,6 @@ import (
 
 	"helm.sh/helm/v4/pkg/action"
 	"helm.sh/helm/v4/pkg/chart"
-	"helm.sh/helm/v4/pkg/chart/loader"
 	"helm.sh/helm/v4/pkg/cli"
 	"helm.sh/helm/v4/pkg/cli/values"
 	"helm.sh/helm/v4/pkg/getter"
@@ -25,6 +25,21 @@ const (
 	errInvalidTimeout      = "invalid timeout: %w"
 	errFailedAccessRelease = "failed to access release: %w"
 )
+
+// serverSideApplyMode maps the optional server_side_apply argument onto the
+// string Helm v4 upgrade and rollback take. Unset keeps Helm's "auto", which
+// reuses the apply method recorded on the previous release; forcing "false"
+// here would silently switch server-side-applied releases to client-side.
+func serverSideApplyMode(ssa *bool) string {
+	switch {
+	case ssa == nil:
+		return "auto"
+	case *ssa:
+		return "true"
+	default:
+		return "false"
+	}
+}
 
 // resolveWaitStrategy maps the tool-level wait arguments onto a v4 WaitStrategy.
 //
@@ -62,13 +77,14 @@ func releaserToInfo(rel release.Releaser) *helmengine.ReleaseInfo {
 	}
 
 	info := &helmengine.ReleaseInfo{
-		Name:      accessor.Name(),
-		Namespace: accessor.Namespace(),
-		Revision:  accessor.Version(),
-		Status:    accessor.Status(),
-		Notes:     accessor.Notes(),
-		Labels:    accessor.Labels(),
-		Updated:   accessor.DeployedAt(),
+		Name:        accessor.Name(),
+		Namespace:   accessor.Namespace(),
+		Revision:    accessor.Version(),
+		Status:      accessor.Status(),
+		Notes:       accessor.Notes(),
+		Labels:      accessor.Labels(),
+		Updated:     accessor.DeployedAt(),
+		ApplyMethod: accessor.ApplyMethod(),
 	}
 
 	// Chart metadata via charter accessor
@@ -173,7 +189,11 @@ func (e *V4Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.NameTemplate = opts.NameTemplate
 	client.Description = opts.Description
 	client.Labels = opts.Labels
-	client.ServerSideApply = opts.ServerSideApply
+	// Only override Helm's default (true, matching `helm install`) when the
+	// caller asked for a specific apply method.
+	if opts.ServerSideApply != nil {
+		client.ServerSideApply = *opts.ServerSideApply
+	}
 	client.TakeOwnership = opts.TakeOwnership
 	client.RollbackOnFailure = opts.RollbackOnFailure
 	client.ForceConflicts = opts.ForceConflicts
@@ -186,6 +206,15 @@ func (e *V4Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.EnableDNS = opts.EnableDNS
 	client.OutputDir = opts.OutputDir
 	client.UseReleaseName = opts.UseReleaseName
+	client.ForceReplace = opts.ForceReplace
+
+	rc, err := applyChartSource(&client.ChartPathOptions, client, &opts.ChartSourceOptions, settings, actionConfig.RegistryClient)
+	if err != nil {
+		return nil, err
+	}
+	if client.PostRenderer, err = newPostRenderer(settings, &opts.PostRenderOptions); err != nil {
+		return nil, err
+	}
 
 	waitStrategy, err := resolveWaitStrategy(opts.WaitStrategy, opts.Wait)
 	if err != nil {
@@ -222,12 +251,12 @@ func (e *V4Engine) Install(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		return nil, fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
 
-	chartObj, err := loader.Load(chartPath)
+	chartObj, err := loadChartWithDependencies(chartPath, opts.DependencyUpdate, client.Keyring, settings, rc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load chart %q: %w", chartPath, err)
+		return nil, err
 	}
 
-	vals, err := mergeValues(opts.Values, opts.ValuesFiles, settings)
+	vals, err := mergeValues(opts.Values, opts.ValuesFiles, opts.ValueSetOptions, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -260,9 +289,7 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.Description = opts.Description
 	client.Labels = opts.Labels
 	client.MaxHistory = opts.MaxHistory
-	if opts.ServerSideApply {
-		client.ServerSideApply = "true"
-	}
+	client.ServerSideApply = serverSideApplyMode(opts.ServerSideApply)
 	client.TakeOwnership = opts.TakeOwnership
 	client.ForceConflicts = opts.ForceConflicts
 	client.HideSecret = opts.HideSecret
@@ -273,6 +300,14 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 	client.SkipSchemaValidation = opts.SkipSchemaValidation
 	client.DisableOpenAPIValidation = opts.DisableOpenAPIValidation
 	client.EnableDNS = opts.EnableDNS
+
+	rc, err := applyChartSource(&client.ChartPathOptions, client, &opts.ChartSourceOptions, settings, actionConfig.RegistryClient)
+	if err != nil {
+		return nil, err
+	}
+	if client.PostRenderer, err = newPostRenderer(settings, &opts.PostRenderOptions); err != nil {
+		return nil, err
+	}
 
 	waitStrategy, err := resolveWaitStrategy(opts.WaitStrategy, opts.Wait)
 	if err != nil {
@@ -309,12 +344,12 @@ func (e *V4Engine) Upgrade(ctx context.Context, cfg *helmengine.GlobalConfig, op
 		return nil, fmt.Errorf("failed to locate chart %q: %w", opts.Chart, err)
 	}
 
-	chartObj, err := loader.Load(chartPath)
+	chartObj, err := loadChartWithDependencies(chartPath, opts.DependencyUpdate, client.Keyring, settings, rc)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load chart %q: %w", chartPath, err)
+		return nil, err
 	}
 
-	vals, err := mergeValues(opts.Values, opts.ValuesFiles, settings)
+	vals, err := mergeValues(opts.Values, opts.ValuesFiles, opts.ValueSetOptions, settings)
 	if err != nil {
 		return nil, err
 	}
@@ -385,11 +420,8 @@ func (e *V4Engine) Rollback(_ context.Context, cfg *helmengine.GlobalConfig, opt
 	client.DisableHooks = opts.DisableHooks
 	client.CleanupOnFail = opts.CleanupOnFail
 	client.MaxHistory = opts.MaxHistory
-	if opts.ServerSideApply {
-		client.ServerSideApply = "true"
-	} else {
-		client.ServerSideApply = "false"
-	}
+	client.Description = opts.Description
+	client.ServerSideApply = serverSideApplyMode(opts.ServerSideApply)
 	client.ForceConflicts = opts.ForceConflicts
 
 	if opts.DryRun {
@@ -428,14 +460,19 @@ func (e *V4Engine) Status(_ context.Context, cfg *helmengine.GlobalConfig, opts 
 
 	client := action.NewStatus(actionConfig)
 	client.Version = opts.Revision
-	client.ShowResourcesTable = opts.ShowResources
 
 	rel, err := client.Run(opts.ReleaseName)
 	if err != nil {
 		return nil, fmt.Errorf("helm status failed: %w", err)
 	}
 
-	return releaserToInfo(rel), nil
+	info := releaserToInfo(rel)
+	// v4 always looks the resources up; they used to be dropped here, so
+	// show_resources had no visible effect.
+	if r, ok := rel.(*v1release.Release); ok && opts.ShowResources && r.Info != nil {
+		info.Resources = helmengine.ResourceRefs(r.Info.Resources)
+	}
+	return info, nil
 }
 
 func (e *V4Engine) History(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.HistoryOptions) ([]*helmengine.ReleaseInfo, error) {
@@ -489,7 +526,19 @@ func (e *V4Engine) Test(_ context.Context, cfg *helmengine.GlobalConfig, opts *h
 		return nil, fmt.Errorf("helm test failed: %w", err)
 	}
 
-	return releaserToInfo(rel), nil
+	info := releaserToInfo(rel)
+	if opts.Logs {
+		r, ok := rel.(*v1release.Release)
+		if !ok {
+			return nil, fmt.Errorf("helm test: unsupported release type %T for logs", rel)
+		}
+		var logs bytes.Buffer
+		if err := client.GetPodLogs(&logs, r); err != nil {
+			return nil, fmt.Errorf("helm test: failed to fetch pod logs: %w", err)
+		}
+		info.TestLogs = logs.String()
+	}
+	return info, nil
 }
 
 func (e *V4Engine) GetAll(_ context.Context, cfg *helmengine.GlobalConfig, opts *helmengine.GetOptions) (*helmengine.ReleaseDetail, error) {
@@ -656,7 +705,10 @@ func (e *V4Engine) GetNotes(_ context.Context, cfg *helmengine.GlobalConfig, opt
 	return accessor.Notes(), nil
 }
 
-func mergeValues(inline map[string]interface{}, valuesFiles []string, settings *cli.EnvSettings) (map[string]interface{}, error) {
+// mergeValues combines values the way Helm does: values files, then inline
+// values (the --set equivalent, deep-merged), then --set-string, --set-file
+// and --set-literal.
+func mergeValues(inline map[string]interface{}, valuesFiles []string, sets helmengine.ValueSetOptions, settings *cli.EnvSettings) (map[string]interface{}, error) {
 	// Validate that values files actually exist before passing them to the
 	// Helm SDK, which produces opaque errors for missing files.
 	for _, f := range valuesFiles {
@@ -674,9 +726,5 @@ func mergeValues(inline map[string]interface{}, valuesFiles []string, settings *
 		return nil, fmt.Errorf("failed to merge values files: %w", err)
 	}
 
-	for k, v := range inline {
-		merged[k] = v
-	}
-
-	return merged, nil
+	return helmengine.ApplySetValues(helmengine.MergeInlineValues(merged, inline), sets)
 }
