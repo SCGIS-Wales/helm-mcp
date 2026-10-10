@@ -33,7 +33,7 @@ var RollbackTool = &mcp.Tool{
 	Annotations: tools.Destructive("Roll back a release"),
 }
 
-func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
+func HandleRollback(ctx context.Context, req *mcp.CallToolRequest, input RollbackInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -48,7 +48,7 @@ func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackI
 	cfg := input.ToGlobalConfig()
 	defer cfg.ZeroCredentials()
 
-	err := engine.Rollback(ctx, cfg, &helmengine.RollbackOptions{
+	opts := &helmengine.RollbackOptions{
 		ReleaseName:     input.ReleaseName,
 		Revision:        input.Revision,
 		Wait:            input.Wait,
@@ -63,6 +63,9 @@ func HandleRollback(ctx context.Context, _ *mcp.CallToolRequest, input RollbackI
 		ServerSideApply: input.ServerSideApply,
 		ForceConflicts:  input.ForceConflicts,
 		WaitStrategy:    input.WaitStrategy,
+	}
+	_, err := tools.WithProgress(ctx, req, "helm rollback", func() (struct{}, error) {
+		return struct{}{}, engine.Rollback(ctx, cfg, opts)
 	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil

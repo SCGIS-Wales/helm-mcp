@@ -314,3 +314,18 @@ func TestToolSchemasMarkRequiredFields(t *testing.T) {
 		}
 	}
 }
+
+// TestToolsHaveTitles checks every tool publishes a top-level title, copied
+// from its annotation title, so clients that display Tool.title show a
+// readable name.
+func TestToolsHaveTitles(t *testing.T) {
+	for _, tool := range listTools(t) {
+		if tool.Title == "" {
+			t.Errorf("%s: missing title", tool.Name)
+			continue
+		}
+		if tool.Annotations != nil && tool.Title != tool.Annotations.Title {
+			t.Errorf("%s: title %q does not match annotation title %q", tool.Name, tool.Title, tool.Annotations.Title)
+		}
+	}
+}

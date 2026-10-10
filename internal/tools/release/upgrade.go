@@ -56,7 +56,7 @@ var UpgradeTool = &mcp.Tool{
 	Annotations: tools.Destructive("Upgrade a release"),
 }
 
-func HandleUpgrade(ctx context.Context, _ *mcp.CallToolRequest, input UpgradeInput) (*mcp.CallToolResult, any, error) {
+func HandleUpgrade(ctx context.Context, req *mcp.CallToolRequest, input UpgradeInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -121,7 +121,9 @@ func HandleUpgrade(ctx context.Context, _ *mcp.CallToolRequest, input UpgradeInp
 	}
 	defer opts.ZeroPassword()
 
-	result, err := engine.Upgrade(ctx, cfg, opts)
+	result, err := tools.WithProgress(ctx, req, "helm upgrade", func() (*helmengine.ReleaseInfo, error) {
+		return engine.Upgrade(ctx, cfg, opts)
+	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

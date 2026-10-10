@@ -58,7 +58,7 @@ var InstallTool = &mcp.Tool{
 	Annotations: tools.Mutating("Install a release", false),
 }
 
-func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
+func HandleInstall(ctx context.Context, req *mcp.CallToolRequest, input InstallInput) (*mcp.CallToolResult, any, error) {
 	if err := tools.ValidateGlobalInput(&input.GlobalInput); err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}
@@ -129,7 +129,9 @@ func HandleInstall(ctx context.Context, _ *mcp.CallToolRequest, input InstallInp
 	}
 	defer opts.ZeroPassword()
 
-	result, err := engine.Install(ctx, cfg, opts)
+	result, err := tools.WithProgress(ctx, req, "helm install", func() (*helmengine.ReleaseInfo, error) {
+		return engine.Install(ctx, cfg, opts)
+	})
 	if err != nil {
 		return tools.ErrorResult(err), nil, nil
 	}

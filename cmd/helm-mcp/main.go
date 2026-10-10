@@ -47,6 +47,9 @@ func main() {
 			"Set to false only for clients that require the legacy session behaviour.")
 	maxRequestBytes := flag.Int64("max-request-bytes", defaultMaxRequestBytes,
 		"Maximum accepted HTTP request body size in bytes")
+	propagateCancel := flag.Bool("propagate-cancellation", true,
+		"Cancel a running tool call when its HTTP request is dropped (MCP 2026-07-28 clients), "+
+			"as Ctrl+C cancels the helm CLI. Set to false to let an operation finish after the client goes away.")
 	showVersion := flag.Bool("version", false, "Print version and exit")
 	debug := flag.Bool("debug", false, "Enable debug logging")
 	noHarden := flag.Bool("no-harden", false, "Disable process security hardening (for debugging)")
@@ -142,6 +145,10 @@ func main() {
 			&mcp.StreamableHTTPOptions{
 				Stateless:           *stateless,
 				MaxRequestBodyBytes: *maxRequestBytes,
+				// Without this a dropped client leaves a helm install with
+				// wait running until --write-timeout, with nobody to read
+				// the result.
+				PropagateRequestCancellation: *propagateCancel,
 			},
 		)
 		// go-sdk >= v1.6.0 no longer applies cross-origin protection by
