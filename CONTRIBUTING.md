@@ -19,7 +19,7 @@ Thank you for your interest in contributing to helm-mcp! This project is open so
 
 ### Go (MCP Server)
 
-Requires Go 1.27+.
+Requires Go 1.27.2+ (the version in `go.mod`).
 
 ```bash
 # Build
@@ -28,7 +28,7 @@ make build
 # Run tests
 make test
 
-# Lint (requires golangci-lint v2)
+# Lint (requires golangci-lint v2; CI pins v2.14.0)
 make lint
 
 # Security scan
@@ -37,7 +37,7 @@ make security
 
 ### Python (FastMCP Wrapper)
 
-Requires Python 3.14+.
+Requires Python 3.12+. CI tests 3.12, 3.13 and 3.14.
 
 ```bash
 cd python
@@ -48,9 +48,10 @@ pip install -e ".[dev]"
 # Run tests
 pytest -v tests/
 
-# Lint
+# Lint and type check
 ruff check src/ tests/
 ruff format --check src/ tests/
+mypy src/
 ```
 
 ## Making Changes
@@ -65,10 +66,23 @@ ruff format --check src/ tests/
 
 The Python package will automatically discover new tools via the MCP protocol.
 
+### Adding an Argument to an Existing Tool
+
+1. Add the field to the options type in `internal/helmengine/types.go` and to
+   the tool input struct. Shared groups (chart source, value sets,
+   post-renderer) live in `internal/tools/sources.go`.
+2. Wire it into the Helm action in **both** engines. If Helm v3 has no
+   equivalent, reject it in the v3 engine with a clear error rather than
+   ignoring it.
+3. Validate any file path or URL it accepts in the tool handler.
+4. Add an engine test that proves the field changes Helm's behaviour (render
+   or dry run install a chart), not only that it is passed along. Several
+   arguments used to be accepted and silently dropped.
+
 ### Code Style
 
 - **Go**: Follow standard Go conventions. Run `make lint` before submitting.
-- **Python**: Follow PEP 8. Run `ruff check` and `ruff format --check` before submitting.
+- **Python**: Follow PEP 8. Run `ruff check`, `ruff format --check` and `mypy src/` before submitting.
 
 ### Commit Messages
 
@@ -106,12 +120,15 @@ Use conventional commit prefixes:
 ## Releases
 
 Releases are automated. Every merge to `main` that passes CI will:
-1. Auto-increment the patch version
+1. Increment the version: the patch by default, or the minor (while on 0.x)
+   when a commit is marked breaking (`feat!:`, `fix!:` or a
+   `BREAKING CHANGE:` trailer)
 2. Create a git tag
 3. Build and publish Go binaries to GitHub Releases
-4. Publish the Python package to PyPI
+4. Publish the Python package to PyPI and the container image to GHCR
+5. Publish the server to the MCP Registry
 
-For minor or major version bumps, create the tag manually before the next merge.
+For a major version bump, create the tag manually before the next merge.
 
 ## License
 

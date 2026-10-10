@@ -55,6 +55,24 @@ async def main():
 asyncio.run(main())
 ```
 
+`HelmClient` wraps every tool with typed methods. Keyword arguments are passed
+straight to the tool, so arguments added to the Go server work without a new
+Python release, and arguments you leave out keep Helm's defaults:
+
+```python
+from helm_mcp import HelmClient
+
+async with HelmClient() as helm:
+    await helm.install(
+        "web",
+        "oci://registry.example.com/charts/web",
+        namespace="prod",
+        values={"image": {"tag": "2.0"}},  # deep merged, like --set
+        set_string=["build.id=007"],
+        wait=True,
+    )
+```
+
 ### CLI
 
 ```bash
